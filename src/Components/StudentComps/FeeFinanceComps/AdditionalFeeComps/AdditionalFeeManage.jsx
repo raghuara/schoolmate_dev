@@ -14,10 +14,11 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { DASH, RADIUS } from "../../../DashBoardComps/dashboardTheme";
+import { ActivityCardsSkeleton } from "../PayStudentFees/BillingSkeletons";
 import { additionalFeeFetch, additionalFeeFetchID, additionalFeeStudentAdd, ecaFeeFetch, ecaFeeFetchID, ecaFeeStudentAdd, ecaFeeStudentFetch, GetUsersBaseDetails, getUsersByUserType } from "../../../../Api/Api";
 import StudentSelectionPopup from "../../../Tools/StudentSelectionPopup";
 import SnackBar from "../../../SnackBar";
-import Loader from "../../../Loader";
 import { useSelector } from "react-redux";
 import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { findSubMenuPermissions } from "../../../../Redux/Slices/AuthSlice";
@@ -57,7 +58,6 @@ export default function AdditionalFeeManage() {
     const [color, setColor] = useState(false);
     const [message, setMessage] = useState('');
 
-    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     const grades = useSelector(selectGrades) || [];
 
     // Pull grade-wise fees out of an item — supports either { grades: { lkg: 500, ... } }
@@ -205,30 +205,29 @@ export default function AdditionalFeeManage() {
 
     return (
         <Box >
-            {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {/* HEADER */}
-            <Box sx={{
-                position: "fixed",
-                top: "60px",
-                left: isExpanded ? "260px" : "80px",
-                right: 0,
-                backgroundColor: "#f2f2f2",
-                px: 2,
-                py: 1,
-                borderBottom: "1px solid #ddd",
-                zIndex: 1200,
-                transition: "left 0.3s ease-in-out",
-                overflow: 'hidden',
-            }}>
-                <Grid container>
-                    <Grid size={{ xs: 12, md: 6, lg: 9 }} sx={{ display: "flex", alignItems: "center" }}>
-                        <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: "3px" }}>
-                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                        </IconButton>
-                        <Typography sx={{ fontWeight: 600, fontSize: "20px" }} >Additional Fee Manage</Typography>
-                    </Grid>
-                </Grid>
+            <Box
+                sx={{
+                    backgroundColor: DASH.canvas,
+                    px: 2,
+                    py: 1.2,
+                    borderBottom: `1px solid ${DASH.line}`,
+                    display: "flex",
+                    alignItems: "center",
+                }}
+            >
+                <IconButton onClick={() => navigate(-1)} sx={{ width: 28, height: 28 }}>
+                    <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
+                </IconButton>
+                <Box sx={{ ml: 1 }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>
+                        Additional Fees
+                    </Typography>
+                    <Typography sx={{ fontSize: "11.5px", color: DASH.muted, whiteSpace: "nowrap" }}>
+                        Map students onto a one-off charge and review who is enrolled
+                    </Typography>
+                </Box>
             </Box>
 
             <Box sx={{ px: 4, pt: "60px" }}>
@@ -269,14 +268,20 @@ export default function AdditionalFeeManage() {
                     </Box>
                 )}
 
+                {isLoading && <ActivityCardsSkeleton count={8} />}
+
+                {!isLoading && (
                 <Grid container spacing={3} px={3} pb={3} pt={3} alignItems="stretch">
 
                     {activities.map((activity) => (
                         <Grid size={{ sm: 12, xs: 12, lg: 3, md: 6 }} key={activity.id} >
                             <Card
                                 sx={{
-                                    border: "1px solid #9C27B0",
-                                    borderRadius: 2,
+                                    border: `1px solid ${DASH.line}`,
+                                    boxShadow: "none",
+                                    transition: "border-color .2s ease, box-shadow .2s ease",
+                                    "&:hover": { borderColor: DASH.violet, boxShadow: "0 2px 10px rgba(124,58,237,0.10)" },
+                                    borderRadius: "10px",
                                     height: "100%",
                                     display: "flex",
                                     flexDirection: "column",
@@ -285,7 +290,17 @@ export default function AdditionalFeeManage() {
                                 }}
                             >
                                 {/* CARD HEADER */}
-                                <Box sx={{ bgcolor: "#9c27b0", color: "#fff", px: 3, py: 1.4 }}>
+                                <Box
+                                    sx={{
+                                        bgcolor: DASH.violetLight,
+                                        borderBottom: `1px solid ${DASH.line}`,
+                                        borderLeft: `3px solid ${DASH.violet}`,
+                                        color: DASH.violet,
+                                        px: 2,
+                                        py: 1.2,
+                                        borderRadius: "10px 10px 0 0",
+                                    }}
+                                >
                                     <Typography fontSize={14} fontWeight={600}>
                                         {activity.feeName}
                                     </Typography>
@@ -377,20 +392,20 @@ export default function AdditionalFeeManage() {
                                                             const isFree = Number(amount) === 0;
                                                             return (
                                                                 <Box key={gradeKey} textAlign="center">
-                                                                    <Typography fontSize={11} sx={{ color: isFree ? "#2E7D32" : "#333", fontWeight: isFree ? 600 : 400 }}>
+                                                                    <Typography fontSize={11} sx={{ color: isFree ? DASH.green : "#333", fontWeight: isFree ? 600 : 400 }}>
                                                                         {String(gradeKey).toUpperCase()}
                                                                     </Typography>
                                                                     <Box
                                                                         sx={{
-                                                                            border: `1px solid ${isFree ? "#A5D6A7" : "#dedede"}`,
+                                                                            border: `1px solid ${isFree ? `${DASH.green}4D` : DASH.line}`,
                                                                             borderRadius: 50,
                                                                             py: 0.6,
                                                                             px: 1.6,
                                                                             mt: 0.5,
-                                                                            bgcolor: isFree ? "#E8F5E9" : "transparent",
+                                                                            bgcolor: isFree ? DASH.greenLight : "transparent",
                                                                         }}
                                                                     >
-                                                                        <Typography fontSize={10} sx={{ color: isFree ? "#2E7D32" : "inherit", fontWeight: isFree ? 600 : 400 }}>
+                                                                        <Typography fontSize={10} sx={{ color: isFree ? DASH.green : "inherit", fontWeight: isFree ? 600 : 400 }}>
                                                                             {isFree ? "Free" : `₹ ${amount}`}
                                                                         </Typography>
                                                                     </Box>
@@ -519,8 +534,8 @@ export default function AdditionalFeeManage() {
                                             variant="outlined"
                                             sx={{
                                                 textTransform: "none",
-                                                borderColor: "#00963C",
-                                                color: "#00963C",
+                                                borderColor: DASH.green,
+                                                color: DASH.green,
                                                 borderRadius: "999px",
                                                 width: "100%",
                                                 fontSize: "14px",
@@ -538,6 +553,7 @@ export default function AdditionalFeeManage() {
                         </Grid> 
                     ))}
                 </Grid>
+                )}
 
                 <AdditionalStudentSelectionPopup
                     open={openStudentPopup}

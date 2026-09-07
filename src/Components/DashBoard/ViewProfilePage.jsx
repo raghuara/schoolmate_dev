@@ -14,13 +14,14 @@ import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { FindStaffManagementDetails } from '../../Api/Api';
 import SnackBar from '../SnackBar';
+import { DASH, RADIUS } from '../DashBoardComps/dashboardTheme';
 
 const COLORS = {
-    teal:   { main: '#0891B2', bg: '#F0F9FA' },
-    green:  { main: '#22C55E', bg: '#F1F8F4' },
-    orange: { main: '#F97316', bg: '#FFF8F0' },
-    pink:   { main: '#E91E63', bg: '#FFF0F5' },
-    purple: { main: '#7C3AED', bg: '#EDE9FE' },
+    teal:   { main: DASH.cyan,   bg: DASH.cyanLight },
+    green:  { main: DASH.green,  bg: DASH.greenLight },
+    orange: { main: DASH.amber,  bg: DASH.amberLight },
+    pink:   { main: DASH.pink,   bg: DASH.pinkLight },
+    purple: { main: DASH.violet, bg: DASH.violetLight },
 };
 
 const userTypeColor = {
@@ -63,7 +64,7 @@ export default function ViewProfilePage() {
         }
     };
 
-    const typeColors = userTypeColor[userType] || { main: '#64748B', bg: '#F1F5F9' };
+    const typeColors = userTypeColor[userType] || { main: DASH.muted, bg: DASH.lineSoft };
     const displayName = staffInfo?.staffNameInEnglish || '—';
     const designation = staffInfo?.staffDesignation || null;
 
@@ -73,26 +74,25 @@ export default function ViewProfilePage() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            my: 1,
-            px: 2,
-            py: 1.2,
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-            border: '1px solid #e0e0e0',
-            transition: 'all 0.2s ease',
+            my: 0.8,
+            px: 1.6,
+            py: 1.1,
+            borderRadius: RADIUS,
+            backgroundColor: DASH.surface,
+            border: `1px solid ${DASH.line}`,
+            transition: 'background-color .2s ease, border-color .2s ease',
             '&:hover': {
-                transform: 'translateX(4px)',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                borderColor: '#bdbdbd',
+                backgroundColor: '#fff',
+                borderColor: DASH.faint,
             },
         }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {Icon && <Icon sx={{ fontSize: 17, color: iconColor || '#888' }} />}
-                <Typography sx={{ fontSize: '13px', color: '#666', fontWeight: 500 }}>
+                {Icon && <Icon sx={{ fontSize: 17, color: iconColor || DASH.faint }} />}
+                <Typography sx={{ fontSize: '12.5px', color: DASH.muted, fontWeight: 500 }}>
                     {label}
                 </Typography>
             </Box>
-            <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>
+            <Typography sx={{ fontSize: '12.5px', fontWeight: 700, color: DASH.ink, textAlign: 'right', ml: 1.5 }}>
                 {value || '—'}
             </Typography>
         </Box>
@@ -100,32 +100,30 @@ export default function ViewProfilePage() {
 
     return (
         <Box sx={{
-            border: '1px solid #ccc',
-            borderRadius: '20px',
-            p: 2,
-            height: '86vh',
+            px: { xs: 1.5, md: 3 },
+            pt: { xs: 1.5, md: 2 },
+            pb: 4,
+            height: '100%',
+            boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
-            bgcolor: '#FAFAFA',
+            bgcolor: DASH.canvas,
         }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
 
             {/* Header — matches PayrollOverview / LeaveAttendanceMainPage pattern */}
-            <Box sx={{ flexShrink: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                    <IconButton onClick={() => navigate(-1)} size="small">
-                        <ArrowBackIcon />
-                    </IconButton>
-                    <Box>
-                        <Typography sx={{ fontSize: '20px', fontWeight: '700', color: '#1a1a1a' }}>
-                            My Profile
-                        </Typography>
-                        <Typography sx={{ fontSize: '12px', color: '#888', mt: 0.2 }}>
-                            Logged-in user details and information
-                        </Typography>
-                    </Box>
+            <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', mb: 2 }}>
+                <IconButton onClick={() => navigate(-1)} sx={{ width: 28, height: 28 }}>
+                    <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
+                </IconButton>
+                <Box sx={{ ml: 1 }}>
+                    <Typography sx={{ fontSize: '20px', fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                        My Profile
+                    </Typography>
+                    <Typography sx={{ fontSize: '11.5px', color: DASH.muted, whiteSpace: 'nowrap' }}>
+                        Logged-in user details and information
+                    </Typography>
                 </Box>
-                <Divider sx={{ mb: 2 }} />
             </Box>
 
             {/* Scrollable content */}
@@ -135,29 +133,29 @@ export default function ViewProfilePage() {
                     {/* ── Left column: Profile card ── */}
                     <Grid size={{ xs: 12, sm: 12, md: 4, lg: 4 }}>
                         <Card sx={{
-                            borderRadius: '16px',
+                            borderRadius: '10px',
                             overflow: 'visible',
-                            border: '1px solid #e0e0e0',
-                            boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                            border: `1px solid ${DASH.line}`,
+                            boxShadow: '0 1px 3px rgba(16,24,40,0.06)',
                             bgcolor: '#fff',
                         }}>
                             {/* Banner */}
                             <Box sx={{
-                                height: 110,
-                                background: 'linear-gradient(135deg, #0891B2 0%, #0e7490 60%, #164e63 100%)',
-                                borderRadius: '16px 16px 0 0',
+                                height: 96,
+                                backgroundColor: typeColors.main,
+                                borderRadius: '10px 10px 0 0',
                                 position: 'relative',
                                 overflow: 'hidden',
                             }}>
                                 <Box sx={{
                                     position: 'absolute', top: -15, right: -15,
                                     width: 90, height: 90, borderRadius: '50%',
-                                    backgroundColor: 'rgba(255,255,255,0.07)',
+                                    backgroundColor: 'rgba(255,255,255,0.14)',
                                 }} />
                                 <Box sx={{
                                     position: 'absolute', bottom: -20, left: 20,
                                     width: 60, height: 60, borderRadius: '50%',
-                                    backgroundColor: 'rgba(255,255,255,0.07)',
+                                    backgroundColor: 'rgba(255,255,255,0.14)',
                                 }} />
                             </Box>
 
@@ -168,9 +166,9 @@ export default function ViewProfilePage() {
                                     height: 100,
                                     borderRadius: '50%',
                                     border: '4px solid #fff',
-                                    boxShadow: '0 4px 16px rgba(8,145,178,0.2)',
+                                    boxShadow: '0 2px 8px rgba(16,24,40,0.10)',
                                     overflow: 'hidden',
-                                    bgcolor: '#F0F9FA',
+                                    bgcolor: typeColors.bg,
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -185,18 +183,18 @@ export default function ViewProfilePage() {
                                             onError={() => setImageError(true)}
                                         />
                                     ) : (
-                                        <AccountCircleIcon sx={{ fontSize: 70, color: '#0891B2' }} />
+                                        <AccountCircleIcon sx={{ fontSize: 70, color: typeColors.main }} />
                                     )}
                                 </Box>
                             </Box>
 
                             {/* Name + chips */}
                             <Box sx={{ textAlign: 'center', px: 2, pt: 1.5, pb: 3 }}>
-                                <Typography sx={{ fontSize: '18px', fontWeight: '700', color: '#1a1a1a', lineHeight: 1.3 }}>
+                                <Typography sx={{ fontSize: '17px', fontWeight: 700, color: DASH.ink, lineHeight: 1.3 }}>
                                     {displayName}
                                 </Typography>
                                 {designation && (
-                                    <Typography sx={{ fontSize: '12px', color: '#888', mt: 0.5, mb: 1.2 }}>
+                                    <Typography sx={{ fontSize: '12px', color: DASH.muted, mt: 0.5, mb: 1.2 }}>
                                         {designation}
                                     </Typography>
                                 )}
@@ -209,7 +207,7 @@ export default function ViewProfilePage() {
                                             color: typeColors.main,
                                             fontWeight: 700,
                                             fontSize: '11px',
-                                            border: `1px solid ${typeColors.main}44`,
+                                            border: `1px solid ${typeColors.main}3D`,
                                         }}
                                     />
                                     {staffInfo?.staffCategory && (
@@ -217,30 +215,30 @@ export default function ViewProfilePage() {
                                             label={staffInfo.staffCategory.charAt(0).toUpperCase() + staffInfo.staffCategory.slice(1)}
                                             size="small"
                                             sx={{
-                                                bgcolor: COLORS.purple.bg,
-                                                color: COLORS.purple.main,
+                                                bgcolor: '#fff',
+                                                color: DASH.text,
                                                 fontWeight: 600,
                                                 fontSize: '11px',
-                                                border: `1px solid ${COLORS.purple.main}44`,
+                                                border: `1px solid ${DASH.line}`,
                                             }}
                                         />
                                     )}
                                 </Box>
 
-                                <Divider sx={{ my: 2, borderColor: '#f0f0f0' }} />
+                                <Divider sx={{ my: 2, borderColor: DASH.lineSoft }} />
 
                                 {/* Roll number highlight */}
                                 <Box sx={{
-                                    bgcolor: COLORS.teal.bg,
-                                    border: `1px solid ${COLORS.teal.main}33`,
-                                    borderRadius: '10px',
+                                    bgcolor: DASH.surface,
+                                    border: `1px solid ${DASH.line}`,
+                                    borderRadius: RADIUS,
                                     py: 1.2,
                                     px: 2,
                                 }}>
-                                    <Typography sx={{ fontSize: '11px', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    <Typography sx={{ fontSize: '10px', color: DASH.faint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                         Roll Number
                                     </Typography>
-                                    <Typography sx={{ fontSize: '16px', fontWeight: 800, color: COLORS.teal.main, mt: 0.3 }}>
+                                    <Typography sx={{ fontSize: '16px', fontWeight: 700, color: DASH.ink, fontFamily: 'monospace', mt: 0.4 }}>
                                         {staffInfo?.staffRollNumber || rollNumber || '—'}
                                     </Typography>
                                 </Box>
@@ -254,25 +252,25 @@ export default function ViewProfilePage() {
 
                             {/* Personal Information */}
                             <Card sx={{
-                                borderRadius: '16px',
-                                border: '1px solid #e0e0e0',
-                                boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+                                borderRadius: '10px',
+                                border: `1px solid ${DASH.line}`,
+                                boxShadow: '0 1px 3px rgba(16,24,40,0.06)',
                                 bgcolor: '#fff',
                             }}>
                                 <CardContent sx={{ p: '20px !important' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                                         <Box sx={{
-                                            width: 32, height: 32, borderRadius: '8px',
+                                            width: 30, height: 30, borderRadius: RADIUS,
                                             bgcolor: COLORS.pink.bg,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         }}>
                                             <PersonIcon sx={{ fontSize: 18, color: COLORS.pink.main }} />
                                         </Box>
-                                        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>
+                                        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: DASH.ink }}>
                                             Personal Information
                                         </Typography>
                                     </Box>
-                                    <Divider sx={{ mb: 1, borderColor: '#f0f0f0' }} />
+                                    <Divider sx={{ mb: 1, borderColor: DASH.lineSoft }} />
                                     <ChipRow
                                         label="Full Name"
                                         value={staffInfo?.staffNameInEnglish}
@@ -296,25 +294,25 @@ export default function ViewProfilePage() {
 
                             {/* Professional Information */}
                             <Card sx={{
-                                borderRadius: '16px',
-                                border: '1px solid #e0e0e0',
-                                boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+                                borderRadius: '10px',
+                                border: `1px solid ${DASH.line}`,
+                                boxShadow: '0 1px 3px rgba(16,24,40,0.06)',
                                 bgcolor: '#fff',
                             }}>
                                 <CardContent sx={{ p: '20px !important' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                                         <Box sx={{
-                                            width: 32, height: 32, borderRadius: '8px',
+                                            width: 30, height: 30, borderRadius: RADIUS,
                                             bgcolor: COLORS.teal.bg,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         }}>
                                             <WorkIcon sx={{ fontSize: 18, color: COLORS.teal.main }} />
                                         </Box>
-                                        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>
+                                        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: DASH.ink }}>
                                             Professional Information
                                         </Typography>
                                     </Box>
-                                    <Divider sx={{ mb: 1, borderColor: '#f0f0f0' }} />
+                                    <Divider sx={{ mb: 1, borderColor: DASH.lineSoft }} />
                                     <ChipRow
                                         label="Staff Category"
                                         value={staffInfo?.staffCategory

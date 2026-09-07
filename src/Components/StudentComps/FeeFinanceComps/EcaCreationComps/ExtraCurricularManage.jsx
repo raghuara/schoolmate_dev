@@ -17,13 +17,14 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import axios from "axios";
+import { DASH, RADIUS } from "../../../DashBoardComps/dashboardTheme";
+import { ActivityCardsSkeleton } from "../PayStudentFees/BillingSkeletons";
 import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { findSubMenuPermissions } from "../../../../Redux/Slices/AuthSlice";
 import { ecaFeeFetch, ecaFeeFetchID, ecaFeeStudentAdd, ecaFeeStudentFetch, getEligibleEcaStudents } from "../../../../Api/Api";
 import AddAdmissionNumbersDialog from "../../../AddAdmissionNumberDialog";
 import StudentSelectionPopup from "../../../Tools/StudentSelectionPopup";
 import SnackBar from "../../../SnackBar";
-import Loader from "../../../Loader";
 import EcaStudentSelectionPopup from "../../../Tools/EcaStudentSelectionPopup";
 
 
@@ -176,18 +177,29 @@ export default function ExtraCurricularManage() {
 
     return (
         <Box >
-            {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {/* HEADER */}
-            <Box sx={{ backgroundColor: "#f2f2f2", borderRadius: "10px 10px 10px 0px", px: 2,py:1, borderBottom: "1px solid #ddd" }}>
-                <Grid container>
-                    <Grid size={{ xs: 12, md: 6, lg: 9 }} sx={{ display: "flex", alignItems: "center" }}>
-                        <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: "3px", mr: 1 }}>
-                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                        </IconButton>
-                        <Typography sx={{ fontWeight: 600, fontSize: "20px" }} > Extra Curricular activity Manage</Typography>
-                    </Grid>
-                </Grid>
+            <Box
+                sx={{
+                    backgroundColor: DASH.canvas,
+                    px: 2,
+                    py: 1.2,
+                    borderBottom: `1px solid ${DASH.line}`,
+                    display: "flex",
+                    alignItems: "center",
+                }}
+            >
+                <IconButton onClick={() => navigate(-1)} sx={{ width: 28, height: 28 }}>
+                    <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
+                </IconButton>
+                <Box sx={{ ml: 1 }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>
+                        Extra-Curricular Activities
+                    </Typography>
+                    <Typography sx={{ fontSize: "11.5px", color: DASH.muted, whiteSpace: "nowrap" }}>
+                        Map students onto an activity and review who is enrolled
+                    </Typography>
+                </Box>
             </Box>
 
             <Box sx={{ height: "83vh", overflowY: "auto" }}>
@@ -222,30 +234,45 @@ export default function ExtraCurricularManage() {
                         <Typography sx={{ fontSize: "15px", fontWeight: 600, color: "#374151" }}>
                             No ECA activities for {selectedYear}
                         </Typography>
-                        <Typography sx={{ fontSize: "13px", color: "#6B7280" }}>
+                        <Typography sx={{ fontSize: "13px", color: DASH.muted }}>
                             Create an extra-curricular fee structure for this year to see it here.
                         </Typography>
                     </Box>
                 )}
 
+                {isLoading && <ActivityCardsSkeleton count={8} />}
+
+                {!isLoading && (
                 <Grid container spacing={3} px={3} pb={3} pt={3} alignItems="stretch">
 
                     {activities.map((activity) => (
                         <Grid size={{ sm: 12, xs: 12, lg: 3, md: 6 }} key={activity.id} >
                             <Card
                                 sx={{
-                                    border: "1px solid #9C27B0",
-                                    borderRadius: 2,
+                                    border: `1px solid ${DASH.line}`,
+                                    borderRadius: "10px",
+                                    boxShadow: "none",
                                     height: "100%",
                                     display: "flex",
                                     flexDirection: "column",
-                                    minHeight: "400px"
-
+                                    minHeight: "400px",
+                                    transition: "border-color .2s ease, box-shadow .2s ease",
+                                    "&:hover": { borderColor: DASH.violet, boxShadow: "0 2px 10px rgba(124,58,237,0.10)" },
                                 }}
                             >
                                 {/* CARD HEADER */}
-                                <Box sx={{ bgcolor: "#9c27b0", color: "#fff", px: 3, py: 1.4 }}>
-                                    <Typography fontSize={14} fontWeight={600}>
+                                <Box
+                                    sx={{
+                                        bgcolor: DASH.violetLight,
+                                        borderBottom: `1px solid ${DASH.line}`,
+                                        borderLeft: `3px solid ${DASH.violet}`,
+                                        color: DASH.ink,
+                                        px: 2,
+                                        py: 1.2,
+                                        borderRadius: "10px 10px 0 0",
+                                    }}
+                                >
+                                    <Typography sx={{ fontSize: "13px", fontWeight: 700, color: DASH.violet }}>
                                         {activity.activityCategory} - {activity.activityName}
                                     </Typography>
                                 </Box>
@@ -278,20 +305,20 @@ export default function ExtraCurricularManage() {
                                                 const isFree = amount === 0;
                                                 return (
                                                     <Box key={gradeKey} textAlign="center">
-                                                        <Typography fontSize={11} sx={{ color: isFree ? "#2E7D32" : "#333", fontWeight: isFree ? 600 : 400 }}>
+                                                        <Typography fontSize={11} sx={{ color: isFree ? DASH.green : "#333", fontWeight: isFree ? 600 : 400 }}>
                                                             {gradeKey.toUpperCase()}
                                                         </Typography>
                                                         <Box
                                                             sx={{
-                                                                border: `1px solid ${isFree ? "#A5D6A7" : "#dedede"}`,
+                                                                border: `1px solid ${isFree ? `${DASH.green}4D` : DASH.line}`,
                                                                 borderRadius: 50,
                                                                 py: 0.6,
                                                                 px: 1.6,
                                                                 mt: 0.5,
-                                                                bgcolor: isFree ? "#E8F5E9" : "transparent",
+                                                                bgcolor: isFree ? DASH.greenLight : "transparent",
                                                             }}
                                                         >
-                                                            <Typography fontSize={10} sx={{ color: isFree ? "#2E7D32" : "inherit", fontWeight: isFree ? 600 : 400 }}>
+                                                            <Typography fontSize={10} sx={{ color: isFree ? DASH.green : "inherit", fontWeight: isFree ? 600 : 400 }}>
                                                                 {isFree ? "Free" : `₹ ${amount}`}
                                                             </Typography>
                                                         </Box>
@@ -307,14 +334,14 @@ export default function ExtraCurricularManage() {
                                                 py: 3,
                                                 border: "1px dashed #ccc",
                                                 borderRadius: 2,
-                                                backgroundColor: "#fafafa",
+                                                backgroundColor: DASH.surface,
                                             }}
                                         >
                                             <Typography
                                                 sx={{
-                                                    fontSize: "13px",
+                                                    fontSize: "12.5px",
                                                     fontWeight: 600,
-                                                    color: "#777",
+                                                    color: DASH.muted,
                                                 }}
                                             >
                                                 No cost for this activity
@@ -336,11 +363,15 @@ export default function ExtraCurricularManage() {
                                                 variant="outlined"
                                                 sx={{
                                                     textTransform: "none",
-                                                    borderColor: "#00963C",
-                                                    color: "#00963C",
+                                                    fontSize: "12.5px",
+                                                    fontWeight: 700,
+                                                    height: 34,
                                                     borderRadius: "999px",
                                                     width: "100%",
-                                                    fontSize: "14px",
+                                                    color: DASH.violet,
+                                                    bgcolor: DASH.violetLight,
+                                                    borderColor: "#DDD6FE",
+                                                    "&:hover": { bgcolor: DASH.violetLight, borderColor: DASH.violet },
                                                 }}
                                             >
                                                 {canMapStudent && canEditStudent
@@ -354,6 +385,7 @@ export default function ExtraCurricularManage() {
                         </Grid>
                     ))}
                 </Grid>
+                )}
 
                 <EcaStudentSelectionPopup
                     open={openStudentPopup}

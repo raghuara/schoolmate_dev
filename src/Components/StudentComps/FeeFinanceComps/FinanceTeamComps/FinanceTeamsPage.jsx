@@ -13,12 +13,24 @@ import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import SnackBar from '../../../SnackBar';
 import { teamManagementGet, moveToAccounts, moveToBilling } from '../../../../Api/Api';
-import { DASH, RADIUS, BRAND, SOFT, PageHeader, SectionTitle, Panel, StatTile } from '../../../DashBoardComps/dashboardTheme';
+import { DASH, RADIUS, BRAND, SOFT, KPI_TONES, PageHeader, SectionTitle, Panel, SolidStatCard } from '../../../DashBoardComps/dashboardTheme';
 
 const TEAM_TONES = {
     billing: { label: 'Billing', color: BRAND.pink.main, bg: BRAND.pink.icon, border: '#F7D6E2', soft: SOFT.pink },
     accounts: { label: 'Accounts', color: BRAND.cyan.main, bg: BRAND.cyan.icon, border: '#C7EDF3', soft: SOFT.cyan },
 };
+
+const FilterStatCard = ({ active, tone, ...cardProps }) => (
+    <Box
+        sx={{
+            borderRadius: '7px',
+            transition: 'box-shadow .2s ease',
+            boxShadow: active ? `0 0 0 2px ${tone.accent}` : 'none',
+        }}
+    >
+        <SolidStatCard tone={tone} {...cardProps} />
+    </Box>
+);
 
 const getInitials = (name) =>
     String(name || '').split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
@@ -121,43 +133,37 @@ export default function FinanceTeamsPage() {
 
             <SectionTitle icon={GroupsIcon}>Team Split</SectionTitle>
 
-            <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid container spacing={2} sx={{ mb: 2 }} alignItems="stretch">
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                    <StatTile
+                    <FilterStatCard
+                        active={staffRoleFilter === "billing"}
+                        tone={KPI_TONES.pink}
                         icon={PaymentIcon}
                         label="Billing Team"
-                        value={billingCount}
-                        caption={staffRoleFilter === "billing" ? "Showing this team" : "Show this team"}
-                        captionColor={staffRoleFilter === "billing" ? TEAM_TONES.billing.color : undefined}
-                        captionBg={staffRoleFilter === "billing" ? TEAM_TONES.billing.bg : undefined}
-                        accent={TEAM_TONES.billing.color}
-                        accentBg={TEAM_TONES.billing.bg}
+                        value={teamLoading ? "—" : billingCount}
+                        note={staffRoleFilter === "billing" ? "Showing this team" : "Collects fees at the counter"}
                         onClick={() => setStaffRoleFilter("billing")}
                     />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                    <StatTile
+                    <FilterStatCard
+                        active={staffRoleFilter === "accounts"}
+                        tone={KPI_TONES.cyan}
                         icon={AccountBalanceIcon}
                         label="Accounts Team"
-                        value={accountsCount}
-                        caption={staffRoleFilter === "accounts" ? "Showing this team" : "Show this team"}
-                        captionColor={staffRoleFilter === "accounts" ? TEAM_TONES.accounts.color : undefined}
-                        captionBg={staffRoleFilter === "accounts" ? TEAM_TONES.accounts.bg : undefined}
-                        accent={TEAM_TONES.accounts.color}
-                        accentBg={TEAM_TONES.accounts.bg}
+                        value={teamLoading ? "—" : accountsCount}
+                        note={staffRoleFilter === "accounts" ? "Showing this team" : "Approves what billing collects"}
                         onClick={() => setStaffRoleFilter("accounts")}
                     />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                    <StatTile
+                    <FilterStatCard
+                        active={staffRoleFilter === "all"}
+                        tone={KPI_TONES.blue}
                         icon={GroupsIcon}
                         label="Total Admin Staff"
-                        value={teamCounts.total}
-                        caption={staffRoleFilter === "all" ? "Showing everyone" : "Show everyone"}
-                        captionColor={staffRoleFilter === "all" ? BRAND.blue.main : undefined}
-                        captionBg={staffRoleFilter === "all" ? BRAND.blue.icon : undefined}
-                        accent={BRAND.blue.main}
-                        accentBg={BRAND.blue.icon}
+                        value={teamLoading ? "—" : teamCounts.total}
+                        note={staffRoleFilter === "all" ? "Showing everyone" : "Show everyone"}
                         onClick={() => setStaffRoleFilter("all")}
                     />
                 </Grid>

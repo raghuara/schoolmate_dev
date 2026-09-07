@@ -105,6 +105,7 @@ import ProfileConfigPage from "./Components/AccessControlComps/ModuleAccessConfi
 import CommunicationConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/CommunicationConfigPage";
 import AcademicsConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/AcademicsConfigPage";
 import BooksConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/BooksConfigPage";
+import ComplaintsAccessConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/ComplaintsConfigPage";
 import FinanceConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/FinanceConfigPage";
 import LeaveConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/LeaveConfigPage";
 import TransportConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/TransportConfigPage";
@@ -199,6 +200,7 @@ import CreateQuestionPaperPage from "./Components/AssessmentComps/QuestionPaperC
 import QuestionPaperPreviewPage from "./Components/AssessmentComps/QuestionPaperComps/QuestionPaperPreviewPage";
 import QuestionPaperApprovalPage from "./Components/AssessmentComps/QuestionPaperComps/QuestionPaperApprovalPage";
 import QuestionBankPage from "./Components/AssessmentComps/QuestionPaperComps/QuestionBankPage";
+import QuestionBlocksDemoPage from "./Components/AssessmentComps/QuestionPaperComps/QuestionBlocksDemoPage";
 import CreateOnlineQuizPage from "./Components/AssessmentComps/OnlineQuizComps/CreateOnlineQuizPage";
 import OnlineQuizDashboard from "./Components/AssessmentComps/OnlineQuizComps/OnlineQuizDashboard";
 import QuizAnalysisPage from "./Components/AssessmentComps/OnlineQuizComps/QuizAnalysisPage";
@@ -397,7 +399,7 @@ export default function RouterPage() {
                 {/* <Route path="fee/report" element={<FeesReportPage />} /> */}
                 <Route path="fee/expense" element={<RequirePermission mainMenu="feeandfinance" subMenu="expense" anyOf={["viewdashboard", "viewhistory", "allowaddbudget", "allowaddexpense"]}><ExpensePage /></RequirePermission>} />
                 <Route path="fee/concession-log" element={<RequirePermission mainMenu="feeandfinance" subMenu="concessionlog" anyOf={["view"]}><ConcessionLog /></RequirePermission>} />
-                <Route path="fee/teams" element={<FinanceTeamsPage />} />
+                <Route path="fee/teams" element={<RequirePermission mainMenu="feeandfinance" subMenu="financeteam" anyOf={["allowaccess"]}><FinanceTeamsPage /></RequirePermission>} />
 
                 {/* Landing page for the two student-mapping screens. It has no
                     RequirePermission of its own - it lists whichever of the two the
@@ -605,7 +607,7 @@ export default function RouterPage() {
                 <Route path="approvals/transport" element={<TransportFeeApprovalPage />} />
                 <Route path="approvals/eca" element={<EcaFeeApprovalPage />} />
                 <Route path="approvals/additional" element={<AdditionalFeeApprovalPage />} />
-                <Route path="approvals/payments" element={<PaymentApprovalsPage />} />
+                <Route path="approvals/payments" element={<RequirePermission mainMenu="feeandfinance" subMenu="paymentapproval" anyOf={["allowaccess"]}><PaymentApprovalsPage /></RequirePermission>} />
 
                 {/* Academics */}
                 <Route path="approvals/question-paper" element={<QuestionPaperApprovalPage />} />
@@ -620,6 +622,7 @@ export default function RouterPage() {
                 <Route path="access/config/communication" element={<CommunicationConfigPage />} />
                 <Route path="access/config/academics" element={<AcademicsConfigPage />} />
                 <Route path="access/config/books" element={<BooksConfigPage />} />
+                <Route path="access/config/complaints" element={<ComplaintsAccessConfigPage />} />
                 <Route path="access/config/finance" element={<FinanceConfigPage />} />
                 <Route path="access/config/leave" element={<LeaveConfigPage />} />
                 <Route path="access/config/transport" element={<TransportConfigPage />} />
@@ -661,6 +664,7 @@ export default function RouterPage() {
                 <Route path="assessment/question-paper/all" element={<AllQuestionPapersPage />} />
                 <Route path="assessment/question-paper/create" element={<CreateQuestionPaperPage />} />
                 <Route path="assessment/question-paper/bank" element={<QuestionBankPage />} />
+                <Route path="assessment/question-paper/blocks-demo" element={<QuestionBlocksDemoPage />} />
                 {/* questionpapergeneration > pattern. Each route asks for the operation it
                     performs, so a deep link cannot reach a screen the buttons would hide. */}
                 <Route path="assessment/question-paper/patterns" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["view", "create", "edit", "delete"]}><PatternListPage /></RequirePermission>} />

@@ -4,6 +4,7 @@ import {
     FormControl, InputLabel, Checkbox, Table, TableHead, TableBody, TableRow, TableCell,
     TableContainer, Avatar, InputAdornment, Dialog, DialogTitle,
     DialogContent, DialogActions, CircularProgress, Tooltip, Collapse,
+Skeleton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SchoolIcon from '@mui/icons-material/School';
@@ -30,6 +31,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 import axios from 'axios';
+import { DASH, RADIUS } from '../DashBoardComps/dashboardTheme';
 import { selectGrades, selectGradesLoading, fetchGradesData } from '../../Redux/Slices/DropdownController';
 import { PostStudentExit, FetchExitHistory, GetExitFeesSummary, getUsersByUserType } from '../../Api/Api';
 import SnackBar from '../SnackBar';
@@ -40,9 +42,9 @@ const TOKEN = '123';
 // TC — deep indigo. Conveys formality / official document / permanence.
 const TC_THEME = {
     primary: '#4338CA',
-    light: '#EEF2FF',
+    light: DASH.blueLight,
     dark: '#312E81',
-    border: '#C7D2FE',
+    border: '#BFDBFE',
     softText: '#3730A3',
 };
 
@@ -58,10 +60,10 @@ const DC_THEME = {
 // The "danger" red is reserved exclusively for the irreversibility warning,
 // so the type-to-confirm banner stands out independent of the page theme.
 const DANGER = {
-    primary: '#DC2626',
-    light: '#FEF2F2',
+    primary: DASH.red,
+    light: DASH.redLight,
     dark: '#991B1B',
-    border: '#FECACA',
+    border: `${DASH.red}4D`,
     text: '#7F1D1D',
 };
 
@@ -110,7 +112,7 @@ const todayISO = () => new Date().toISOString().split('T')[0];
 const getInitials = (name = '') =>
     name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
 
-const AVATAR_PALETTE = ['#0891B2', '#7C3AED', '#EA580C', '#DC2626', '#16A34A', '#2563EB', '#DB2777', '#CA8A04'];
+const AVATAR_PALETTE = [DASH.cyan, '#7C3AED', '#EA580C', DASH.red, DASH.green, '#2563EB', '#DB2777', '#CA8A04'];
 const colorFor = (name = '') => AVATAR_PALETTE[name.charCodeAt(0) % AVATAR_PALETTE.length];
 
 const StepHeader = ({ number, title, hint, accent }) => (
@@ -135,7 +137,7 @@ const ModeCard = ({ active, onClick, icon: Icon, title, subtitle, theme }) => (
         onClick={onClick}
         sx={{
             p: 1.5, borderRadius: '10px', cursor: 'pointer',
-            border: `2px solid ${active ? theme.primary : '#E5E7EB'}`,
+            border: `2px solid ${active ? theme.primary : DASH.line}`,
             bgcolor: active ? theme.light : '#fff',
             display: 'flex', alignItems: 'center', gap: 1.2,
             transition: 'all 0.2s',
@@ -144,29 +146,61 @@ const ModeCard = ({ active, onClick, icon: Icon, title, subtitle, theme }) => (
     >
         <Box sx={{
             width: 38, height: 38, borderRadius: '10px', flexShrink: 0,
-            bgcolor: active ? theme.primary : '#F3F4F6',
-            color: active ? '#fff' : '#6B7280',
+            bgcolor: active ? theme.primary : DASH.lineSoft,
+            color: active ? '#fff' : DASH.muted,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
             <Icon sx={{ fontSize: 20 }} />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontSize: 13, fontWeight: 700, color: active ? theme.dark : '#111' }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: active ? theme.dark : DASH.ink }}>
                 {title}
             </Typography>
-            <Typography sx={{ fontSize: 11, color: '#6B7280', lineHeight: 1.4 }}>
+            <Typography sx={{ fontSize: 11, color: DASH.muted, lineHeight: 1.4 }}>
                 {subtitle}
             </Typography>
         </Box>
         <Box sx={{
             width: 18, height: 18, borderRadius: '50%',
-            border: `2px solid ${active ? theme.primary : '#D1D5DB'}`,
+            border: `2px solid ${active ? theme.primary : DASH.faint}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
         }}>
             {active && <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: theme.primary }} />}
         </Box>
     </Box>
+);
+
+
+const StudentRowsSkeleton = ({ rows = 8, columns = 6 }) => (
+    <TableContainer sx={{ border: `1px solid ${DASH.line}`, borderRadius: RADIUS, bgcolor: '#fff' }}>
+        <Table size="small">
+            <TableHead>
+                <TableRow>
+                    {[...Array(columns)].map((_, i) => (
+                        <TableCell key={i} sx={{ bgcolor: DASH.surface, borderBottom: `1px solid ${DASH.line}`, py: 1.1 }}>
+                            <Skeleton variant="rounded" height={9} width="62%" sx={{ bgcolor: DASH.lineSoft }} />
+                        </TableCell>
+                    ))}
+                </TableRow>
+            </TableHead>
+            <TableBody>
+                {[...Array(rows)].map((_, r) => (
+                    <TableRow key={r}>
+                        {[...Array(columns)].map((_, c) => (
+                            <TableCell key={c} sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, py: 1.2 }}>
+                                {c === 0 ? (
+                                    <Skeleton variant="rounded" width={18} height={18} sx={{ bgcolor: DASH.lineSoft }} />
+                                ) : (
+                                    <Skeleton variant="rounded" height={11} width={c === 2 ? '78%' : '52%'} sx={{ bgcolor: DASH.lineSoft }} />
+                                )}
+                            </TableCell>
+                        ))}
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+    </TableContainer>
 );
 
 export default function IssueTcPage() {
@@ -672,16 +706,16 @@ export default function IssueTcPage() {
             <Box sx={{ width: '100%' }}>
                 {/* Page header */}
                 <Box sx={{
-                    backgroundColor: '#f2f2f2', p: 1.5, borderRadius: '10px 10px 10px 0px',
-                    borderBottom: '1px solid #ddd',
+                    backgroundColor: DASH.canvas, px: 2, py: 1.2,
+                    borderBottom: `1px solid ${DASH.line}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap',
                 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <IconButton onClick={() => navigate(-1)} sx={{ width: 32, height: 32 }}>
-                            <ArrowBackIcon sx={{ fontSize: 18, color: '#000' }} />
+                            <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                         </IconButton>
                         <Box sx={{
-                            width: 32, height: 32, borderRadius: '8px',
+                            width: 30, height: 30, borderRadius: RADIUS,
                             bgcolor: theme.light, border: `1px solid ${theme.border}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'all 0.2s',
@@ -691,10 +725,10 @@ export default function IssueTcPage() {
                                 : <PersonOffIcon sx={{ color: theme.primary, fontSize: 18 }} />}
                         </Box>
                         <Box>
-                            <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#111', lineHeight: 1.2 }}>
+                            <Typography sx={{ fontSize: 20, fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
                                 Student Exit Management
                             </Typography>
-                            <Typography sx={{ fontSize: 11, color: '#666' }}>
+                            <Typography sx={{ fontSize: 11.5, color: DASH.muted }}>
                                 {pageSubtitle}
                             </Typography>
                         </Box>
@@ -707,18 +741,18 @@ export default function IssueTcPage() {
                     overflowY: 'auto',
                     '&::-webkit-scrollbar': { width: 6 },
                     '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
-                    '&::-webkit-scrollbar-thumb': { bgcolor: '#D1D5DB', borderRadius: 10 },
+                    '&::-webkit-scrollbar-thumb': { bgcolor: DASH.faint, borderRadius: 10 },
                 }}>
                     {/* ─── View switcher: Issue Exit / Exit History ──────── */}
                     <Box sx={{
                         display: 'flex', gap: 0.6, mb: 2,
                         p: 0.4, borderRadius: '10px',
-                        bgcolor: '#F3F4F6', border: '1px solid #E5E7EB',
+                        bgcolor: DASH.lineSoft, border: `1px solid ${DASH.line}`,
                         width: 'fit-content', flexWrap: 'wrap',
                     }}>
                         {[
                             { key: 'issue',   label: 'Issue Exit',  icon: OutboxIcon,  color: theme.primary, show: canIssue },
-                            { key: 'history', label: 'Exit History', icon: HistoryIcon, color: '#0891B2', show: canViewHistory },
+                            { key: 'history', label: 'Exit History', icon: HistoryIcon, color: DASH.cyan, show: canViewHistory },
                         ].filter((v) => v.show).map((v) => {
                             const Icon = v.icon;
                             const active = viewMode === v.key;
@@ -727,7 +761,7 @@ export default function IssueTcPage() {
                                     key={v.key}
                                     onClick={() => setViewMode(v.key)}
                                     sx={{
-                                        px: 1.6, py: 0.7, borderRadius: '8px', cursor: 'pointer',
+                                        px: 1.6, py: 0.7, borderRadius: RADIUS, cursor: 'pointer',
                                         display: 'flex', alignItems: 'center', gap: 0.8,
                                         transition: 'all 0.15s',
                                         bgcolor: active ? '#fff' : 'transparent',
@@ -735,11 +769,11 @@ export default function IssueTcPage() {
                                         '&:hover': { bgcolor: active ? '#fff' : 'rgba(255,255,255,0.55)' },
                                     }}
                                 >
-                                    <Icon sx={{ fontSize: 16, color: active ? v.color : '#9CA3AF' }} />
+                                    <Icon sx={{ fontSize: 16, color: active ? v.color : DASH.faint }} />
                                     <Typography sx={{
                                         fontSize: 12.5,
                                         fontWeight: active ? 700 : 600,
-                                        color: active ? v.color : '#6B7280',
+                                        color: active ? v.color : DASH.muted,
                                     }}>
                                         {v.label}
                                     </Typography>
@@ -752,8 +786,8 @@ export default function IssueTcPage() {
                     {viewMode === 'history' && canViewHistory && (
                         <>
                             {/* Context selector */}
-                            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB', mb: 2 }}>
-                                <StepHeader number={1} title="Select Context" hint="academic year, class & section" accent="#0891B2" />
+                            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}`, mb: 2 }}>
+                                <StepHeader number={1} title="Select Context" hint="academic year, class & section" accent={DASH.cyan} />
                                 <Grid container spacing={1.5}>
                                     <Grid size={{ xs: 12, sm: 4 }}>
                                         <FormControl fullWidth size="small">
@@ -804,11 +838,11 @@ export default function IssueTcPage() {
                             </Box>
 
                             {/* Stats + filter toolbar */}
-                            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB', mb: 2 }}>
+                            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}`, mb: 2 }}>
                                 {/* Stats row */}
                                 <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
                                     {[
-                                        { label: 'TOTAL EXITS', value: historyTotals.total, color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
+                                        { label: 'TOTAL EXITS', value: historyTotals.total, color: DASH.cyan, bg: '#ECFEFF', border: '#A5F3FC' },
                                         { label: 'TC ISSUED',   value: historyTotals.tc,    color: TC_THEME.primary, bg: TC_THEME.light, border: TC_THEME.border },
                                         { label: 'DISCONTINUED', value: historyTotals.dc,   color: DC_THEME.primary, bg: DC_THEME.light, border: DC_THEME.border },
                                     ].map(s => (
@@ -830,7 +864,7 @@ export default function IssueTcPage() {
 
                                 {/* Filter row */}
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                    <FilterAltOutlinedIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                                    <FilterAltOutlinedIcon sx={{ fontSize: 16, color: DASH.faint }} />
                                     <TextField
                                         size="small"
                                         placeholder="Search name, roll no, or reason..."
@@ -840,13 +874,13 @@ export default function IssueTcPage() {
                                             input: {
                                                 startAdornment: (
                                                     <InputAdornment position="start">
-                                                        <SearchIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                                                        <SearchIcon sx={{ fontSize: 16, color: DASH.faint }} />
                                                     </InputAdornment>
                                                 ),
                                                 endAdornment: historySearch ? (
                                                     <InputAdornment position="end">
                                                         <IconButton size="small" onClick={() => setHistorySearch('')} sx={{ p: 0.3 }}>
-                                                            <CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                                            <CloseIcon sx={{ fontSize: 14, color: DASH.faint }} />
                                                         </IconButton>
                                                     </InputAdornment>
                                                 ) : null,
@@ -855,14 +889,14 @@ export default function IssueTcPage() {
                                         sx={{
                                             flex: 1, minWidth: 240, maxWidth: 320,
                                             '& .MuiOutlinedInput-root': {
-                                                height: 34, fontSize: 12.5, borderRadius: '8px', bgcolor: '#F9FAFB',
-                                                '& fieldset': { borderColor: '#E5E7EB' },
+                                                height: 34, fontSize: 12.5, borderRadius: RADIUS, bgcolor: DASH.surface,
+                                                '& fieldset': { borderColor: DASH.line },
                                             },
                                         }}
                                     />
                                     {/* Action filter chips */}
                                     {[
-                                        { key: 'all', label: 'All', color: '#6B7280' },
+                                        { key: 'all', label: 'All', color: DASH.muted },
                                         { key: 'TC', label: 'TC', color: TC_THEME.primary },
                                         { key: 'Discontinue', label: 'Discontinue', color: DC_THEME.primary },
                                     ].map(f => {
@@ -874,12 +908,12 @@ export default function IssueTcPage() {
                                                 size="small"
                                                 onClick={() => setHistoryActionFilter(f.key)}
                                                 sx={{
-                                                    height: 26, fontSize: 11.5, fontWeight: 700, borderRadius: '8px',
+                                                    height: 26, fontSize: 11.5, fontWeight: 700, borderRadius: RADIUS,
                                                     cursor: 'pointer',
                                                     bgcolor: active ? f.color : '#fff',
-                                                    color: active ? '#fff' : '#374151',
-                                                    border: `1px solid ${active ? f.color : '#E5E7EB'}`,
-                                                    '&:hover': { bgcolor: active ? f.color : '#F9FAFB', filter: active ? 'brightness(0.95)' : 'none' },
+                                                    color: active ? '#fff' : DASH.text,
+                                                    border: `1px solid ${active ? f.color : DASH.line}`,
+                                                    '&:hover': { bgcolor: active ? f.color : DASH.surface, filter: active ? 'brightness(0.95)' : 'none' },
                                                 }}
                                             />
                                         );
@@ -891,20 +925,20 @@ export default function IssueTcPage() {
                                             onClick={clearHistoryFilters}
                                             sx={{
                                                 textTransform: 'none', fontSize: 12, fontWeight: 600,
-                                                height: 30, borderRadius: '8px', px: 1.2,
-                                                color: '#DC2626',
-                                                '&:hover': { bgcolor: '#FEF2F2' },
+                                                height: 30, borderRadius: RADIUS, px: 1.2,
+                                                color: DASH.red,
+                                                '&:hover': { bgcolor: DASH.redLight },
                                             }}
                                         >
                                             Clear
                                         </Button>
                                     )}
                                     <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                                        <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>Showing</Typography>
+                                        <Typography sx={{ fontSize: 11.5, color: DASH.muted }}>Showing</Typography>
                                         <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>
                                             {historyRows.length}
                                         </Typography>
-                                        <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>
+                                        <Typography sx={{ fontSize: 11.5, color: DASH.muted }}>
                                             of {historyTotals.total}
                                         </Typography>
                                     </Box>
@@ -912,41 +946,39 @@ export default function IssueTcPage() {
                             </Box>
 
                             {/* History table */}
-                            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB' }}>
+                            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}` }}>
                                 {!historyClassId || !historySection ? (
                                     <Box sx={{ py: 6, textAlign: 'center' }}>
-                                        <Typography sx={{ fontSize: 13, color: '#9CA3AF', fontWeight: 600 }}>
+                                        <Typography sx={{ fontSize: 13, color: DASH.faint, fontWeight: 600 }}>
                                             Pick a class & section to load exit history
                                         </Typography>
-                                        <Typography sx={{ fontSize: 11.5, color: '#9CA3AF', mt: 0.5 }}>
+                                        <Typography sx={{ fontSize: 11.5, color: DASH.faint, mt: 0.5 }}>
                                             Records will appear here for the chosen class, section, and academic year.
                                         </Typography>
                                     </Box>
                                 ) : isLoadingHistory ? (
-                                    <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-                                        <CircularProgress size={28} sx={{ color: '#0891B2' }} />
-                                    </Box>
+                                    <StudentRowsSkeleton rows={6} columns={7} />
                                 ) : historyRows.length === 0 ? (
                                     <Box sx={{ py: 6, textAlign: 'center' }}>
-                                        <Typography sx={{ fontSize: 13, color: '#9CA3AF', fontWeight: 600 }}>
+                                        <Typography sx={{ fontSize: 13, color: DASH.faint, fontWeight: 600 }}>
                                             No exit records found
                                         </Typography>
-                                        <Typography sx={{ fontSize: 11.5, color: '#9CA3AF', mt: 0.5 }}>
+                                        <Typography sx={{ fontSize: 11.5, color: DASH.faint, mt: 0.5 }}>
                                             {historySearch || historyActionFilter !== 'all'
                                                 ? 'Try changing or clearing your filters above.'
                                                 : 'No TC or Discontinue records for this context yet.'}
                                         </Typography>
                                     </Box>
                                 ) : (
-                                    <TableContainer sx={{ maxHeight: 480, border: '1px solid #E5E7EB', borderRadius: '8px' }}>
+                                    <TableContainer sx={{ maxHeight: 480, border: `1px solid ${DASH.line}`, borderRadius: RADIUS }}>
                                         <Table size="small" stickyHeader>
                                             <TableHead>
-                                                <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                                                <TableRow sx={{ bgcolor: DASH.surface }}>
                                                     {['#', 'Student', 'Action', 'Year', 'Exit Date', 'Reason', 'Issued By', 'Issued On'].map(h => (
                                                         <TableCell key={h} sx={{
-                                                            fontWeight: 700, fontSize: 10.5, color: '#6B7280',
+                                                            fontWeight: 700, fontSize: 10.5, color: DASH.muted,
                                                             textTransform: 'uppercase', letterSpacing: 0.4,
-                                                            bgcolor: '#F9FAFB', py: 1.3, whiteSpace: 'nowrap',
+                                                            bgcolor: DASH.surface, py: 1.3, whiteSpace: 'nowrap',
                                                         }}>
                                                             {h}
                                                         </TableCell>
@@ -959,10 +991,10 @@ export default function IssueTcPage() {
                                                     const actionCfg = isTcRow ? TC_THEME : DC_THEME;
                                                     return (
                                                         <TableRow key={`${r.rollNumber}-${r.issuedOn}-${idx}`} sx={{
-                                                            '&:hover': { bgcolor: '#FAFAFA' },
+                                                            '&:hover': { bgcolor: DASH.surface },
                                                             borderBottom: '1px solid #F3F4F6',
                                                         }}>
-                                                            <TableCell sx={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500 }}>
+                                                            <TableCell sx={{ fontSize: 12, color: DASH.faint, fontWeight: 500 }}>
                                                                 {idx + 1}
                                                             </TableCell>
                                                             <TableCell>
@@ -978,7 +1010,7 @@ export default function IssueTcPage() {
                                                                         <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
                                                                             {r.name || '—'}
                                                                         </Typography>
-                                                                        <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', fontFamily: 'monospace' }}>
+                                                                        <Typography sx={{ fontSize: 10.5, color: DASH.faint, fontFamily: 'monospace' }}>
                                                                             #{r.rollNumber}
                                                                         </Typography>
                                                                     </Box>
@@ -1000,12 +1032,12 @@ export default function IssueTcPage() {
                                                                 />
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Typography sx={{ fontSize: 11.5, color: '#374151', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                                <Typography sx={{ fontSize: 11.5, color: DASH.text, fontWeight: 600, whiteSpace: 'nowrap' }}>
                                                                     {r.academicYear}
                                                                 </Typography>
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Typography sx={{ fontSize: 11.5, color: '#374151', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                                <Typography sx={{ fontSize: 11.5, color: DASH.text, fontWeight: 600, whiteSpace: 'nowrap' }}>
                                                                     {formatDateOnly(r.exitDate)}
                                                                 </Typography>
                                                             </TableCell>
@@ -1033,17 +1065,17 @@ export default function IssueTcPage() {
                                                                 </Tooltip>
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Typography sx={{ fontSize: 11.5, color: '#374151', fontFamily: 'monospace', fontWeight: 600 }}>
+                                                                <Typography sx={{ fontSize: 11.5, color: DASH.text, fontFamily: 'monospace', fontWeight: 600 }}>
                                                                     #{r.issuedByRollNumber}
                                                                 </Typography>
                                                                 {r.issuedByUserType && (
-                                                                    <Typography sx={{ fontSize: 10, color: '#9CA3AF', textTransform: 'capitalize' }}>
+                                                                    <Typography sx={{ fontSize: 10, color: DASH.faint, textTransform: 'capitalize' }}>
                                                                         {r.issuedByUserType}
                                                                     </Typography>
                                                                 )}
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Typography sx={{ fontSize: 11, color: '#374151', whiteSpace: 'nowrap' }}>
+                                                                <Typography sx={{ fontSize: 11, color: DASH.text, whiteSpace: 'nowrap' }}>
                                                                     {formatDateTime(r.issuedOn)}
                                                                 </Typography>
                                                             </TableCell>
@@ -1062,7 +1094,7 @@ export default function IssueTcPage() {
                     {viewMode === 'issue' && canIssue && (
                     <>
                     {/* ─── Mode toggle ─────────────────────────────────────── */}
-                    <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB', mb: 2 }}>
+                    <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}`, mb: 2 }}>
                         <StepHeader number={1} title="Choose Action" hint="select what you want to do" accent={theme.primary} />
                         <Grid container spacing={1.5}>
                             <Grid size={{ xs: 12, md: 6 }}>
@@ -1089,7 +1121,7 @@ export default function IssueTcPage() {
                     </Box>
 
                     {/* ─── Academic Context ────────────────────────────────── */}
-                    <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB', mb: 2 }}>
+                    <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}`, mb: 2 }}>
                         <StepHeader
                             number={2}
                             title={isTC ? 'Last Completed Academic Context' : 'Current Academic Context'}
@@ -1161,7 +1193,7 @@ export default function IssueTcPage() {
                                         )}
                                         sx={{ fontSize: 13 }}
                                     >
-                                        <MenuItem value="__all__" sx={{ fontSize: 13, borderBottom: '1px solid #E5E7EB' }}>
+                                        <MenuItem value="__all__" sx={{ fontSize: 13, borderBottom: `1px solid ${DASH.line}` }}>
                                             <Checkbox
                                                 size="small"
                                                 checked={(srcClass?.sections || []).length > 0 && srcSection.length === (srcClass?.sections || []).length}
@@ -1183,17 +1215,17 @@ export default function IssueTcPage() {
 
                         {/* Selected context strip */}
                         <Box sx={{
-                            mt: 1.5, p: 1.2, borderRadius: '8px',
-                            bgcolor: sourceKey ? theme.light : '#FAFAFA',
-                            border: `1px solid ${sourceKey ? theme.border : '#E5E7EB'}`,
+                            mt: 1.5, p: 1.2, borderRadius: RADIUS,
+                            bgcolor: sourceKey ? theme.light : DASH.surface,
+                            border: `1px solid ${sourceKey ? theme.border : DASH.line}`,
                             display: 'flex', alignItems: 'center', gap: 1.2, flexWrap: 'wrap',
                         }}>
-                            <GroupsIcon sx={{ fontSize: 18, color: sourceKey ? theme.primary : '#9CA3AF', flexShrink: 0 }} />
+                            <GroupsIcon sx={{ fontSize: 18, color: sourceKey ? theme.primary : DASH.faint, flexShrink: 0 }} />
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography sx={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                                <Typography sx={{ fontSize: 11, color: DASH.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
                                     Context
                                 </Typography>
-                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: sourceKey ? theme.dark : '#9CA3AF' }} noWrap>
+                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: sourceKey ? theme.dark : DASH.faint }} noWrap>
                                     {sourceKey
                                         ? `${academicYear} · ${srcClass.sign} · Section${srcSection.length > 1 ? 's' : ''} ${srcSection.join(', ')}`
                                         : 'Choose academic year, class & section to continue'}
@@ -1204,7 +1236,7 @@ export default function IssueTcPage() {
                                     <Typography sx={{ fontSize: 18, fontWeight: 800, color: theme.dark, lineHeight: 1 }}>
                                         {totalStudents}
                                     </Typography>
-                                    <Typography sx={{ fontSize: 11, color: '#666', fontWeight: 600 }}>
+                                    <Typography sx={{ fontSize: 11.5, color: DASH.muted, fontWeight: 600 }}>
                                         students
                                     </Typography>
                                 </Box>
@@ -1213,7 +1245,7 @@ export default function IssueTcPage() {
                     </Box>
 
                     {/* ─── Mode-specific details ──────────────────────────── */}
-                    <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB', mb: 2 }}>
+                    <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}`, mb: 2 }}>
                         <StepHeader
                             number={3}
                             title={isTC ? 'TC Details' : 'Discontinuation Details'}
@@ -1298,7 +1330,7 @@ export default function IssueTcPage() {
 
                         {/* Warning / info banner */}
                         <Box sx={{
-                            mt: 1.5, p: 1, borderRadius: '8px',
+                            mt: 1.5, p: 1, borderRadius: RADIUS,
                             bgcolor: theme.light, border: `1px solid ${theme.border}`,
                             display: 'flex', alignItems: 'center', gap: 0.8,
                         }}>
@@ -1312,7 +1344,7 @@ export default function IssueTcPage() {
                     </Box>
 
                     {/* ─── Student selection ──────────────────────────────── */}
-                    <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB' }}>
+                    <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}` }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.2, flexWrap: 'wrap', gap: 1 }}>
                             <StepHeader
                                 number={4}
@@ -1326,8 +1358,8 @@ export default function IssueTcPage() {
                                 <TextField
                                     size="small" placeholder="Search name or roll no…"
                                     value={search} onChange={(e) => setSearch(e.target.value)}
-                                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: '#9CA3AF' }} /></InputAdornment> } }}
-                                    sx={{ width: 220, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 13 } }}
+                                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: DASH.faint }} /></InputAdornment> } }}
+                                    sx={{ width: 220, '& .MuiOutlinedInput-root': { borderRadius: RADIUS, fontSize: 13 } }}
                                 />
                                 {isTC && totalStudents > 0 && !allSelected && (
                                     <Button
@@ -1336,7 +1368,7 @@ export default function IssueTcPage() {
                                         startIcon={<DoneAllIcon sx={{ fontSize: 16 }} />}
                                         sx={{
                                             textTransform: 'none', fontSize: 12, fontWeight: 700,
-                                            color: theme.primary, borderRadius: '8px', height: 36,
+                                            color: theme.primary, borderRadius: RADIUS, height: 36,
                                             border: `1px solid ${theme.border}`, px: 1.5,
                                             '&:hover': { bgcolor: theme.light },
                                         }}
@@ -1349,12 +1381,12 @@ export default function IssueTcPage() {
 
                         {sourceKey && (
                             <Box sx={{
-                                p: 1, mb: 1, borderRadius: '8px',
-                                bgcolor: selectedCount > 0 ? theme.light : '#F9FAFB',
-                                border: `1px solid ${selectedCount > 0 ? theme.border : '#E5E7EB'}`,
+                                p: 1, mb: 1, borderRadius: RADIUS,
+                                bgcolor: selectedCount > 0 ? theme.light : DASH.surface,
+                                border: `1px solid ${selectedCount > 0 ? theme.border : DASH.line}`,
                                 display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap',
                             }}>
-                                <Typography sx={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>
+                                <Typography sx={{ fontSize: 12, color: DASH.text, fontWeight: 600 }}>
                                     {selectedCount > 0
                                         ? `${selectedCount} of ${filteredStudents.length} selected`
                                         : 'Tick students from the list below'}
@@ -1366,9 +1398,9 @@ export default function IssueTcPage() {
                                         disabled={selectedCount === 0}
                                         sx={{
                                             textTransform: 'none', fontSize: 12, fontWeight: 600,
-                                            color: '#DC2626', borderRadius: '6px', height: 32, px: 1.2,
-                                            '&:hover': { bgcolor: '#FEF2F2' },
-                                            '&.Mui-disabled': { color: '#9CA3AF' },
+                                            color: DASH.red, borderRadius: RADIUS, height: 32, px: 1.2,
+                                            '&:hover': { bgcolor: DASH.redLight },
+                                            '&.Mui-disabled': { color: DASH.faint },
                                         }}
                                     >
                                         Clear Selection
@@ -1379,26 +1411,27 @@ export default function IssueTcPage() {
 
                         {!sourceKey ? (
                             <Box sx={{ py: 6, textAlign: 'center' }}>
-                                <Typography sx={{ fontSize: 13, color: '#9CA3AF' }}>
+                                <Typography sx={{ fontSize: 13, color: DASH.faint }}>
                                     Pick the class & section above to load students.
                                 </Typography>
                             </Box>
                         ) : isLoadingStudents ? (
-                            <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-                                <CircularProgress size={28} sx={{ color: theme.primary }} />
-                            </Box>
+                            <StudentRowsSkeleton rows={8} columns={6} />
                         ) : filteredStudents.length === 0 ? (
                             <Box sx={{ py: 6, textAlign: 'center' }}>
-                                <Typography sx={{ fontSize: 13, color: '#9CA3AF' }}>
-                                    {search ? `No students match "${search}".` : 'No students in this class.'}
+                                <Typography sx={{ fontSize: '13.5px', fontWeight: 700, color: DASH.ink }}>
+                                    {search ? 'No matching students' : 'No students in this class'}
+                                </Typography>
+                                <Typography sx={{ fontSize: '12px', color: DASH.muted, mt: 0.5 }}>
+                                    {search ? `Nothing matches "${search}" — try a roll number or a different name.` : 'Pick another class and section above.'}
                                 </Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ maxHeight: 420, border: '1px solid #E5E7EB', borderRadius: '8px' }}>
+                            <TableContainer sx={{ maxHeight: 420, border: `1px solid ${DASH.line}`, borderRadius: RADIUS }}>
                                 <Table size="small" stickyHeader>
                                     <TableHead>
-                                        <TableRow sx={{ bgcolor: '#F9FAFB' }}>
-                                            <TableCell padding="checkbox" sx={{ bgcolor: '#F9FAFB' }}>
+                                        <TableRow sx={{ bgcolor: DASH.surface }}>
+                                            <TableCell padding="checkbox" sx={{ bgcolor: DASH.surface }}>
                                                 <Checkbox
                                                     size="small"
                                                     checked={filteredStudents.length > 0 && filteredStudents.every(s => selected[s.rollNumber])}
@@ -1408,7 +1441,7 @@ export default function IssueTcPage() {
                                                 />
                                             </TableCell>
                                             {['#', 'Roll No', 'Student', 'Current'].map(h => (
-                                                <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, bgcolor: '#F9FAFB' }}>
+                                                <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, color: DASH.muted, textTransform: 'uppercase', letterSpacing: 0.4, bgcolor: DASH.surface }}>
                                                     {h}
                                                 </TableCell>
                                             ))}
@@ -1418,7 +1451,7 @@ export default function IssueTcPage() {
                                         {filteredStudents.map((s, idx) => {
                                             const isSel = !!selected[s.rollNumber];
                                             return (
-                                                <TableRow key={s.rollNumber} sx={{ '&:hover': { bgcolor: '#FAFAFA' } }}>
+                                                <TableRow key={s.rollNumber} sx={{ '&:hover': { bgcolor: DASH.surface } }}>
                                                     <TableCell padding="checkbox">
                                                         <Checkbox
                                                             size="small"
@@ -1427,9 +1460,9 @@ export default function IssueTcPage() {
                                                             sx={{ color: theme.primary, '&.Mui-checked': { color: theme.primary } }}
                                                         />
                                                     </TableCell>
-                                                    <TableCell sx={{ fontSize: 12, color: '#9CA3AF' }}>{idx + 1}</TableCell>
+                                                    <TableCell sx={{ fontSize: 12, color: DASH.faint }}>{idx + 1}</TableCell>
                                                     <TableCell>
-                                                        <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 600, color: '#374151' }}>
+                                                        <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 600, color: DASH.text }}>
                                                             {s.rollNumber}
                                                         </Typography>
                                                     </TableCell>
@@ -1440,7 +1473,7 @@ export default function IssueTcPage() {
                                                             >
                                                                 {getInitials(s.name)}
                                                             </Avatar>
-                                                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{s.name}</Typography>
+                                                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: DASH.ink }}>{s.name}</Typography>
                                                         </Box>
                                                     </TableCell>
                                                     <TableCell>
@@ -1450,12 +1483,12 @@ export default function IssueTcPage() {
                                                                 label={`${s.grade || ''}${s.grade && s.section ? ' · ' : ''}${s.section || ''}`}
                                                                 sx={{
                                                                     fontSize: 11, fontWeight: 700, height: 22,
-                                                                    bgcolor: '#F3F4F6', color: '#374151',
-                                                                    border: '1px solid #E5E7EB',
+                                                                    bgcolor: DASH.lineSoft, color: DASH.text,
+                                                                    border: `1px solid ${DASH.line}`,
                                                                 }}
                                                             />
                                                         ) : (
-                                                            <Typography sx={{ fontSize: 12, color: '#9CA3AF' }}>—</Typography>
+                                                            <Typography sx={{ fontSize: 12, color: DASH.faint }}>—</Typography>
                                                         )}
                                                     </TableCell>
                                                 </TableRow>
@@ -1470,14 +1503,14 @@ export default function IssueTcPage() {
                     {/* Bottom action bar */}
                     <Box sx={{
                         mt: 2, p: 1.5, borderRadius: '10px',
-                        bgcolor: '#fff', border: '1px solid #E5E7EB',
+                        bgcolor: '#fff', border: `1px solid ${DASH.line}`,
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1,
                     }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             {isTC
-                                ? <SchoolIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
-                                : <PersonOffIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />}
-                            <Typography sx={{ fontSize: 12, color: '#6B7280' }}>
+                                ? <SchoolIcon sx={{ fontSize: 16, color: DASH.faint }} />
+                                : <PersonOffIcon sx={{ fontSize: 16, color: DASH.faint }} />}
+                            <Typography sx={{ fontSize: 12, color: DASH.muted }}>
                                 {selectedCount > 0
                                     ? `${selectedCount} student${selectedCount !== 1 ? 's' : ''} ready · ${isTC ? 'TC will be issued' : 'will be marked as discontinued'}`
                                     : sourceKey
@@ -1491,8 +1524,8 @@ export default function IssueTcPage() {
                                 onClick={() => navigate(-1)}
                                 sx={{
                                     textTransform: 'none', fontSize: 13, fontWeight: 600,
-                                    color: '#374151', borderRadius: '8px', px: 2, height: 36,
-                                    border: '1px solid #E5E7EB', '&:hover': { bgcolor: '#F9FAFB' },
+                                    color: DASH.text, borderRadius: RADIUS, px: 2, height: 36,
+                                    border: `1px solid ${DASH.line}`, '&:hover': { bgcolor: DASH.surface },
                                 }}
                             >
                                 Cancel
@@ -1504,7 +1537,7 @@ export default function IssueTcPage() {
                                 sx={{
                                     textTransform: 'none', fontSize: 13, fontWeight: 700,
                                     bgcolor: theme.primary, color: '#fff',
-                                    borderRadius: '8px', px: 2.5, height: 36,
+                                    borderRadius: RADIUS, px: 2.5, height: 36,
                                     boxShadow: `0 2px 6px ${theme.primary}33`,
                                     transition: 'transform 0.2s, box-shadow 0.2s, background-color 0.2s',
                                     '&:hover': {
@@ -1513,7 +1546,7 @@ export default function IssueTcPage() {
                                         transform: 'translateY(-1px)',
                                     },
                                     '&:active': { transform: 'translateY(0)' },
-                                    '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF', boxShadow: 'none' },
+                                    '&.Mui-disabled': { bgcolor: DASH.line, color: DASH.faint, boxShadow: 'none' },
                                 }}
                             >
                                 {actionLabel}
@@ -1531,30 +1564,30 @@ export default function IssueTcPage() {
                 onClose={() => setCurrentYearWarnOpen(false)}
                 maxWidth="xs"
                 fullWidth
-                PaperProps={{ sx: { borderRadius: '12px' } }}
+                PaperProps={{ sx: { borderRadius: '10px' } }}
             >
                 <DialogContent sx={{ p: 3, textAlign: 'center' }}>
                     <Box sx={{
                         width: 56, height: 56, borderRadius: '50%',
-                        bgcolor: '#FEF3C7', mx: 'auto', mb: 1.5,
+                        bgcolor: DASH.amberLight, mx: 'auto', mb: 1.5,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                        <WarningAmberIcon sx={{ fontSize: 30, color: '#D97706' }} />
+                        <WarningAmberIcon sx={{ fontSize: 30, color: DASH.amber }} />
                     </Box>
                     <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#111827', mb: 0.8 }}>
                         Current Academic Year Selected
                     </Typography>
-                    <Typography sx={{ fontSize: 13, color: '#6B7280', lineHeight: 1.6 }}>
+                    <Typography sx={{ fontSize: 13, color: DASH.muted, lineHeight: 1.6 }}>
                         You've selected the <b>current academic year ({currentAcademicYear})</b> for issuing TC.
                         A TC is usually issued against the <b>last completed</b> academic year. Are you sure you want to continue?
                     </Typography>
 
                     <Box sx={{
-                        mt: 2, p: 1.5, borderRadius: '8px',
+                        mt: 2, p: 1.5, borderRadius: RADIUS,
                         bgcolor: '#FFFBEB', border: '1px solid #FDE68A',
                         display: 'flex', alignItems: 'flex-start', gap: 1, textAlign: 'left',
                     }}>
-                        <GppMaybeIcon sx={{ fontSize: 18, color: '#D97706', mt: '1px', flexShrink: 0 }} />
+                        <GppMaybeIcon sx={{ fontSize: 18, color: DASH.amber, mt: '1px', flexShrink: 0 }} />
                         <Typography sx={{ fontSize: 11.5, color: '#92400E', lineHeight: 1.5 }}>
                             Please double-check the academic year before proceeding. Issuing a TC for the wrong year
                             can affect fee records and the student's academic history.
@@ -1567,8 +1600,8 @@ export default function IssueTcPage() {
                         fullWidth
                         sx={{
                             textTransform: 'none', fontSize: 13, fontWeight: 600,
-                            color: '#374151', borderRadius: '8px', height: 38,
-                            border: '1px solid #E5E7EB', '&:hover': { bgcolor: '#F9FAFB' },
+                            color: DASH.text, borderRadius: RADIUS, height: 38,
+                            border: `1px solid ${DASH.line}`, '&:hover': { bgcolor: DASH.surface },
                         }}
                     >
                         Go Back
@@ -1579,7 +1612,7 @@ export default function IssueTcPage() {
                         startIcon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
                         sx={{
                             textTransform: 'none', fontSize: 13, fontWeight: 700,
-                            bgcolor: '#D97706', color: '#fff', borderRadius: '8px', height: 38,
+                            bgcolor: DASH.amber, color: '#fff', borderRadius: RADIUS, height: 38,
                             boxShadow: '0 2px 6px #D9770633',
                             '&:hover': { bgcolor: '#B45309' },
                         }}
@@ -1591,24 +1624,24 @@ export default function IssueTcPage() {
 
             {/* Fee Summary dialog */}
             <Dialog open={feesSummaryOpen} onClose={closeFeesSummary} maxWidth="md" fullWidth
-                PaperProps={{ sx: { borderRadius: '12px' } }}>
+                PaperProps={{ sx: { borderRadius: '10px' } }}>
                 <DialogTitle sx={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    pb: 1, bgcolor: '#F0FDF4', borderBottom: '1px solid #BBF7D0',
+                    pb: 1, bgcolor: DASH.greenLight, borderBottom: '1px solid #BBF7D0',
                 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
                         <Box sx={{
-                            width: 32, height: 32, borderRadius: '8px',
+                            width: 30, height: 30, borderRadius: RADIUS,
                             bgcolor: '#fff', border: '1px solid #BBF7D0',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                            <AccountBalanceWalletIcon sx={{ color: '#16A34A', fontSize: 18 }} />
+                            <AccountBalanceWalletIcon sx={{ color: DASH.green, fontSize: 18 }} />
                         </Box>
                         <Box>
-                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#111' }}>
+                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: DASH.ink }}>
                                 Fee Summary — Student Exit
                             </Typography>
-                            <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+                            <Typography sx={{ fontSize: 11, color: DASH.muted }}>
                                 Review student fee status before proceeding
                             </Typography>
                         </Box>
@@ -1619,18 +1652,35 @@ export default function IssueTcPage() {
                 </DialogTitle>
                 <DialogContent sx={{ pt: '12px !important' }}>
                     {isLoadingFees ? (
-                        <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
-                            <CircularProgress size={32} sx={{ color: '#16A34A' }} />
-                            <Typography sx={{ fontSize: 13, color: '#6B7280' }}>Loading fee summary...</Typography>
+                        <Box sx={{ py: 1 }}>
+                            {[0, 1, 2].map((i) => (
+                                <Box
+                                    key={i}
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: 2,
+                                        px: 2,
+                                        py: 1.4,
+                                        mb: 1,
+                                        border: `1px solid ${DASH.line}`,
+                                        borderRadius: RADIUS,
+                                    }}
+                                >
+                                    <Skeleton variant="rounded" width="45%" height={11} sx={{ bgcolor: DASH.lineSoft }} />
+                                    <Skeleton variant="rounded" width={72} height={11} sx={{ bgcolor: DASH.lineSoft }} />
+                                </Box>
+                            ))}
                         </Box>
                     ) : feesSummaryData ? (
                         <>
                             {/* Summary stats */}
                             <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
                                 {[
-                                    { label: 'CHECKED', value: feesSummaryData.summary?.checkedCount || 0, color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
-                                    { label: 'PENDING FEES', value: feesSummaryData.summary?.pending || 0, color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
-                                    { label: 'FULLY PAID', value: feesSummaryData.summary?.fullyPaid || 0, color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
+                                    { label: 'CHECKED', value: feesSummaryData.summary?.checkedCount || 0, color: DASH.cyan, bg: '#ECFEFF', border: '#A5F3FC' },
+                                    { label: 'PENDING FEES', value: feesSummaryData.summary?.pending || 0, color: DASH.red, bg: DASH.redLight, border: `${DASH.red}4D` },
+                                    { label: 'FULLY PAID', value: feesSummaryData.summary?.fullyPaid || 0, color: DASH.green, bg: DASH.greenLight, border: '#BBF7D0' },
                                 ].map(s => (
                                     <Grid size={{ xs: 12, sm: 4 }} key={s.label}>
                                         <Box sx={{ p: 1.2, borderRadius: '10px', bgcolor: s.bg, border: `1px solid ${s.border}` }}>
@@ -1648,14 +1698,14 @@ export default function IssueTcPage() {
                             {/* API message banner */}
                             {feesSummaryData.message && (
                                 <Box sx={{
-                                    p: 1, borderRadius: '8px', mb: 1.5,
-                                    bgcolor: (feesSummaryData.summary?.pending || 0) > 0 ? '#FEF2F2' : '#F0FDF4',
-                                    border: `1px solid ${(feesSummaryData.summary?.pending || 0) > 0 ? '#FECACA' : '#BBF7D0'}`,
+                                    p: 1, borderRadius: RADIUS, mb: 1.5,
+                                    bgcolor: (feesSummaryData.summary?.pending || 0) > 0 ? DASH.redLight : DASH.greenLight,
+                                    border: `1px solid ${(feesSummaryData.summary?.pending || 0) > 0 ? `${DASH.red}4D` : '#BBF7D0'}`,
                                     display: 'flex', alignItems: 'center', gap: 0.8,
                                 }}>
                                     <WarningAmberIcon sx={{
                                         fontSize: 16, flexShrink: 0,
-                                        color: (feesSummaryData.summary?.pending || 0) > 0 ? '#DC2626' : '#16A34A',
+                                        color: (feesSummaryData.summary?.pending || 0) > 0 ? DASH.red : DASH.green,
                                     }} />
                                     <Typography sx={{
                                         fontSize: 12, fontWeight: 600,
@@ -1669,18 +1719,18 @@ export default function IssueTcPage() {
                             {/* Pending Students */}
                             {(feesSummaryData.pendingStudents || []).length > 0 && (
                                 <Box sx={{ mb: 1.5 }}>
-                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#DC2626', mb: 0.8, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: DASH.red, mb: 0.8, textTransform: 'uppercase', letterSpacing: 0.4 }}>
                                         Students with Pending Fees ({feesSummaryData.pendingStudents.length})
                                     </Typography>
-                                    <Box sx={{ border: '1px solid #FECACA', borderRadius: '8px', overflow: 'hidden' }}>
+                                    <Box sx={{ border: '1px solid #FECACA', borderRadius: RADIUS, overflow: 'hidden' }}>
                                         {feesSummaryData.pendingStudents.map((ps, idx) => (
                                             <Box key={ps.rollNumber} sx={{ borderBottom: idx < feesSummaryData.pendingStudents.length - 1 ? '1px solid #FEE2E2' : 'none' }}>
                                                 <Box
                                                     onClick={() => toggleFeeStudentExpand(ps.rollNumber)}
                                                     sx={{
                                                         p: 1.2, display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer',
-                                                        bgcolor: expandedFeeStudents[ps.rollNumber] ? '#FEF2F2' : '#fff',
-                                                        '&:hover': { bgcolor: '#FEF2F2' },
+                                                        bgcolor: expandedFeeStudents[ps.rollNumber] ? DASH.redLight : '#fff',
+                                                        '&:hover': { bgcolor: DASH.redLight },
                                                         transition: 'background-color 0.15s',
                                                     }}
                                                 >
@@ -1688,44 +1738,44 @@ export default function IssueTcPage() {
                                                         {getInitials(ps.name)}
                                                     </Avatar>
                                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{ps.name}</Typography>
-                                                        <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', fontFamily: 'monospace' }}>#{ps.rollNumber}</Typography>
+                                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: DASH.ink }}>{ps.name}</Typography>
+                                                        <Typography sx={{ fontSize: 10.5, color: DASH.faint, fontFamily: 'monospace' }}>#{ps.rollNumber}</Typography>
                                                     </Box>
                                                     <Box sx={{ textAlign: 'right', mr: 0.5 }}>
-                                                        <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#DC2626' }}>
+                                                        <Typography sx={{ fontSize: 13, fontWeight: 800, color: DASH.red }}>
                                                             ₹{(ps.totalPendingAmount || 0).toLocaleString('en-IN')}
                                                         </Typography>
-                                                        <Typography sx={{ fontSize: 10, color: '#9CA3AF' }}>pending</Typography>
+                                                        <Typography sx={{ fontSize: 10, color: DASH.faint }}>pending</Typography>
                                                     </Box>
                                                     <IconButton size="small" sx={{ p: 0.3 }}>
                                                         {expandedFeeStudents[ps.rollNumber]
-                                                            ? <KeyboardArrowUpIcon sx={{ fontSize: 18, color: '#9CA3AF' }} />
-                                                            : <KeyboardArrowDownIcon sx={{ fontSize: 18, color: '#9CA3AF' }} />}
+                                                            ? <KeyboardArrowUpIcon sx={{ fontSize: 18, color: DASH.faint }} />
+                                                            : <KeyboardArrowDownIcon sx={{ fontSize: 18, color: DASH.faint }} />}
                                                     </IconButton>
                                                 </Box>
                                                 <Collapse in={!!expandedFeeStudents[ps.rollNumber]}>
-                                                    <Box sx={{ px: 1.5, pb: 1.2, bgcolor: '#FEF2F2' }}>
+                                                    <Box sx={{ px: 1.5, pb: 1.2, bgcolor: DASH.redLight }}>
                                                         <Table size="small">
                                                             <TableHead>
                                                                 <TableRow>
-                                                                    <TableCell sx={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', py: 0.5, borderBottom: '1px solid #FECACA' }}>Module</TableCell>
-                                                                    <TableCell sx={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', py: 0.5, borderBottom: '1px solid #FECACA' }}>Fee Name</TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', py: 0.5, borderBottom: '1px solid #FECACA' }}>Pending</TableCell>
+                                                                    <TableCell sx={{ fontSize: 10, fontWeight: 700, color: DASH.muted, textTransform: 'uppercase', py: 0.5, borderBottom: '1px solid #FECACA' }}>Module</TableCell>
+                                                                    <TableCell sx={{ fontSize: 10, fontWeight: 700, color: DASH.muted, textTransform: 'uppercase', py: 0.5, borderBottom: '1px solid #FECACA' }}>Fee Name</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 10, fontWeight: 700, color: DASH.muted, textTransform: 'uppercase', py: 0.5, borderBottom: '1px solid #FECACA' }}>Pending</TableCell>
                                                                 </TableRow>
                                                             </TableHead>
                                                             <TableBody>
                                                                 {(ps.pendingFees || []).map((fee, fi) => (
                                                                     <TableRow key={fi}>
-                                                                        <TableCell sx={{ fontSize: 11.5, color: '#374151', py: 0.5, borderBottom: '1px solid #FEE2E2' }}>
+                                                                        <TableCell sx={{ fontSize: 11.5, color: DASH.text, py: 0.5, borderBottom: '1px solid #FEE2E2' }}>
                                                                             <Chip label={fee.module} size="small" sx={{
                                                                                 height: 20, fontSize: 10, fontWeight: 700,
-                                                                                bgcolor: fee.module === 'School' ? '#EEF2FF' : '#FFF7ED',
+                                                                                bgcolor: fee.module === 'School' ? DASH.blueLight : '#FFF7ED',
                                                                                 color: fee.module === 'School' ? '#4338CA' : '#C2410C',
-                                                                                border: `1px solid ${fee.module === 'School' ? '#C7D2FE' : '#FED7AA'}`,
+                                                                                border: `1px solid ${fee.module === 'School' ? '#BFDBFE' : '#FED7AA'}`,
                                                                             }} />
                                                                         </TableCell>
-                                                                        <TableCell sx={{ fontSize: 11.5, color: '#374151', py: 0.5, borderBottom: '1px solid #FEE2E2' }}>{fee.feeName}</TableCell>
-                                                                        <TableCell align="right" sx={{ fontSize: 11.5, fontWeight: 700, color: '#DC2626', py: 0.5, borderBottom: '1px solid #FEE2E2' }}>
+                                                                        <TableCell sx={{ fontSize: 11.5, color: DASH.text, py: 0.5, borderBottom: '1px solid #FEE2E2' }}>{fee.feeName}</TableCell>
+                                                                        <TableCell align="right" sx={{ fontSize: 11.5, fontWeight: 700, color: DASH.red, py: 0.5, borderBottom: '1px solid #FEE2E2' }}>
                                                                             ₹{(fee.pendingAmount || 0).toLocaleString('en-IN')}
                                                                         </TableCell>
                                                                     </TableRow>
@@ -1742,29 +1792,29 @@ export default function IssueTcPage() {
 
                             {/* Fully Paid Students */}
                             <Box>
-                                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#16A34A', mb: 0.8, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                                <Typography sx={{ fontSize: 12, fontWeight: 700, color: DASH.green, mb: 0.8, textTransform: 'uppercase', letterSpacing: 0.4 }}>
                                     Fully Paid Students ({(feesSummaryData.fullyPaidStudents || []).length})
                                 </Typography>
                                 {(feesSummaryData.fullyPaidStudents || []).length === 0 ? (
-                                    <Box sx={{ p: 2, borderRadius: '8px', border: '1px solid #E5E7EB', bgcolor: '#F9FAFB', textAlign: 'center' }}>
-                                        <Typography sx={{ fontSize: 12, color: '#9CA3AF' }}>No fully paid students</Typography>
+                                    <Box sx={{ p: 2, borderRadius: RADIUS, border: `1px solid ${DASH.line}`, bgcolor: DASH.surface, textAlign: 'center' }}>
+                                        <Typography sx={{ fontSize: 12, color: DASH.faint }}>No fully paid students</Typography>
                                     </Box>
                                 ) : (
-                                    <Box sx={{ border: '1px solid #BBF7D0', borderRadius: '8px', overflow: 'hidden' }}>
+                                    <Box sx={{ border: '1px solid #BBF7D0', borderRadius: RADIUS, overflow: 'hidden' }}>
                                         {(feesSummaryData.fullyPaidStudents || []).map((ps, idx) => (
                                             <Box key={ps.rollNumber} sx={{
                                                 p: 1.2, display: 'flex', alignItems: 'center', gap: 1,
-                                                bgcolor: '#F0FDF4',
+                                                bgcolor: DASH.greenLight,
                                                 borderBottom: idx < feesSummaryData.fullyPaidStudents.length - 1 ? '1px solid #DCFCE7' : 'none',
                                             }}>
                                                 <Avatar sx={{ width: 30, height: 30, bgcolor: colorFor(ps.name || ''), fontSize: 11, fontWeight: 700 }}>
                                                     {getInitials(ps.name)}
                                                 </Avatar>
                                                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{ps.name}</Typography>
-                                                    <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', fontFamily: 'monospace' }}>#{ps.rollNumber}</Typography>
+                                                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: DASH.ink }}>{ps.name}</Typography>
+                                                    <Typography sx={{ fontSize: 10.5, color: DASH.faint, fontFamily: 'monospace' }}>#{ps.rollNumber}</Typography>
                                                 </Box>
-                                                <CheckCircleIcon sx={{ fontSize: 18, color: '#16A34A' }} />
+                                                <CheckCircleIcon sx={{ fontSize: 18, color: DASH.green }} />
                                             </Box>
                                         ))}
                                     </Box>
@@ -1774,14 +1824,14 @@ export default function IssueTcPage() {
                     ) : null}
                 </DialogContent>
                 {feesSummaryData && !isLoadingFees && (
-                    <DialogActions sx={{ px: 2.5, py: 1.5, gap: 1, borderTop: '1px solid #E5E7EB' }}>
+                    <DialogActions sx={{ px: 2.5, py: 1.5, gap: 1, borderTop: `1px solid ${DASH.line}` }}>
                         <Button
                             onClick={closeFeesSummary}
                             sx={{
                                 textTransform: 'none', fontSize: 13, fontWeight: 600,
-                                color: '#374151', borderRadius: '8px',
-                                border: '1px solid #E5E7EB', px: 2, height: 36,
-                                '&:hover': { bgcolor: '#F9FAFB' },
+                                color: DASH.text, borderRadius: RADIUS,
+                                border: `1px solid ${DASH.line}`, px: 2, height: 36,
+                                '&:hover': { bgcolor: DASH.surface },
                             }}
                         >
                             Cancel
@@ -1793,11 +1843,11 @@ export default function IssueTcPage() {
                             startIcon={<PaidIcon sx={{ fontSize: 16 }} />}
                             sx={{
                                 textTransform: 'none', fontSize: 13, fontWeight: 700,
-                                bgcolor: '#16A34A', color: '#fff', borderRadius: '8px',
+                                bgcolor: DASH.green, color: '#fff', borderRadius: RADIUS,
                                 px: 2, height: 36,
                                 boxShadow: '0 2px 6px rgba(22,163,74,0.2)',
                                 '&:hover': { bgcolor: '#15803D', boxShadow: '0 4px 12px rgba(22,163,74,0.35)' },
-                                '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF', boxShadow: 'none' },
+                                '&.Mui-disabled': { bgcolor: DASH.line, color: DASH.faint, boxShadow: 'none' },
                             }}
                         >
                             Approve Paid ({(feesSummaryData.fullyPaidStudents || []).length})
@@ -1807,7 +1857,7 @@ export default function IssueTcPage() {
                             startIcon={<DoneAllIcon sx={{ fontSize: 16 }} />}
                             sx={{
                                 textTransform: 'none', fontSize: 13, fontWeight: 700,
-                                bgcolor: theme.primary, color: '#fff', borderRadius: '8px',
+                                bgcolor: theme.primary, color: '#fff', borderRadius: RADIUS,
                                 px: 2, height: 36,
                                 boxShadow: `0 2px 6px ${theme.primary}33`,
                                 '&:hover': { bgcolor: theme.dark, boxShadow: `0 4px 12px ${theme.primary}55` },
@@ -1821,7 +1871,7 @@ export default function IssueTcPage() {
 
             {/* Confirmation dialog */}
             <Dialog open={confirmOpen} onClose={closeConfirm} maxWidth="sm" fullWidth
-                PaperProps={{ sx: { borderRadius: '12px' } }}>
+                PaperProps={{ sx: { borderRadius: '10px' } }}>
                 {(() => {
                     const confirmStudentCount = approvalMode === 'paid'
                         ? (feesSummaryData?.fullyPaidStudents || []).length
@@ -1834,14 +1884,14 @@ export default function IssueTcPage() {
                 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
                         <Box sx={{
-                            width: 32, height: 32, borderRadius: '8px',
+                            width: 30, height: 30, borderRadius: RADIUS,
                             bgcolor: '#fff', border: `1px solid ${theme.border}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
                             <CheckCircleIcon sx={{ color: theme.primary, fontSize: 18 }} />
                         </Box>
                         <Box>
-                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#111' }}>
+                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: DASH.ink }}>
                                 {isTC ? 'Confirm TC Issue' : 'Confirm Discontinuation'}
                             </Typography>
                             <Typography sx={{ fontSize: 11, color: theme.softText }}>
@@ -1860,13 +1910,13 @@ export default function IssueTcPage() {
                 <DialogContent sx={{ pt: '12px !important' }}>
                     {/* Approval mode badge */}
                     <Box sx={{
-                        mb: 1.5, p: 0.8, borderRadius: '8px',
-                        bgcolor: approvalMode === 'paid' ? '#F0FDF4' : theme.light,
+                        mb: 1.5, p: 0.8, borderRadius: RADIUS,
+                        bgcolor: approvalMode === 'paid' ? DASH.greenLight : theme.light,
                         border: `1px solid ${approvalMode === 'paid' ? '#BBF7D0' : theme.border}`,
                         display: 'flex', alignItems: 'center', gap: 0.8,
                     }}>
                         {approvalMode === 'paid'
-                            ? <PaidIcon sx={{ fontSize: 14, color: '#16A34A' }} />
+                            ? <PaidIcon sx={{ fontSize: 14, color: DASH.green }} />
                             : <DoneAllIcon sx={{ fontSize: 14, color: theme.primary }} />}
                         <Typography sx={{
                             fontSize: 11.5, fontWeight: 700,
@@ -1878,35 +1928,35 @@ export default function IssueTcPage() {
 
                     {/* Context grid */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 1.5 }}>
-                        <Box sx={{ p: 1, borderRadius: '6px', bgcolor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-                            <Typography sx={{ fontSize: 10, color: '#6B7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                        <Box sx={{ p: 1, borderRadius: RADIUS, bgcolor: DASH.surface, border: `1px solid ${DASH.line}` }}>
+                            <Typography sx={{ fontSize: 10, color: DASH.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
                                 Academic Year
                             </Typography>
-                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111' }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.ink }}>
                                 {academicYear}
                             </Typography>
                         </Box>
-                        <Box sx={{ p: 1, borderRadius: '6px', bgcolor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-                            <Typography sx={{ fontSize: 10, color: '#6B7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                        <Box sx={{ p: 1, borderRadius: RADIUS, bgcolor: DASH.surface, border: `1px solid ${DASH.line}` }}>
+                            <Typography sx={{ fontSize: 10, color: DASH.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
                                 {isTC ? 'Last Class & Section(s)' : 'Class & Section(s)'}
                             </Typography>
-                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111' }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.ink }}>
                                 {srcClass?.sign} · Section{srcSection.length > 1 ? 's' : ''} {srcSection.join(', ')}
                             </Typography>
                         </Box>
-                        <Box sx={{ p: 1, borderRadius: '6px', bgcolor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-                            <Typography sx={{ fontSize: 10, color: '#6B7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                        <Box sx={{ p: 1, borderRadius: RADIUS, bgcolor: DASH.surface, border: `1px solid ${DASH.line}` }}>
+                            <Typography sx={{ fontSize: 10, color: DASH.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
                                 {isTC ? 'Issue Date' : 'Last Attendance'}
                             </Typography>
-                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111' }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.ink }}>
                                 {isTC ? tcIssueDate : lastAttendanceDate}
                             </Typography>
                         </Box>
-                        <Box sx={{ p: 1, borderRadius: '6px', bgcolor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-                            <Typography sx={{ fontSize: 10, color: '#6B7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                        <Box sx={{ p: 1, borderRadius: RADIUS, bgcolor: DASH.surface, border: `1px solid ${DASH.line}` }}>
+                            <Typography sx={{ fontSize: 10, color: DASH.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
                                 Reason
                             </Typography>
-                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111' }} noWrap>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.ink }} noWrap>
                                 {isTC
                                     ? (tcReason.trim() || '— Not specified —')
                                     : (DISCONTINUE_REASONS.find(r => r.code === discontinueReason)?.label || '—')}
@@ -1915,7 +1965,7 @@ export default function IssueTcPage() {
                     </Box>
 
                     <Box sx={{
-                        p: 1.5, borderRadius: '8px',
+                        p: 1.5, borderRadius: RADIUS,
                         bgcolor: theme.light, border: `1px solid ${theme.border}`,
                         display: 'flex', alignItems: 'center', gap: 1.2,
                     }}>
@@ -1931,7 +1981,7 @@ export default function IssueTcPage() {
                             <Typography sx={{ fontSize: 14, fontWeight: 700, color: theme.dark }}>
                                 {confirmStudentCount} student{confirmStudentCount !== 1 ? 's' : ''} will be {isTC ? 'issued TC' : 'discontinued'}
                             </Typography>
-                            <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+                            <Typography sx={{ fontSize: 11, color: DASH.muted }}>
                                 {srcClass?.sign} · Section{srcSection.length > 1 ? 's' : ''} {srcSection.join(', ')} · {academicYear}
                             </Typography>
                         </Box>
@@ -1939,7 +1989,7 @@ export default function IssueTcPage() {
                             <Typography sx={{ fontSize: 22, fontWeight: 800, color: theme.dark, lineHeight: 1 }}>
                                 {confirmStudentCount}
                             </Typography>
-                            <Typography sx={{ fontSize: 10, color: '#6B7280' }}>
+                            <Typography sx={{ fontSize: 10, color: DASH.muted }}>
                                 students
                             </Typography>
                         </Box>
@@ -2014,7 +2064,7 @@ export default function IssueTcPage() {
                                         input: {
                                             endAdornment: isConfirmTextValid ? (
                                                 <InputAdornment position="end">
-                                                    <CheckCircleIcon sx={{ fontSize: 18, color: '#16A34A' }} />
+                                                    <CheckCircleIcon sx={{ fontSize: 18, color: DASH.green }} />
                                                 </InputAdornment>
                                             ) : null,
                                         },
@@ -2025,16 +2075,16 @@ export default function IssueTcPage() {
                                             fontSize: 13,
                                             fontFamily: 'monospace',
                                             fontWeight: 700,
-                                            borderRadius: '8px',
+                                            borderRadius: RADIUS,
                                             '& fieldset': {
-                                                borderColor: isConfirmTextValid ? '#16A34A' : DANGER.border,
+                                                borderColor: isConfirmTextValid ? DASH.green : DANGER.border,
                                                 borderWidth: isConfirmTextValid ? '2px' : '1.5px',
                                             },
                                             '&:hover fieldset': {
-                                                borderColor: isConfirmTextValid ? '#16A34A' : DANGER.primary,
+                                                borderColor: isConfirmTextValid ? DASH.green : DANGER.primary,
                                             },
                                             '&.Mui-focused fieldset': {
-                                                borderColor: isConfirmTextValid ? '#16A34A' : DANGER.primary,
+                                                borderColor: isConfirmTextValid ? DASH.green : DANGER.primary,
                                             },
                                         },
                                     }}
@@ -2046,7 +2096,7 @@ export default function IssueTcPage() {
                                     </Typography>
                                 )}
                                 {isConfirmTextValid && (
-                                    <Typography sx={{ fontSize: 10.5, color: '#16A34A', mt: 0.5, fontWeight: 700 }}>
+                                    <Typography sx={{ fontSize: 10.5, color: DASH.green, mt: 0.5, fontWeight: 700 }}>
                                         ✓ Confirmed — you can now {isTC ? 'issue the TC' : 'mark as discontinued'}.
                                     </Typography>
                                 )}
@@ -2060,9 +2110,9 @@ export default function IssueTcPage() {
                         disabled={isSubmitting}
                         sx={{
                             textTransform: 'none', fontSize: 13, fontWeight: 600,
-                            color: '#374151', borderRadius: '8px',
-                            border: '1px solid #E5E7EB', px: 2, height: 36,
-                            '&:hover': { bgcolor: '#F9FAFB' },
+                            color: DASH.text, borderRadius: RADIUS,
+                            border: `1px solid ${DASH.line}`, px: 2, height: 36,
+                            '&:hover': { bgcolor: DASH.surface },
                         }}
                     >
                         Back
@@ -2075,11 +2125,11 @@ export default function IssueTcPage() {
                             : (requiresTypedConfirm && !isConfirmTextValid ? <LockIcon sx={{ fontSize: 16 }} /> : actionIcon)}
                         sx={{
                             textTransform: 'none', fontSize: 13, fontWeight: 700,
-                            bgcolor: theme.primary, color: '#fff', borderRadius: '8px',
+                            bgcolor: theme.primary, color: '#fff', borderRadius: RADIUS,
                             px: 2.5, height: 36,
                             boxShadow: `0 2px 6px ${theme.primary}33`,
                             '&:hover': { bgcolor: theme.dark, boxShadow: `0 4px 12px ${theme.primary}55` },
-                            '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF', boxShadow: 'none' },
+                            '&.Mui-disabled': { bgcolor: DASH.line, color: DASH.faint, boxShadow: 'none' },
                         }}
                     >
                         {isSubmitting

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Box, IconButton, useMediaQuery, useTheme, Typography, Dialog, DialogActions,
   Button, Tooltip, tooltipClasses, Autocomplete, TextField, Avatar, Badge, Menu, MenuItem,
-  ListItemIcon, ListItemText, Divider, Popover,
+  ListItemIcon, ListItemText, Divider, Popover, Paper,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
@@ -116,6 +116,8 @@ function DashbrdHeader() {
   const canOpenSettings = hasMainMenuAccess(auth.permissions, 'accesscontrol');
 
   const [userDetails, setUserDetails] = useState({});
+  const [yearOpen, setYearOpen] = useState(false);
+  const [yearTipOpen, setYearTipOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [profileAnchor, setProfileAnchor] = useState(null);
   const [notifyAnchor, setNotifyAnchor] = useState(null);
@@ -234,12 +236,56 @@ function DashbrdHeader() {
             title={academicYearWindowLabel ? `Academic year window: ${academicYearWindowLabel}` : ''}
             arrow
             placement="bottom"
+            open={yearTipOpen && !yearOpen}
+            onOpen={() => setYearTipOpen(true)}
+            onClose={() => setYearTipOpen(false)}
           >
             <Autocomplete
               size="small"
               disableClearable
               options={academicYearOptions}
+              open={yearOpen}
+              onOpen={() => setYearOpen(true)}
+              onClose={() => setYearOpen(false)}
               sx={{ width: isCompact ? 130 : 168 }}
+              slotProps={{
+                paper: {
+                  sx: {
+                    borderRadius: '5px',
+                    border: '1px solid #E5E7EB',
+                    boxShadow: '0 8px 24px rgba(16,24,40,0.12)',
+                    mt: 0.6,
+                  },
+                },
+              }}
+              ListboxProps={{ sx: { py: 0.5 } }}
+              renderOption={(props, option) => (
+                <li {...props} key={option} style={{ ...props.style, fontSize: 13, fontWeight: 600 }}>
+                  {option}
+                </li>
+              )}
+              PaperComponent={({ children, ...paperProps }) => (
+                <Paper {...paperProps}>
+                  {academicYearWindowLabel && (
+                    <Box
+                      sx={{
+                        px: 1.4,
+                        py: 0.8,
+                        borderBottom: '1px solid #F3F4F6',
+                        bgcolor: '#FAFAFA',
+                      }}
+                    >
+                      <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Academic year window
+                      </Typography>
+                      <Typography sx={{ fontSize: 11.5, color: '#6B7280', mt: 0.2 }}>
+                        {academicYearWindowLabel}
+                      </Typography>
+                    </Box>
+                  )}
+                  {children}
+                </Paper>
+              )}
               value={
                 selectedAcademicYear && academicYearOptions.includes(selectedAcademicYear)
                   ? selectedAcademicYear

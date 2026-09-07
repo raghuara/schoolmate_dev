@@ -19,13 +19,13 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SnackBar from '../../../SnackBar';
 import { paymentApprovalsGet, paymentApprovalUpdate } from '../../../../Api/Api';
-import { DASH, RADIUS, BRAND, StatTile } from '../../../DashBoardComps/dashboardTheme';
+import { DASH, RADIUS, KPI_TONES, SolidStatCard } from '../../../DashBoardComps/dashboardTheme';
 
 const PAYMENT_METHOD_COLORS = {
-    'UPI': { bg: '#F3E5F5', color: '#7B1FA2' },
-    'Net Banking': { bg: '#E3F2FD', color: '#1565C0' },
-    'Cheque': { bg: '#FFF3E0', color: '#E65100' },
-    'Card': { bg: '#FDECEA', color: '#C62828' },
+    'UPI': { bg: DASH.violetLight, color: DASH.violet, border: '#DDD6FE' },
+    'Net Banking': { bg: DASH.blueLight, color: DASH.blue, border: '#BFDBFE' },
+    'Cheque': { bg: DASH.amberLight, color: DASH.amber, border: '#FDE68A' },
+    'Card': { bg: DASH.cyanLight, color: DASH.cyan, border: '#A5F3FC' },
 };
 
 // Payment method filters — order & labels mirror the Billing Screen's payment options
@@ -197,28 +197,27 @@ export default function PaymentApprovalsPage() {
 
             {/* Same header strip the other approval screens use, so this page
                 belongs to the Approvals area rather than looking imported. */}
-            <Box sx={{ mb: 2 }}>
-                <Grid container>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
-                        <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", mt: "3px", mr: 1 }}>
+            <Box sx={{ mb: 2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap", py: 1.5 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+                        <IconButton onClick={() => navigate(-1)} sx={{ width: 28, height: 28 }}>
                             <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                         </IconButton>
-                        <Box>
+                        <Box sx={{ ml: 1, minWidth: 0 }}>
                             <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Payment Approval</Typography>
-                            <Typography sx={{ fontSize: "12px", color: DASH.muted }}>
+                            <Typography sx={{ fontSize: "11.5px", color: DASH.muted, whiteSpace: "nowrap" }}>
                                 Verify online and cheque payments collected at the billing counter
                             </Typography>
                         </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: { xs: "flex-start", md: "end" }, gap: 1, py: 1 }}>
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: { xs: "flex-start", md: "end" }, gap: 1, ml: "auto", flexWrap: "wrap" }}>
                         {pendingCount > 0 && (
                             <Box sx={{
                                 display: 'flex', alignItems: 'center', gap: 0.6,
                                 px: 1.2, height: 30, borderRadius: RADIUS,
-                                bgcolor: '#FFF3E0', border: '1px solid #FFE0B2',
+                                bgcolor: DASH.amberLight, border: `1px solid #FDE68A`,
                             }}>
-                                <HourglassEmptyIcon sx={{ fontSize: 15, color: '#E65100' }} />
-                                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#E65100' }}>
+                                <HourglassEmptyIcon sx={{ fontSize: 15, color: DASH.amber }} />
+                                <Typography sx={{ fontSize: 12, fontWeight: 700, color: DASH.amber }}>
                                     {pendingCount} awaiting approval
                                 </Typography>
                             </Box>
@@ -236,50 +235,45 @@ export default function PaymentApprovalsPage() {
                                 <RefreshIcon sx={{ fontSize: 17, color: DASH.muted }} />
                             </IconButton>
                         </Tooltip>
-                    </Grid>
-                </Grid>
+                    </Box>
             </Box>
 
             <Box sx={{ p: 2, height: "70vh", overflowY: "auto", overflowX: "hidden" }}>
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <StatTile
+                <Grid container spacing={2} sx={{ mb: 2, alignItems: "stretch" }}>
+                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                        <SolidStatCard
                             icon={HourglassEmptyIcon}
                             label="Pending"
                             value={pendingCount}
-                            caption="Awaiting approval"
-                            accent={DASH.amber}
-                            accentBg={DASH.amberLight}
+                            note="Awaiting approval"
+                            tone={KPI_TONES.orange}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <StatTile
+                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                        <SolidStatCard
                             icon={CurrencyRupeeIcon}
                             label="Pending Amount"
                             value={formatCurrency(pendingTotal)}
-                            caption="Across pending payments"
-                            accent={DASH.green}
-                            accentBg={DASH.greenLight}
+                            note="Across pending payments"
+                            tone={KPI_TONES.green}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <StatTile
+                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                        <SolidStatCard
                             icon={DescriptionOutlinedIcon}
                             label="Cheques"
                             value={chequeCount}
-                            caption="Cheque payments"
-                            accent={BRAND.orange.main}
-                            accentBg={BRAND.orange.icon}
+                            note="Cheque payments"
+                            tone={KPI_TONES.violet}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <StatTile
+                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                        <SolidStatCard
                             icon={ImageOutlinedIcon}
                             label="Direct / Online"
                             value={directCount}
-                            caption="UPI, net banking & card"
-                            accent={BRAND.purple.main}
-                            accentBg={BRAND.purple.icon}
+                            note="UPI, net banking & card"
+                            tone={KPI_TONES.cyan}
                         />
                     </Grid>
                 </Grid>
@@ -386,11 +380,14 @@ export default function PaymentApprovalsPage() {
                             <Grid size={{ xs: 12, md: 6 }} key={a.id}>
                                 <Box sx={{
                                     p: 2,
-                                    borderRadius: RADIUS,
+                                    height: '100%',
+                                    boxSizing: 'border-box',
+                                    borderRadius: '10px',
                                     border: `1px solid ${DASH.line}`,
+                                    borderLeft: `3px solid ${methodStyle.color}`,
                                     bgcolor: '#fff',
-                                    transition: '0.2s',
-                                    '&:hover': { boxShadow: '0 2px 10px rgba(0,0,0,0.08)' },
+                                    transition: 'border-color .2s ease, box-shadow .2s ease',
+                                    '&:hover': { borderColor: methodStyle.color, boxShadow: '0 2px 10px rgba(16,24,40,0.08)' },
                                 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 1 }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
@@ -478,9 +475,9 @@ export default function PaymentApprovalsPage() {
                                                 startIcon={<CancelIcon sx={{ fontSize: 14 }} />}
                                                 sx={{
                                                     textTransform: 'none', fontSize: 11.5, fontWeight: 700,
-                                                    color: '#B91C1C', bgcolor: '#FEF2F2', border: '1px solid #FECACA',
+                                                    color: DASH.red, bgcolor: DASH.redLight, border: '1px solid #FECACA',
                                                     borderRadius: RADIUS, height: 28, px: 1.2,
-                                                    '&:hover': { bgcolor: '#FEE2E2', borderColor: '#B91C1C' },
+                                                    '&:hover': { bgcolor: DASH.redLight, borderColor: DASH.red },
                                                 }}
                                             >
                                                 Reject
@@ -494,10 +491,10 @@ export default function PaymentApprovalsPage() {
                                                 startIcon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
                                                 sx={{
                                                     textTransform: 'none', fontSize: 11.5, fontWeight: 700,
-                                                    bgcolor: '#15803D', color: '#fff',
+                                                    bgcolor: DASH.green, color: '#fff',
                                                     borderRadius: RADIUS, height: 28, px: 1.2,
-                                                    '&:hover': { bgcolor: '#166534' },
-                                                    '&.Mui-disabled': { bgcolor: '#A7F3D0', color: '#fff' },
+                                                    '&:hover': { bgcolor: '#0E9F6E' },
+                                                    '&.Mui-disabled': { bgcolor: `${DASH.green}4D`, color: '#fff' },
                                                 }}
                                             >
                                                 Approve
@@ -564,7 +561,7 @@ export default function PaymentApprovalsPage() {
                             <Button
                                 onClick={() => { openReject(proofDialog.item); closeProof(); }}
                                 startIcon={<CancelIcon sx={{ fontSize: 16 }} />}
-                                sx={{ textTransform: 'none', fontWeight: 700, color: '#B91C1C', bgcolor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: RADIUS, px: 2, height: 34, '&:hover': { bgcolor: '#FEE2E2' } }}
+                                sx={{ textTransform: 'none', fontWeight: 700, color: DASH.red, bgcolor: DASH.redLight, border: '1px solid #FECACA', borderRadius: RADIUS, px: 2, height: 34, '&:hover': { bgcolor: DASH.redLight } }}
                             >
                                 Reject
                             </Button>
@@ -573,7 +570,7 @@ export default function PaymentApprovalsPage() {
                                 variant="contained"
                                 disableElevation
                                 startIcon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
-                                sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#15803D', color: '#fff', borderRadius: RADIUS, px: 2, height: 34, '&:hover': { bgcolor: '#166534' } }}
+                                sx={{ textTransform: 'none', fontWeight: 700, bgcolor: DASH.green, color: '#fff', borderRadius: RADIUS, px: 2, height: 34, '&:hover': { bgcolor: '#0E9F6E' } }}
                             >
                                 Approve
                             </Button>
@@ -586,7 +583,7 @@ export default function PaymentApprovalsPage() {
             <Dialog open={Boolean(approveItem)} onClose={closeApprove} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: '12px' } } }}>
                 <DialogTitle sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                        <Box sx={{ width: 34, height: 34, borderRadius: '9px', bgcolor: '#E8F5E9', color: '#15803D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Box sx={{ width: 34, height: 34, borderRadius: '9px', bgcolor: DASH.greenLight, color: DASH.green, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <CheckCircleIcon sx={{ fontSize: 19 }} />
                         </Box>
                         <Box>
@@ -604,7 +601,7 @@ export default function PaymentApprovalsPage() {
                 </DialogContent>
                 <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
                     <Button onClick={closeApprove} sx={{ textTransform: 'none', fontWeight: 700, color: DASH.text, border: `1px solid ${DASH.line}`, borderRadius: RADIUS, px: 2, height: 34 }}>Cancel</Button>
-                    <Button onClick={confirmApprove} variant="contained" disableElevation sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#15803D', color: '#fff', borderRadius: RADIUS, px: 2, height: 34, '&:hover': { bgcolor: '#166534' } }}>Yes, Approve</Button>
+                    <Button onClick={confirmApprove} variant="contained" disableElevation sx={{ textTransform: 'none', fontWeight: 700, bgcolor: DASH.green, color: '#fff', borderRadius: RADIUS, px: 2, height: 34, '&:hover': { bgcolor: '#0E9F6E' } }}>Yes, Approve</Button>
                 </DialogActions>
             </Dialog>
 
@@ -612,7 +609,7 @@ export default function PaymentApprovalsPage() {
             <Dialog open={Boolean(rejectItem)} onClose={closeReject} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: '12px' } } }}>
                 <DialogTitle sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                        <Box sx={{ width: 34, height: 34, borderRadius: '9px', bgcolor: '#FEF2F2', color: '#B91C1C', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Box sx={{ width: 34, height: 34, borderRadius: '9px', bgcolor: DASH.redLight, color: DASH.red, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <CancelIcon sx={{ fontSize: 19 }} />
                         </Box>
                         <Box>
@@ -635,7 +632,7 @@ export default function PaymentApprovalsPage() {
                 </DialogContent>
                 <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
                     <Button onClick={closeReject} sx={{ textTransform: 'none', fontWeight: 700, color: DASH.text, border: `1px solid ${DASH.line}`, borderRadius: RADIUS, px: 2, height: 34 }}>Cancel</Button>
-                    <Button onClick={confirmReject} variant="contained" disableElevation sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#B91C1C', color: '#fff', borderRadius: RADIUS, px: 2, height: 34, '&:hover': { bgcolor: '#991B1B' } }}>Reject Payment</Button>
+                    <Button onClick={confirmReject} variant="contained" disableElevation sx={{ textTransform: 'none', fontWeight: 700, bgcolor: DASH.red, color: '#fff', borderRadius: RADIUS, px: 2, height: 34, '&:hover': { bgcolor: '#DC2626' } }}>Reject Payment</Button>
                 </DialogActions>
             </Dialog>
         </Box>

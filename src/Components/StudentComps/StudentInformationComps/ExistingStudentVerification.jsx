@@ -1,217 +1,519 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    Box, Grid, Typography, TextField, Button, Chip, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, CircularProgress, Pagination,
+    Box, Typography, TextField, Button, InputAdornment, Skeleton,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    Pagination, Tooltip,
 } from "@mui/material";
+import axios from "axios";
 import SearchIcon from "@mui/icons-material/Search";
+import CloseIcon from "@mui/icons-material/Close";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import PersonSearchOutlinedIcon from "@mui/icons-material/PersonSearchOutlined";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import DownloadingOutlinedIcon from "@mui/icons-material/DownloadingOutlined";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import LinkOutlinedIcon from "@mui/icons-material/LinkOutlined";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
+import { FetchExitHistory, FetchAllLinkedRecords } from "../../../Api/Api";
 
-const ROWS_PER_PAGE = 5;
+const TOKEN = "123";
+const ROWS_PER_PAGE = 6;
 
-const labelSx = { fontSize: "12px", color: "#374151", fontWeight: 600 };
-const fieldSx = { mt: 0.5, "& .MuiOutlinedInput-root": { borderRadius: "8px", height: 41, fontSize: 14 } };
-
-// NOTE: replace this with the real "search archived/previous student records" API.
-// Keep each record shaped like: { id, name, admissionNo, academicYear, grade, status, note }
-const buildMockResults = () => ([
-    { id: 1, name: "K Arjun Kumar", admissionNo: "ADM-2023-018", academicYear: "2023-2024", grade: "Grade V", status: "TC Issued", note: "" },
-    { id: 2, name: "K Arjun Kumar", admissionNo: "ADM-2022-044", academicYear: "2024-2025", grade: "Grade VI", status: "Active", note: "Currently Studying" },
-    { id: 3, name: "V Arjun Kumar", admissionNo: "ADM-2022-044", academicYear: "2024-2025", grade: "Grade VI", status: "Active", note: "Currently Studying" },
-    { id: 4, name: "R Arjun Kumar", admissionNo: "ADM-2022-044", academicYear: "2024-2025", grade: "Grade VI", status: "Active", note: "Currently Studying" },
-]);
-
-const STATUS_STYLE = {
-    "TC Issued": { color: "#1565C0", bg: "#E3F2FD", label: "TC ISSUED" },
-    "Active": { color: "#16A34A", bg: "#E8F5E9", label: "ACTIVE" },
+const ACTION_TONE = {
+    TC: { color: DASH.blue, bg: DASH.blueLight, border: "#BFDBFE", label: "TC ISSUED" },
+    Discontinue: { color: DASH.red, bg: DASH.redLight, border: `${DASH.red}4D`, label: "DISCONTINUED" },
 };
 
-export default function ExistingStudentVerification({ mainColor = "#E60154", defaultAcademicYear = "", onLoadExisting }) {
-    const [form, setForm] = useState({
-        fullName: "", dob: "", mobile: "", academicYear: defaultAcademicYear || "",
-        aadhaar: "", emis: "", prevAdmissionNo: "", prevRollNo: "",
-    });
-    const [results, setResults] = useState([]);
-    const [searched, setSearched] = useState(false);
+const exitIdOf = (row) =>
+    row?.studentExitId ?? row?.StudentExitId ?? row?.exitId ?? row?.id ?? null;
+
+const gradeOf = (row) => row?.gradeName ?? row?.grade ?? row?.oldGrade ?? "";
+const sectionOf = (row) => row?.sectionName ?? row?.section ?? row?.oldSection ?? "";
+
+const HeadCell = ({ children, align = "left" }) => (
+    <TableCell
+        align={align}
+        sx={{
+            bgcolor: DASH.surface,
+            borderBottom: `1px solid ${DASH.line}`,
+            fontSize: "10.5px",
+            fontWeight: 700,
+            color: DASH.muted,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            py: 1.2,
+            whiteSpace: "nowrap",
+        }}
+    >
+        {children}
+    </TableCell>
+);
+
+const BodyCell = ({ children, align = "left", sx = {} }) => (
+    <TableCell
+        align={align}
+        sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, py: 1.2, fontSize: "12.5px", color: DASH.text, ...sx }}
+    >
+        {children}
+    </TableCell>
+);
+
+const ResultsSkeleton = () => (
+    <TableBody>
+        {[...Array(5)].map((_, r) => (
+            <TableRow key={r}>
+                {[...Array(6)].map((_, c) => (
+                    <TableCell key={c} sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, py: 1.4 }}>
+                        <Skeleton
+                            variant="rounded"
+                            height={11}
+                            width={c === 0 ? "78%" : "54%"}
+                            sx={{ bgcolor: DASH.lineSoft }}
+                        />
+                    </TableCell>
+                ))}
+            </TableRow>
+        ))}
+    </TableBody>
+);
+
+export default function ExistingStudentVerification({
+    accent = "#E30053",
+    selectedRecord = null,
+    onSelectRecord,
+    onClearRecord,
+}) {
+    const [rows, setRows] = useState([]);
+    const [linkedByExitId, setLinkedByExitId] = useState({});
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
 
-    const setField = (key) => (e) => setForm((p) => ({ ...p, [key]: e.target.value }));
-
-    const handleCompare = () => {
+    const load = useCallback(async () => {
         setLoading(true);
-        setSearched(true);
-        setPage(1);
-        // TODO: call the real search API with `form` and setResults(res.data)
-        setTimeout(() => {
-            setResults(buildMockResults());
+        setError("");
+        try {
+            const [historyRes, linkedRes] = await Promise.all([
+                axios.get(FetchExitHistory, { headers: { Authorization: `Bearer ${TOKEN}` } }),
+                axios.get(FetchAllLinkedRecords, { headers: { Authorization: `Bearer ${TOKEN}` } }),
+            ]);
+
+            const historyBody = historyRes?.data || {};
+            if (historyBody.error) {
+                setRows([]);
+                setError(historyBody.message || "Could not load archived student records.");
+            } else {
+                setRows(historyBody.history || []);
+            }
+
+            const linkedBody = linkedRes?.data || {};
+            const map = {};
+            (linkedBody.records || []).forEach((rec) => {
+                if (rec.studentExitId != null) map[rec.studentExitId] = rec;
+            });
+            setLinkedByExitId(map);
+        } catch (err) {
+            setRows([]);
+            setError(err?.response?.data?.message || "Could not load archived student records.");
+        } finally {
             setLoading(false);
-        }, 500);
-    };
+        }
+    }, []);
 
-    const fields = [
-        { key: "fullName", label: "Student Full Name", required: true, placeholder: "e.g. Arjun Kumar" },
-        { key: "dob", label: "Date of Birth", required: true, placeholder: "e.g. 12 May 2013" },
-        { key: "mobile", label: "Parent Mobile Number", required: true, placeholder: "+91 ..." },
-        { key: "academicYear", label: "Academic Year", required: true, placeholder: "e.g. 2024-2025" },
-        { key: "aadhaar", label: "Aadhaar Number", placeholder: "XXXX XXXX XXXX" },
-        { key: "emis", label: "EMIS Number", placeholder: "EMIS..." },
-        { key: "prevAdmissionNo", label: "Previous Admission Number", placeholder: "ADM-...." },
-        { key: "prevRollNo", label: "Previous Roll Number", placeholder: "Roll no" },
-    ];
+    useEffect(() => {
+        load();
+    }, [load]);
 
-    const totalPages = Math.max(1, Math.ceil(results.length / ROWS_PER_PAGE));
-    const pageRows = results.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return rows;
+        return rows.filter((r) =>
+            (r.name || "").toLowerCase().includes(q)
+            || String(r.rollNumber || "").toLowerCase().includes(q)
+            || String(gradeOf(r)).toLowerCase().includes(q)
+            || (r.reason || "").toLowerCase().includes(q)
+        );
+    }, [rows, search]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [search]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
+    const pageRows = filtered.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
 
     return (
-        <Box sx={{ p: 2 }}>
-            {/* Search form */}
-            <Box sx={{ border: "1px solid #E5E7EB", borderRadius: "12px", p: 2.2 }}>
-                <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.6, mb: 1.5 }}>
-                    Student Verification
-                </Typography>
-                <Grid container columnSpacing={3} rowSpacing={1.5}>
-                    {fields.map((f) => (
-                        <Grid key={f.key} size={{ xs: 12, sm: 6, md: 3 }}>
-                            <Typography sx={labelSx} component="span">
-                                {f.label}{f.required && <span style={{ color: "#ff0000", fontSize: "16px" }}>*</span>}
-                            </Typography>
-                            <TextField
-                                fullWidth size="small"
-                                value={form[f.key]}
-                                onChange={setField(f.key)}
-                                placeholder={f.placeholder}
-                                sx={fieldSx}
-                            />
-                        </Grid>
-                    ))}
-                </Grid>
-
-                <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
+        <Box sx={{ px: 2, pt: 2 }}>
+            {selectedRecord ? (
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                        p: 2,
+                        borderRadius: "10px",
+                        bgcolor: DASH.greenLight,
+                        border: `1px solid ${DASH.green}4D`,
+                        borderLeft: `3px solid ${DASH.green}`,
+                        flexWrap: "wrap",
+                    }}
+                >
+                    <CheckCircleOutlineIcon sx={{ fontSize: 20, color: DASH.green, flexShrink: 0 }} />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                            {selectedRecord.name} · #{selectedRecord.rollNumber}
+                        </Typography>
+                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                            Selected to link. Save Student Academic Info below and the new roll number will be bound to
+                            this record automatically.
+                        </Typography>
+                    </Box>
                     <Button
-                        onClick={handleCompare}
-                        startIcon={<SearchIcon sx={{ fontSize: 18 }} />}
+                        onClick={onClearRecord}
+                        startIcon={<CloseIcon sx={{ fontSize: 16 }} />}
                         sx={{
-                            textTransform: "none", fontWeight: 700, fontSize: 13,
-                            border: "1px solid #000", color: "#000", borderRadius: "20px",
-                            px: 2.4, height: 38, "&:hover": { bgcolor: "#f5f5f5" },
+                            textTransform: "none",
+                            fontSize: "12.5px",
+                            fontWeight: 700,
+                            height: 34,
+                            px: 1.8,
+                            borderRadius: RADIUS,
+                            color: DASH.text,
+                            bgcolor: "#fff",
+                            border: `1px solid ${DASH.line}`,
+                            flexShrink: 0,
+                            "& .MuiButton-startIcon": { mr: 0.6 },
+                            "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
                         }}
                     >
-                        Compare Existing Records
+                        Change
                     </Button>
                 </Box>
-            </Box>
+            ) : (
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.2,
+                        p: 1.4,
+                        borderRadius: RADIUS,
+                        bgcolor: DASH.blueLight,
+                        border: "1px solid #BFDBFE",
+                    }}
+                >
+                    <InfoOutlinedIcon sx={{ fontSize: 18, color: DASH.blue, flexShrink: 0 }} />
+                    <Typography sx={{ fontSize: "12.5px", color: DASH.text, fontWeight: 600 }}>
+                        Pick the student's earlier enrolment below. Their old roll number is bound to the new one on
+                        save, so past fees and history stay attached.
+                    </Typography>
+                </Box>
+            )}
 
-            {/* Results */}
-            {searched && (
-                <Box sx={{ mt: 2 }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.2, borderRadius: "8px", bgcolor: "#EFF6FF", border: "1px solid #BFDBFE", mb: 1.5 }}>
-                        <InfoOutlinedIcon sx={{ fontSize: 18, color: "#2563EB" }} />
-                        <Typography sx={{ fontSize: 12.5, color: "#1E40AF", fontWeight: 600 }}>
-                            Possible student records found based on the entered details. Please review carefully before restoring or creating a new student profile.
+            <Box
+                sx={{
+                    mt: 2,
+                    border: `1px solid ${DASH.line}`,
+                    borderRadius: "10px",
+                    bgcolor: "#fff",
+                    overflow: "hidden",
+                }}
+            >
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 1.5,
+                        px: 2,
+                        py: 1.5,
+                        borderBottom: `1px solid ${DASH.line}`,
+                        bgcolor: DASH.surface,
+                        flexWrap: "wrap",
+                    }}
+                >
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                            Archived student records
+                        </Typography>
+                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted }}>
+                            {loading
+                                ? "Loading…"
+                                : `${filtered.length} record${filtered.length === 1 ? "" : "s"} who left the school`}
                         </Typography>
                     </Box>
 
-                    <Box sx={{ border: "1px solid #E5E7EB", borderRadius: "12px", overflow: "hidden" }}>
-                        <TableContainer>
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow sx={{ bgcolor: "#FAFBFC" }}>
-                                        {["Student Name", "Admission No", "Academic Year", "Grade", "Status", "Actions"].map((h) => (
-                                            <TableCell key={h} sx={{ fontWeight: 700, fontSize: 10.5, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, py: 1.4, whiteSpace: "nowrap" }}>
-                                                {h}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {loading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={6} align="center" sx={{ py: 6, borderBottom: "none" }}>
-                                                <CircularProgress size={26} sx={{ color: mainColor }} />
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : pageRows.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={6} align="center" sx={{ py: 6, borderBottom: "none" }}>
-                                                <PersonSearchOutlinedIcon sx={{ fontSize: 34, color: "#D1D5DB" }} />
-                                                <Typography sx={{ fontSize: 13, fontWeight: 600, color: "#9CA3AF", mt: 0.5 }}>No matching records found</Typography>
-                                                <Typography sx={{ fontSize: 11.5, color: "#9CA3AF" }}>Try different details, or continue creating a new profile.</Typography>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : pageRows.map((r) => {
-                                        const st = STATUS_STYLE[r.status] || { color: "#374151", bg: "#F3F4F6", label: r.status };
-                                        const isTC = r.status === "TC Issued";
-                                        return (
-                                            <TableRow key={r.id} sx={{ "&:hover": { bgcolor: "#FAFBFC" } }}>
-                                                <TableCell sx={{ borderBottom: "1px solid #F3F4F6" }}>
-                                                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{r.name}</Typography>
-                                                </TableCell>
-                                                <TableCell sx={{ borderBottom: "1px solid #F3F4F6" }}>
-                                                    <Typography sx={{ fontSize: 12.5, color: "#374151" }}>{r.admissionNo}</Typography>
-                                                </TableCell>
-                                                <TableCell sx={{ borderBottom: "1px solid #F3F4F6" }}>
-                                                    <Typography sx={{ fontSize: 12.5, color: "#374151" }}>{r.academicYear}</Typography>
-                                                </TableCell>
-                                                <TableCell sx={{ borderBottom: "1px solid #F3F4F6" }}>
-                                                    <Typography sx={{ fontSize: 12.5, color: "#374151" }}>{r.grade}</Typography>
-                                                </TableCell>
-                                                <TableCell sx={{ borderBottom: "1px solid #F3F4F6" }}>
-                                                    <Chip size="small" label={st.label} sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: st.bg, color: st.color }} />
-                                                    {r.note && (
-                                                        <Typography sx={{ fontSize: 10, fontStyle: "italic", color: "#16A34A", mt: 0.3 }}>{r.note}</Typography>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell sx={{ borderBottom: "1px solid #F3F4F6" }}>
-                                                    <Box sx={{ display: "flex", gap: 0.8, flexWrap: "wrap" }}>
-                                                        <Button
-                                                            size="small"
-                                                            startIcon={<VisibilityOutlinedIcon sx={{ fontSize: 15 }} />}
-                                                            sx={{ textTransform: "none", fontSize: 11.5, fontWeight: 700, color: "#374151", border: "1px solid #E5E7EB", borderRadius: "8px", height: 30, px: 1.2, "&:hover": { bgcolor: "#F9FAFB" } }}
-                                                        >
-                                                            {isTC ? "View Previous Profile" : "View Student Profile"}
-                                                        </Button>
-                                                        {isTC && (
-                                                            <Button
-                                                                size="small"
-                                                                variant="contained"
-                                                                disableElevation
-                                                                startIcon={<DownloadingOutlinedIcon sx={{ fontSize: 15 }} />}
-                                                                onClick={() => onLoadExisting && onLoadExisting(r)}
-                                                                sx={{ textTransform: "none", fontSize: 11.5, fontWeight: 700, bgcolor: mainColor, color: "#fff", borderRadius: "8px", height: 30, px: 1.4, "&:hover": { bgcolor: mainColor, filter: "brightness(0.92)" } }}
-                                                            >
-                                                                Load Existing Details
-                                                            </Button>
-                                                        )}
-                                                    </Box>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-
-                        {results.length > 0 && (
-                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1, px: 2, py: 1.2, borderTop: "1px solid #F3F4F6" }}>
-                                <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>
-                                    Showing {(page - 1) * ROWS_PER_PAGE + 1}-{Math.min(page * ROWS_PER_PAGE, results.length)} of {results.length}
-                                </Typography>
-                                <Pagination
-                                    count={totalPages}
-                                    page={page}
-                                    onChange={(_, v) => setPage(v)}
-                                    size="small"
-                                    shape="rounded"
-                                    sx={{ "& .Mui-selected": { bgcolor: `${mainColor} !important`, color: "#fff !important" } }}
-                                />
-                            </Box>
-                        )}
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                        <TextField
+                            size="small"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search name, roll number or class"
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ fontSize: 17, color: DASH.faint }} />
+                                        </InputAdornment>
+                                    ),
+                                    sx: {
+                                        height: 34,
+                                        fontSize: "12.5px",
+                                        borderRadius: RADIUS,
+                                        bgcolor: "#fff",
+                                        width: { xs: "100%", sm: 280 },
+                                        "& fieldset": { borderColor: DASH.line },
+                                        "&:hover fieldset": { borderColor: DASH.faint },
+                                    },
+                                },
+                            }}
+                        />
+                        <Tooltip title="Reload records" arrow>
+                            <Button
+                                onClick={load}
+                                sx={{
+                                    minWidth: 0,
+                                    width: 34,
+                                    height: 34,
+                                    borderRadius: RADIUS,
+                                    bgcolor: "#fff",
+                                    border: `1px solid ${DASH.line}`,
+                                    "&:hover": { bgcolor: DASH.lineSoft },
+                                }}
+                            >
+                                <RefreshIcon sx={{ fontSize: 17, color: DASH.muted }} />
+                            </Button>
+                        </Tooltip>
                     </Box>
                 </Box>
-            )}
+
+                <TableContainer sx={{ maxHeight: 420 }}>
+                    <Table size="small" stickyHeader>
+                        <TableHead>
+                            <TableRow>
+                                <HeadCell>Student</HeadCell>
+                                <HeadCell>Left From</HeadCell>
+                                <HeadCell>Academic Year</HeadCell>
+                                <HeadCell>Exit Date</HeadCell>
+                                <HeadCell>Status</HeadCell>
+                                <HeadCell align="right">Action</HeadCell>
+                            </TableRow>
+                        </TableHead>
+
+                        {loading ? (
+                            <ResultsSkeleton />
+                        ) : (
+                            <TableBody>
+                                {pageRows.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} align="center" sx={{ py: 6, borderBottom: "none" }}>
+                                            <Box
+                                                sx={{
+                                                    width: 46,
+                                                    height: 46,
+                                                    mx: "auto",
+                                                    mb: 1.6,
+                                                    borderRadius: RADIUS,
+                                                    bgcolor: DASH.lineSoft,
+                                                    border: `1px solid ${DASH.line}`,
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                }}
+                                            >
+                                                <PersonSearchOutlinedIcon sx={{ fontSize: 22, color: DASH.faint }} />
+                                            </Box>
+                                            <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                                                {error ? "Records unavailable" : "No archived records found"}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.5 }}>
+                                                {error
+                                                    || (search
+                                                        ? `Nothing matches “${search}” — try a roll number instead.`
+                                                        : "Nobody has left the school yet, so there is nothing to link.")}
+                                            </Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    pageRows.map((row, idx) => {
+                                        const exitId = exitIdOf(row);
+                                        const tone = ACTION_TONE[row.action] || {
+                                            color: DASH.muted,
+                                            bg: DASH.lineSoft,
+                                            border: DASH.line,
+                                            label: String(row.action || "EXITED").toUpperCase(),
+                                        };
+                                        const alreadyLinked = exitId != null ? linkedByExitId[exitId] : null;
+                                        const isSelected =
+                                            selectedRecord && exitIdOf(selectedRecord) === exitId && exitId != null;
+
+                                        return (
+                                            <TableRow
+                                                key={`${row.rollNumber}-${exitId ?? idx}`}
+                                                sx={{
+                                                    bgcolor: isSelected ? DASH.greenLight : "transparent",
+                                                    "&:hover": { bgcolor: isSelected ? DASH.greenLight : DASH.surface },
+                                                }}
+                                            >
+                                                <BodyCell>
+                                                    <Typography sx={{ fontSize: "13px", fontWeight: 700, color: DASH.ink }}>
+                                                        {row.name || "—"}
+                                                    </Typography>
+                                                    <Typography
+                                                        sx={{ fontSize: "11.5px", color: DASH.muted, fontFamily: "monospace" }}
+                                                    >
+                                                        #{row.rollNumber}
+                                                    </Typography>
+                                                </BodyCell>
+
+                                                <BodyCell>
+                                                    {gradeOf(row)
+                                                        ? `${gradeOf(row)}${sectionOf(row) ? ` · ${sectionOf(row)}` : ""}`
+                                                        : "—"}
+                                                </BodyCell>
+
+                                                <BodyCell sx={{ whiteSpace: "nowrap" }}>{row.academicYear || "—"}</BodyCell>
+
+                                                <BodyCell sx={{ whiteSpace: "nowrap" }}>{row.exitDate || "—"}</BodyCell>
+
+                                                <BodyCell>
+                                                    <Box
+                                                        sx={{
+                                                            display: "inline-flex",
+                                                            alignItems: "center",
+                                                            px: 1.1,
+                                                            height: 21,
+                                                            borderRadius: "999px",
+                                                            bgcolor: tone.bg,
+                                                            color: tone.color,
+                                                            border: `1px solid ${tone.border}`,
+                                                            fontSize: "10px",
+                                                            fontWeight: 700,
+                                                            letterSpacing: "0.04em",
+                                                            whiteSpace: "nowrap",
+                                                        }}
+                                                    >
+                                                        {tone.label}
+                                                    </Box>
+                                                    {row.reason && (
+                                                        <Typography sx={{ fontSize: "10.5px", color: DASH.faint, mt: 0.3 }}>
+                                                            {row.reason}
+                                                        </Typography>
+                                                    )}
+                                                </BodyCell>
+
+                                                <BodyCell align="right">
+                                                    {exitId == null ? (
+                                                        <Tooltip
+                                                            arrow
+                                                            title="This record has no exit id, so it cannot be linked. Contact support."
+                                                        >
+                                                            <Typography sx={{ fontSize: "11.5px", color: DASH.faint, fontWeight: 600 }}>
+                                                                Not linkable
+                                                            </Typography>
+                                                        </Tooltip>
+                                                    ) : alreadyLinked ? (
+                                                        <Tooltip
+                                                            arrow
+                                                            title={`Already linked to ${alreadyLinked.newStudentName || "a student"} on ${alreadyLinked.linkedOn}`}
+                                                        >
+                                                            <Box
+                                                                sx={{
+                                                                    display: "inline-flex",
+                                                                    alignItems: "center",
+                                                                    gap: 0.5,
+                                                                    px: 1.1,
+                                                                    height: 26,
+                                                                    borderRadius: "999px",
+                                                                    bgcolor: DASH.amberLight,
+                                                                    border: "1px solid #FDE68A",
+                                                                    color: DASH.amber,
+                                                                    fontSize: "11px",
+                                                                    fontWeight: 700,
+                                                                    whiteSpace: "nowrap",
+                                                                }}
+                                                            >
+                                                                <LinkOutlinedIcon sx={{ fontSize: 13 }} />
+                                                                #{alreadyLinked.newRollNumber}
+                                                            </Box>
+                                                        </Tooltip>
+                                                    ) : isSelected ? (
+                                                        <Box
+                                                            sx={{
+                                                                display: "inline-flex",
+                                                                alignItems: "center",
+                                                                gap: 0.5,
+                                                                px: 1.2,
+                                                                height: 28,
+                                                                borderRadius: "999px",
+                                                                bgcolor: DASH.green,
+                                                                color: "#fff",
+                                                                fontSize: "11.5px",
+                                                                fontWeight: 700,
+                                                                whiteSpace: "nowrap",
+                                                            }}
+                                                        >
+                                                            <CheckCircleOutlineIcon sx={{ fontSize: 14 }} />
+                                                            Selected
+                                                        </Box>
+                                                    ) : (
+                                                        <Button
+                                                            size="small"
+                                                            onClick={() => onSelectRecord && onSelectRecord({ ...row, studentExitId: exitId })}
+                                                            sx={{
+                                                                textTransform: "none",
+                                                                fontSize: "11.5px",
+                                                                fontWeight: 700,
+                                                                height: 28,
+                                                                px: 1.5,
+                                                                borderRadius: "999px",
+                                                                color: "#fff",
+                                                                bgcolor: accent,
+                                                                whiteSpace: "nowrap",
+                                                                boxShadow: "none",
+                                                                "&:hover": { bgcolor: accent, filter: "brightness(0.92)" },
+                                                            }}
+                                                        >
+                                                            Link this record
+                                                        </Button>
+                                                    )}
+                                                </BodyCell>
+                                            </TableRow>
+                                        );
+                                    })
+                                )}
+                            </TableBody>
+                        )}
+                    </Table>
+                </TableContainer>
+
+                {!loading && filtered.length > ROWS_PER_PAGE && (
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            flexWrap: "wrap",
+                            gap: 1,
+                            px: 2,
+                            py: 1.2,
+                            borderTop: `1px solid ${DASH.lineSoft}`,
+                        }}
+                    >
+                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted }}>
+                            Showing {(page - 1) * ROWS_PER_PAGE + 1}–
+                            {Math.min(page * ROWS_PER_PAGE, filtered.length)} of {filtered.length}
+                        </Typography>
+                        <Pagination
+                            count={totalPages}
+                            page={page}
+                            onChange={(_, v) => setPage(v)}
+                            size="small"
+                            shape="rounded"
+                            sx={{ "& .Mui-selected": { bgcolor: `${accent} !important`, color: "#fff !important" } }}
+                        />
+                    </Box>
+                )}
+            </Box>
         </Box>
     );
 }

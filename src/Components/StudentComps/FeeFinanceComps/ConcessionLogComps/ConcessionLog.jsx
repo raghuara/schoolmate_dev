@@ -20,16 +20,18 @@ import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
 import SnackBar from '../../../SnackBar';
 import axios from 'axios';
+import { DASH, RADIUS } from "../../../DashBoardComps/dashboardTheme";
+import { FeeTableSkeleton } from "../PayStudentFees/BillingSkeletons";
 import * as XLSX from 'xlsx';
 import { GetConcessionLog } from '../../../../Api/Api';
 
 const token = '123';
 
 const FEE_TYPE_COLORS = {
-    'School Fee': { color: '#E30053', bg: '#FEF2F6' },
-    'Transport Fee': { color: '#3457D5', bg: '#EEF2FF' },
-    'ECA Fee': { color: '#8B5CF6', bg: '#F5F3FF' },
-    'Additional Fee': { color: '#FF6B35', bg: '#FFF5F2' },
+    'School Fee': { color: '#E30053', bg: '#FDECF2', border: '#F7C9DA' },
+    'Transport Fee': { color: DASH.blue, bg: DASH.blueLight, border: '#BFDBFE' },
+    'ECA Fee': { color: DASH.violet, bg: DASH.violetLight, border: '#DDD6FE' },
+    'Additional Fee': { color: DASH.cyan, bg: DASH.cyanLight, border: '#A5F3FC' },
 };
 
 const FEE_TABS = ['All', 'School Fee', 'Transport Fee', 'ECA Fee', 'Additional Fee'];
@@ -38,7 +40,6 @@ const formatINR = (n) => `₹${(Number(n) || 0).toLocaleString('en-IN')}`;
 
 export default function ConcessionLog() {
     const navigate = useNavigate();
-    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     const grades = useSelector(selectGrades);
     const websiteSettings = useSelector(selectWebsiteSettings);
 
@@ -164,23 +165,23 @@ export default function ConcessionLog() {
     };
 
     const thCell = {
-        backgroundColor: '#faf6fc',
+        backgroundColor: DASH.surface,
         borderRight: 1,
-        borderColor: '#E8DDEA',
+        borderColor: DASH.line,
         textAlign: 'center',
         fontWeight: 700,
-        fontSize: '11px',
-        color: '#4B5563',
+        fontSize: '10.5px',
+        color: DASH.muted,
         textTransform: 'uppercase',
-        letterSpacing: 0.3,
-        py: 1.3,
+        letterSpacing: '0.06em',
+        py: 1.2,
         px: 1.5,
         whiteSpace: 'nowrap',
     };
 
     const tdCell = {
         borderRight: 1,
-        borderColor: '#F0E6F0',
+        borderColor: DASH.line,
         textAlign: 'center',
         fontSize: '12px',
         py: 1.2,
@@ -193,31 +194,28 @@ export default function ConcessionLog() {
 
             {/* Fixed Header */}
             <Box sx={{
-                position: 'fixed',
-                top: '60px',
-                left: isExpanded ? '260px' : '80px',
-                right: 0,
-                backgroundColor: '#f2f2f2',
+                backgroundColor: DASH.canvas,
                 px: 2,
-                borderTop: '1px solid #ddd',
-                borderBottom: '1px solid #ddd',
-                zIndex: 1200,
-                transition: 'left 0.3s ease-in-out',
-                py: 0.7,
+                py: 1.2,
+                borderBottom: `1px solid ${DASH.line}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 1.5,
+                flexWrap: 'wrap',
             }}>
-                <Grid container>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: 'flex', alignItems: 'center' }}>
-                        <IconButton onClick={() => navigate(-1)} sx={{ width: '27px', height: '27px', mt: '2px' }}>
-                            <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                        <IconButton onClick={() => navigate(-1)} sx={{ width: 28, height: 28 }}>
+                            <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                         </IconButton>
-                        <Box sx={{ ml: 1 }}>
-                            <Typography sx={{ fontWeight: 700, fontSize: '18px', lineHeight: 1.1 }}>Concession Log</Typography>
-                            <Typography sx={{ fontSize: '11px', color: '#888' }}>
+                        <Box sx={{ ml: 1, minWidth: 0 }}>
+                            <Typography sx={{ fontWeight: 700, fontSize: '20px', color: DASH.ink, lineHeight: 1.2 }}>Concession Log</Typography>
+                            <Typography sx={{ fontSize: '11.5px', color: DASH.muted, whiteSpace: 'nowrap' }}>
                                 All special concessions applied across {selectedYear}
                             </Typography>
                         </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'end', gap: 1.5 }}>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'end', gap: 1, ml: 'auto', flexWrap: 'wrap' }}>
                         <Autocomplete
                             size="small"
                             options={grades}
@@ -234,19 +232,18 @@ export default function ConcessionLog() {
                                 />
                             )}
                         />
-                    </Grid>
-                </Grid>
+                    </Box>
             </Box>
 
             {/* Content */}
-            <Box sx={{ px: 2, pt: '68px', pb: 3 }}>
+            <Box sx={{ px: 2, pt: 2, pb: 3 }}>
 
         
                 {/* ═══ Pill Tabs + Search + Export ═══ */}
                 <Box sx={{
                     display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5,
-                    mb: 2, p: 1.2, borderRadius: '50px', bgcolor: '#f2f2f2',
-                    border: '1px solid #E5E7EB',
+                    mb: 2, p: 1.2, borderRadius: '50px', bgcolor: DASH.lineSoft,
+                    border: `1px solid ${DASH.line}`,
                 }}>
                     {/* Category Pill Tabs */}
                     <Tabs
@@ -262,7 +259,7 @@ export default function ConcessionLog() {
                             '& .MuiTab-root': {
                                 textTransform: 'none',
                                 fontSize: '12px',
-                                color: '#555',
+                                color: DASH.muted,
                                 fontWeight: 700,
                                 minWidth: 0,
                                 minHeight: '30px',
@@ -271,8 +268,8 @@ export default function ConcessionLog() {
                                 m: 0.6,
                             },
                             '& .Mui-selected': {
-                                color: `${websiteSettings.textColor} !important`,
-                                bgcolor: websiteSettings.mainColor,
+                                color: `${'#fff'} !important`,
+                                bgcolor: '#E30053',
                                 borderRadius: '50px',
                                 boxShadow: '1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)',
                                 border: '1px solid rgba(0,0,0,0.1)',
@@ -292,7 +289,7 @@ export default function ConcessionLog() {
                                 input: {
                                     startAdornment: (
                                         <InputAdornment position="start">
-                                            <SearchIcon sx={{ fontSize: 18, color: '#555' }} />
+                                            <SearchIcon sx={{ fontSize: 18, color: DASH.muted }} />
                                         </InputAdornment>
                                     ),
                                     sx: {
@@ -312,7 +309,7 @@ export default function ConcessionLog() {
                                     backgroundColor: '#fff',
                                 },
                                 '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: websiteSettings.mainColor,
+                                    borderColor: '#E30053',
                                 },
                             }}
                             size="small"
@@ -324,8 +321,8 @@ export default function ConcessionLog() {
                             size="small"
                             sx={{
                                 height: 28, fontSize: '11px', fontWeight: 700,
-                                bgcolor: '#fff', color: '#374151',
-                                border: '1px solid #E5E7EB',
+                                bgcolor: '#fff', color: DASH.text,
+                                border: `1px solid ${DASH.line}`,
                             }}
                         />
 
@@ -336,9 +333,9 @@ export default function ConcessionLog() {
                             onClick={handleExport}
                             sx={{
                                 textTransform: 'none', fontSize: '12px', fontWeight: 700,
-                                bgcolor: websiteSettings.mainColor, color: websiteSettings.textColor,
+                                bgcolor: '#E30053', color: '#fff',
                                 borderRadius: '50px', height: 30, px: 2, boxShadow: 'none',
-                                '&:hover': { bgcolor: websiteSettings.mainColor, opacity: 0.9, boxShadow: 'none' },
+                                '&:hover': { bgcolor: '#E30053', opacity: 0.9, boxShadow: 'none' },
                             }}
                         >
                             Export
@@ -349,7 +346,7 @@ export default function ConcessionLog() {
                 {/* Active filter summary */}
                 {(searchQuery || selectedGrade || feeTypeFilter !== 'All') && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
-                        <Typography sx={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>
+                        <Typography sx={{ fontSize: '11px', color: DASH.muted, fontWeight: 600 }}>
                             Active filters:
                         </Typography>
                         {feeTypeFilter !== 'All' && (
@@ -370,7 +367,7 @@ export default function ConcessionLog() {
                                 label={`Grade: ${selectedGrade.sign}`}
                                 size="small"
                                 onDelete={() => setSelectedGradeId(null)}
-                                sx={{ height: 22, fontSize: '10px', fontWeight: 600, bgcolor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE' }}
+                                sx={{ height: 22, fontSize: '10px', fontWeight: 600, bgcolor: DASH.blueLight, color: DASH.blue, border: `1px solid #BFDBFE` }}
                             />
                         )}
                         {searchQuery && (
@@ -378,7 +375,7 @@ export default function ConcessionLog() {
                                 label={`Search: "${searchQuery}"`}
                                 size="small"
                                 onDelete={() => setSearchQuery('')}
-                                sx={{ height: 22, fontSize: '10px', fontWeight: 600, bgcolor: '#F3F4F6', color: '#374151', border: '1px solid #D1D5DB' }}
+                                sx={{ height: 22, fontSize: '10px', fontWeight: 600, bgcolor: DASH.lineSoft, color: DASH.text, border: '1px solid #D1D5DB' }}
                             />
                         )}
                     </Box>
@@ -387,7 +384,7 @@ export default function ConcessionLog() {
                 {/* Colored Tab Label */}
                 <Box sx={{
                     display: 'inline-flex', alignItems: 'center', gap: 0.8,
-                    bgcolor: websiteSettings.mainColor, color: websiteSettings.textColor,
+                    bgcolor: '#E30053', color: '#fff',
                     fontSize: '12px', px: 2.5, py: 0.5, ml: '15px',
                     fontWeight: 700, letterSpacing: 0.3,
                     borderTopLeftRadius: '7px', borderTopRightRadius: '7px',
@@ -398,14 +395,11 @@ export default function ConcessionLog() {
 
                 {/* Table */}
                 <Paper elevation={0} sx={{
-                    border: '1px solid #E8DDEA', borderRadius: '5px', overflow: 'auto',
+                    border: `1px solid ${DASH.line}`, borderRadius: '5px', overflow: 'auto',
                     bgcolor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                 }}>
                     {isLoading ? (
-                        <Box sx={{ p: 6, textAlign: 'center' }}>
-                            <LinearProgress sx={{ mb: 2, mx: 'auto', width: '40%', borderRadius: 2, '& .MuiLinearProgress-bar': { bgcolor: websiteSettings.mainColor } }} />
-                            <Typography sx={{ fontSize: '13px', color: '#9CA3AF' }}>Loading concession logs...</Typography>
-                        </Box>
+                        <FeeTableSkeleton columns={11} rows={8} />
                     ) : (
                         <Table sx={{ minWidth: 1200 }}>
                             <TableHead>
@@ -428,27 +422,27 @@ export default function ConcessionLog() {
                             <TableBody>
                                 {pagedLogs.length > 0 ? (
                                     pagedLogs.map((log, idx) => {
-                                        const ftc = FEE_TYPE_COLORS[log.feeType] || { color: '#555', bg: '#F9FAFB' };
+                                        const ftc = FEE_TYPE_COLORS[log.feeType] || { color: DASH.muted, bg: DASH.surface };
                                         const origAmount = log.originalAmount ?? log.originalAmt ?? 0;
                                         const globalIdx = page * rowsPerPage + idx;
                                         return (
                                             <TableRow
                                                 key={globalIdx}
                                                 sx={{
-                                                    bgcolor: idx % 2 === 0 ? '#fff' : '#FAFAFA',
-                                                    '&:hover': { bgcolor: '#F5F0FA' },
+                                                    bgcolor: idx % 2 === 0 ? '#fff' : DASH.surface,
+                                                    '&:hover': { bgcolor: DASH.violetLight },
                                                     transition: 'background-color 0.15s',
                                                 }}
                                             >
-                                                <TableCell sx={{ ...tdCell, color: '#9CA3AF', fontWeight: 600 }}>{globalIdx + 1}</TableCell>
+                                                <TableCell sx={{ ...tdCell, color: DASH.faint, fontWeight: 600 }}>{globalIdx + 1}</TableCell>
 
                                                 {/* Student */}
                                                 <TableCell sx={tdCell}>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111' }}>{log.studentName}</Typography>
-                                                    <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>Roll: {log.rollNo}</Typography>
+                                                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: DASH.ink }}>{log.studentName}</Typography>
+                                                    <Typography sx={{ fontSize: '10px', color: DASH.faint, fontWeight: 500 }}>Roll: {log.rollNo}</Typography>
                                                 </TableCell>
 
-                                                <TableCell sx={{ ...tdCell, color: '#555' }}>{log.gradeSection}</TableCell>
+                                                <TableCell sx={{ ...tdCell, color: DASH.muted }}>{log.gradeSection}</TableCell>
 
                                                 {/* Fee Type chip */}
                                                 <TableCell sx={tdCell}>
@@ -463,16 +457,16 @@ export default function ConcessionLog() {
                                                     />
                                                 </TableCell>
 
-                                                <TableCell sx={{ ...tdCell, color: '#333' }}>{log.feeName}</TableCell>
+                                                <TableCell sx={{ ...tdCell, color: DASH.text }}>{log.feeName}</TableCell>
 
                                                 {/* Amounts */}
-                                                <TableCell sx={{ ...tdCell, color: '#111', fontWeight: 600 }}>
+                                                <TableCell sx={{ ...tdCell, color: DASH.ink, fontWeight: 600 }}>
                                                     {formatINR(origAmount)}
                                                 </TableCell>
-                                                <TableCell sx={{ ...tdCell, fontWeight: 700, color: '#DC2626' }}>
+                                                <TableCell sx={{ ...tdCell, fontWeight: 700, color: DASH.red }}>
                                                     − {formatINR(log.concessionAmt ?? 0)}
                                                 </TableCell>
-                                                <TableCell sx={{ ...tdCell, fontWeight: 700, color: (log.pendingAmount || 0) > 0 ? '#F59E0B' : '#059669' }}>
+                                                <TableCell sx={{ ...tdCell, fontWeight: 700, color: (log.pendingAmount || 0) > 0 ? DASH.amber : DASH.green }}>
                                                     {formatINR(log.pendingAmount ?? 0)}
                                                 </TableCell>
 
@@ -480,30 +474,30 @@ export default function ConcessionLog() {
                                                 <TableCell sx={tdCell}>
                                                     {log.concessionCategory ? (
                                                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.3 }}>
-                                                            <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111' }}>
+                                                            <Typography sx={{ fontSize: '12px', fontWeight: 600, color: DASH.ink }}>
                                                                 {log.concessionCategory}
                                                             </Typography>
                                                             {log.isSeparateDetailsPerFee === 'Y' && (
                                                                 <Chip label="Per-fee" size="small"
-                                                                    sx={{ fontSize: 9, fontWeight: 700, height: 16, bgcolor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE', '& .MuiChip-label': { px: 0.6 } }}
+                                                                    sx={{ fontSize: 9, fontWeight: 700, height: 16, bgcolor: DASH.blueLight, color: DASH.blue, border: `1px solid #BFDBFE`, '& .MuiChip-label': { px: 0.6 } }}
                                                                 />
                                                             )}
                                                             {log.isSeparateDetailsPerFee === 'N' && (
                                                                 <Chip label="Common" size="small"
-                                                                    sx={{ fontSize: 9, fontWeight: 700, height: 16, bgcolor: '#F0FDF4', color: '#059669', border: '1px solid #A7F3D0', '& .MuiChip-label': { px: 0.6 } }}
+                                                                    sx={{ fontSize: 9, fontWeight: 700, height: 16, bgcolor: DASH.greenLight, color: DASH.green, border: `1px solid ${DASH.green}4D`, '& .MuiChip-label': { px: 0.6 } }}
                                                                 />
                                                             )}
                                                         </Box>
                                                     ) : (
-                                                        <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>
+                                                        <Typography sx={{ fontSize: '12px', color: DASH.faint }}>—</Typography>
                                                     )}
                                                 </TableCell>
 
                                                 {/* Recommended By */}
                                                 <TableCell sx={tdCell}>
                                                     {log.recommendedBy
-                                                        ? <Typography sx={{ fontSize: '12px', color: '#333' }}>{log.recommendedBy}</Typography>
-                                                        : <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>}
+                                                        ? <Typography sx={{ fontSize: '12px', color: DASH.text }}>{log.recommendedBy}</Typography>
+                                                        : <Typography sx={{ fontSize: '12px', color: DASH.faint }}>—</Typography>}
                                                 </TableCell>
 
                                                 {/* Reason */}
@@ -511,7 +505,7 @@ export default function ConcessionLog() {
                                                     {log.recommendationReason ? (
                                                         <Tooltip title={log.recommendationReason} arrow>
                                                             <Typography sx={{
-                                                                fontSize: '12px', color: '#333',
+                                                                fontSize: '12px', color: DASH.text,
                                                                 maxWidth: 180, mx: 'auto',
                                                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                             }}>
@@ -519,18 +513,18 @@ export default function ConcessionLog() {
                                                             </Typography>
                                                         </Tooltip>
                                                     ) : (
-                                                        <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>
+                                                        <Typography sx={{ fontSize: '12px', color: DASH.faint }}>—</Typography>
                                                     )}
                                                 </TableCell>
 
                                                 {/* Concession By */}
                                                 <TableCell sx={tdCell}>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111' }}>{log.concessionByName}</Typography>
-                                                    <Typography sx={{ fontSize: '10px', color: '#9CA3AF' }}>{log.concessionByRollNumber}</Typography>
+                                                    <Typography sx={{ fontSize: '12px', fontWeight: 600, color: DASH.ink }}>{log.concessionByName}</Typography>
+                                                    <Typography sx={{ fontSize: '10px', color: DASH.faint }}>{log.concessionByRollNumber}</Typography>
                                                 </TableCell>
 
                                                 {/* Date */}
-                                                <TableCell sx={{ ...tdCell, borderRight: 0, color: '#555', whiteSpace: 'nowrap' }}>
+                                                <TableCell sx={{ ...tdCell, borderRight: 0, color: DASH.muted, whiteSpace: 'nowrap' }}>
                                                     {log.concessionDate
                                                         ? new Date(log.concessionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
                                                         : '-'}
@@ -541,13 +535,13 @@ export default function ConcessionLog() {
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={13} sx={{ textAlign: 'center', py: 8, borderBottom: 'none' }}>
-                                            <Avatar sx={{ width: 60, height: 60, bgcolor: '#F3F4F6', mx: 'auto', mb: 1.5 }}>
-                                                <ReceiptLongIcon sx={{ fontSize: 32, color: '#9CA3AF' }} />
+                                            <Avatar sx={{ width: 60, height: 60, bgcolor: DASH.lineSoft, mx: 'auto', mb: 1.5 }}>
+                                                <ReceiptLongIcon sx={{ fontSize: 32, color: DASH.faint }} />
                                             </Avatar>
-                                            <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>
+                                            <Typography sx={{ fontSize: '15px', fontWeight: 700, color: DASH.text }}>
                                                 No concession records found
                                             </Typography>
-                                            <Typography sx={{ fontSize: '12px', color: '#9CA3AF', mt: 0.5 }}>
+                                            <Typography sx={{ fontSize: '12px', color: DASH.faint, mt: 0.5 }}>
                                                 {searchQuery || selectedGrade || feeTypeFilter !== 'All'
                                                     ? 'Try adjusting your filters or clearing the search.'
                                                     : 'Special concessions applied from the Billing Screen will appear here.'}
@@ -558,20 +552,20 @@ export default function ConcessionLog() {
 
                                 {/* Totals row (all filtered records — not per page) */}
                                 {filteredLogs.length > 0 && (
-                                    <TableRow sx={{ bgcolor: '#FAF6FC' }}>
-                                        <TableCell colSpan={5} sx={{ ...tdCell, textAlign: 'right', fontWeight: 700, color: '#374151', borderTop: '2px solid #E8DDEA' }}>
+                                    <TableRow sx={{ bgcolor: DASH.surface }}>
+                                        <TableCell colSpan={5} sx={{ ...tdCell, textAlign: 'right', fontWeight: 700, color: DASH.text, borderTop: `2px solid ${DASH.line}` }}>
                                             Totals (all {stats.totalRecords} filtered)
                                         </TableCell>
-                                        <TableCell sx={{ ...tdCell, fontWeight: 800, color: '#111', borderTop: '2px solid #E8DDEA' }}>
+                                        <TableCell sx={{ ...tdCell, fontWeight: 800, color: DASH.ink, borderTop: `2px solid ${DASH.line}` }}>
                                             {formatINR(stats.totalOriginal)}
                                         </TableCell>
-                                        <TableCell sx={{ ...tdCell, fontWeight: 800, color: '#DC2626', borderTop: '2px solid #E8DDEA' }}>
+                                        <TableCell sx={{ ...tdCell, fontWeight: 800, color: DASH.red, borderTop: `2px solid ${DASH.line}` }}>
                                             − {formatINR(stats.totalConcession)}
                                         </TableCell>
-                                        <TableCell sx={{ ...tdCell, fontWeight: 800, color: '#F59E0B', borderTop: '2px solid #E8DDEA' }}>
+                                        <TableCell sx={{ ...tdCell, fontWeight: 800, color: DASH.amber, borderTop: `2px solid ${DASH.line}` }}>
                                             {formatINR(stats.totalPending)}
                                         </TableCell>
-                                        <TableCell colSpan={5} sx={{ ...tdCell, borderRight: 0, borderTop: '2px solid #E8DDEA' }} />
+                                        <TableCell colSpan={5} sx={{ ...tdCell, borderRight: 0, borderTop: `2px solid ${DASH.line}` }} />
                                     </TableRow>
                                 )}
                             </TableBody>
@@ -589,24 +583,24 @@ export default function ConcessionLog() {
                             onRowsPerPageChange={handleChangeRowsPerPage}
                             rowsPerPageOptions={[10, 25, 50, 100]}
                             sx={{
-                                borderTop: '1px solid #E8DDEA',
-                                bgcolor: '#FAFAFA',
+                                borderTop: `1px solid ${DASH.line}`,
+                                bgcolor: DASH.surface,
                                 '& .MuiTablePagination-toolbar': { minHeight: 44, px: 2 },
                                 '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
                                     fontSize: '12px',
                                     fontWeight: 600,
-                                    color: '#374151',
+                                    color: DASH.text,
                                     margin: 0,
                                 },
                                 '& .MuiTablePagination-select': {
                                     fontSize: '12px',
                                     fontWeight: 700,
-                                    color: websiteSettings.mainColor,
+                                    color: '#E30053',
                                 },
                                 '& .MuiTablePagination-actions button': {
-                                    color: websiteSettings.mainColor,
-                                    '&:hover': { bgcolor: `${websiteSettings.mainColor}15` },
-                                    '&.Mui-disabled': { color: '#D1D5DB' },
+                                    color: '#E30053',
+                                    '&:hover': { bgcolor: `${'#E30053'}15` },
+                                    '&.Mui-disabled': { color: DASH.faint },
                                 },
                             }}
                         />

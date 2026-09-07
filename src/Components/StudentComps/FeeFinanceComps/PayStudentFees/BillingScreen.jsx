@@ -1,6 +1,5 @@
 import { Box } from '@mui/system'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
 import { Accordion, AccordionDetails, AccordionSummary, Alert, Avatar, Button, Card, CardContent, Checkbox, Chip, CircularProgress, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, Grid, IconButton, InputAdornment, LinearProgress, Paper, Radio, Step, StepLabel, Stepper, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, ThemeProvider, Tooltip, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -20,7 +19,10 @@ import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined';
 import axios from 'axios';
+import { DASH, RADIUS } from "../../../DashBoardComps/dashboardTheme";
+import { FeeTableSkeleton, StudentCardSkeleton, FeeBandSkeleton } from "./BillingSkeletons";
 import { findStudentEcaFeesBilling, findStudents, findStudentSchoolFeesBilling, findStudentAdditionalFeesBilling, postPaymentMethod, postEcaPaymentMethod, postAdditionalPaymentMethod, findStudentTransportFeesBilling, postTransportPaymentMethod, getBillingUser } from '../../../../Api/Api';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
@@ -278,11 +280,11 @@ export default function BillingScreen() {
   const paymentSteps = ['Select Method', 'Enter Details', 'Confirm & Pay'];
 
   const paymentMethodOptions = [
-    { id: 'cash', name: 'Cash Payment', icon: <PaymentsIcon />, description: 'Pay with cash at counter', color: '#10b981' },
+    { id: 'cash', name: 'Cash Payment', icon: <PaymentsIcon />, description: 'Pay with cash at counter', color: DASH.green },
     { id: 'upi', name: 'UPI Payment', icon: <AccountBalanceWalletIcon />, description: 'GPay, PhonePe, Paytm', color: '#8b5cf6' },
-    { id: 'netbanking', name: 'Net Banking', icon: <AccountBalanceIcon />, description: 'NEFT / RTGS Transfer', color: '#3b82f6' },
-    { id: 'cheque', name: 'Cheque Deposit', icon: <ReceiptLongIcon />, description: 'Pay via bank cheque', color: '#f59e0b' },
-    { id: 'card', name: 'Card Payment', icon: <CreditCardIcon />, description: 'Credit / Debit Card', color: '#ef4444' },
+    { id: 'netbanking', name: 'Net Banking', icon: <AccountBalanceIcon />, description: 'NEFT / RTGS Transfer', color: DASH.blue },
+    { id: 'cheque', name: 'Cheque Deposit', icon: <ReceiptLongIcon />, description: 'Pay via bank cheque', color: DASH.amber },
+    { id: 'card', name: 'Card Payment', icon: <CreditCardIcon />, description: 'Credit / Debit Card', color: DASH.red },
   ];
 
 
@@ -964,10 +966,10 @@ export default function BillingScreen() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Paid': return '#10b981';
-      case 'Partially Paid': return '#f59e0b';
-      case 'Unpaid': return '#ef4444';
-      default: return '#64748b';
+      case 'Paid': return DASH.green;
+      case 'Partially Paid': return DASH.amber;
+      case 'Unpaid': return DASH.red;
+      default: return DASH.muted;
     }
   };
 
@@ -993,16 +995,16 @@ export default function BillingScreen() {
       if (!dueDate || dueDate === '' || dueDate === '-') {
         return {
           text: 'No Due Date',
-          color: '#94a3b8',
-          bgColor: '#f1f5f9',
+          color: DASH.faint,
+          bgColor: DASH.lineSoft,
           icon: '📅',
           status: 'paid'
         };
       }
       return {
         text: dueDate,
-        color: '#64748b',
-        bgColor: '#f1f5f9',
+        color: DASH.muted,
+        bgColor: DASH.lineSoft,
         icon: '📅',
         status: 'paid'
       };
@@ -1011,8 +1013,8 @@ export default function BillingScreen() {
     if (!dueDate || dueDate === '' || dueDate === '-') {
       return {
         text: 'No Due Date',
-        color: '#94a3b8',
-        bgColor: '#f1f5f9',
+        color: DASH.faint,
+        bgColor: DASH.lineSoft,
         icon: '📅',
         status: 'none'
       };
@@ -1023,8 +1025,8 @@ export default function BillingScreen() {
     if (daysRemaining === null) {
       return {
         text: 'Invalid Date',
-        color: '#94a3b8',
-        bgColor: '#f1f5f9',
+        color: DASH.faint,
+        bgColor: DASH.lineSoft,
         icon: '❓',
         status: 'invalid'
       };
@@ -1049,7 +1051,7 @@ export default function BillingScreen() {
     } else if (daysRemaining <= 3) {
       return {
         text: `${daysRemaining} day${daysRemaining > 1 ? 's' : ''} left`,
-        color: '#f59e0b',
+        color: DASH.amber,
         bgColor: '#fef3c7',
         icon: '⏰',
         status: 'soon'
@@ -1057,7 +1059,7 @@ export default function BillingScreen() {
     } else if (daysRemaining <= 7) {
       return {
         text: `${daysRemaining} days left`,
-        color: '#3b82f6',
+        color: DASH.blue,
         bgColor: '#dbeafe',
         icon: '📆',
         status: 'upcoming'
@@ -1065,7 +1067,7 @@ export default function BillingScreen() {
     } else {
       return {
         text: dueDate,
-        color: '#10b981',
+        color: DASH.green,
         bgColor: '#d1fae5',
         icon: '✓',
         status: 'safe'
@@ -1368,20 +1370,30 @@ export default function BillingScreen() {
   return (
     <Box sx={{ width: "100%", }}>
       <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-      {isLoading && <Loader />}
-      <Box sx={{ backgroundColor: "#f2f2f2", px: 2, py: 1, borderBottom: "1px solid #ddd", mb: 0.13, }}>
-        <Grid container>
-          <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center" }}>
-            <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: '2px', }}>
-              <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-            </IconButton>
-            <Box>
-              <Typography sx={{ fontWeight: "600", fontSize: "19px" }} >Billing Screen</Typography>
-            </Box>
-          </Grid>
+      <Box
+        sx={{
+          backgroundColor: DASH.canvas,
+          px: 2,
+          py: 1.2,
+          borderBottom: `1px solid ${DASH.line}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1.5,
+          flexWrap: "wrap",
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+          <IconButton onClick={() => navigate(-1)} sx={{ width: 28, height: 28 }}>
+            <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
+          </IconButton>
+          <Box sx={{ ml: 1, minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>Billing Screen</Typography>
+            <Typography sx={{ fontSize: "11.5px", color: DASH.muted, whiteSpace: "nowrap" }}>Collect fees and record the payment method</Typography>
+          </Box>
+        </Box>
 
-          <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: 'end' }}>
-            <Box sx={{ display: "flex", alignItems: "center", }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: "auto", flexWrap: "wrap" }}>
               {canConcession && (
               <Button
                 onClick={() => navigate('/dashboardmenu/fee/special', {
@@ -1397,24 +1409,30 @@ export default function BillingScreen() {
                     selectedYear
                   }
                 })}
+                startIcon={<LocalOfferOutlinedIcon sx={{ fontSize: 16 }} />}
                 sx={{
                   textTransform: "none",
-                  backgroundColor: "#000",
-                  color: "#fff",
-                  mr: 2,
-                  fontSize: '14px',
-                  height: "33px"
+                  fontSize: "12.5px",
+                  fontWeight: 700,
+                  height: 34,
+                  px: 1.8,
+                  borderRadius: RADIUS,
+                  color: DASH.violet,
+                  backgroundColor: DASH.violetLight,
+                  border: "1px solid #DDD6FE",
+                  boxShadow: "none",
+                  whiteSpace: "nowrap",
+                  "& .MuiButton-startIcon": { mr: 0.6 },
+                  "&:hover": { backgroundColor: DASH.violetLight, borderColor: DASH.violet, boxShadow: "none" },
                 }}
-              >Special Concession / Reconcession</Button>
+              >Special Concession</Button>
               )}
-            </Box>
-          </Grid>
-        </Grid>
+        </Box>
       </Box>
 
       <Box sx={{ height: "83vh", overflowY: "auto", overflowX: "hidden" }}>
-        <Box sx={{ display: "flex", pt: 0.5, justifyContent: "end", px: 2 }}>
-          <Typography sx={{ fontWeight: "600", color: "#555", fontSize: "14px" }}>Billing on :</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", pt: 1.5, justifyContent: "end", px: 2 }}>
+          <Typography sx={{ fontWeight: 600, color: DASH.muted, fontSize: "12px" }}>Billing on</Typography>
           <ThemeProvider theme={darkTheme}>
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DatePicker
@@ -1439,158 +1457,120 @@ export default function BillingScreen() {
               />
             </LocalizationProvider>
           </ThemeProvider>
-          <Box onClick={handleOpenCal} sx={{ display: "flex", cursor: "pointer" }}>
-            <CalendarMonthIcon style={{ marginTop: "0px", fontSize: "20px", marginRight: "3px", textDecoration: "underline" }} />
-            <Typography style={{ fontSize: "12px", color: "#777", borderBottom: "1px solid #000" }}>
+          <Box
+            onClick={handleOpenCal}
+            sx={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 0.7,
+              ml: 1,
+              height: 28,
+              px: 1.2,
+              borderRadius: RADIUS,
+              bgcolor: "#fff",
+              border: `1px solid ${DASH.line}`,
+              cursor: "pointer",
+              transition: "border-color .2s ease, background-color .2s ease",
+              "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+            }}
+          >
+            <CalendarMonthIcon sx={{ fontSize: 15, color: DASH.muted }} />
+            <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.ink, whiteSpace: "nowrap" }}>
               {dayjs(selectedDate).format('DD MMMM YYYY')}
             </Typography>
           </Box>
         </Box>
-        <Box sx={{ px: 2 }}>
-          <Grid container >
-            <Grid
-              size={{ xs: 12, md: 4.8, lg: 1.6 }}
-              sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
-            >
-              <img
+        <Box sx={{ px: 2, pt: 1 }}>
+          {isLoading ? <StudentCardSkeleton /> : (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: { xs: 2, md: 3 },
+              flexWrap: "wrap",
+              bgcolor: "#FFF7FA",
+              border: "1px solid #F7C9DA",
+              borderLeft: "3px solid #E30053",
+              borderRadius: "10px",
+              boxShadow: "none",
+              px: 2,
+              py: 1.6,
+              mb: 2,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.6, minWidth: 0 }}>
+              <Box
+                component="img"
                 src={studentInfo?.image || avatarImage}
-                alt="student"
-                style={{
-                  border: "1px solid #0000002A",
-                  borderRadius: "5px",
-                  width: "110px",
-                  height: "100px",
-                  objectFit: "cover",
-                }}
+                alt={studentInfo?.name || "student"}
                 onError={(e) => (e.target.src = avatarImage)}
+                sx={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  flexShrink: 0,
+                  bgcolor: "#fff",
+                  border: `1px solid #F7C9DA`,
+                }}
               />
-            </Grid>
-            <Grid
-              size={{ xs: 12, md: 4.8, lg: 10.4 }} >
-              <Grid container sx={{ pt: 1.5 }}>
-                <Grid
-                  size={{ xs: 12, md: 4.8, lg: 2.3 }}
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
                   sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    borderBottom: "1px dotted #0000005A",
-                    borderTop: "1px dotted #0000005A",
-                    px: 2,
-                    py: 1,
-                    borderRight: "1px dotted #0000005A",
+                    fontSize: "16px",
+                    fontWeight: 700,
+                    color: DASH.ink,
+                    lineHeight: 1.3,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    maxWidth: 220,
                   }}
                 >
-                  <Box>
-                    <Typography sx={{ color: "#B0B0B0", fontSize: "12px" }}>
-                      Student Name
-                    </Typography>
-                    <Typography
-                      sx={{
-                        color: "#000",
-                        fontSize: "16px",
-                        py: 0.5,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        maxWidth: 150,
-                        cursor: "default",
-                        display: "block",
-                      }}
-                    >
-                      {studentInfo?.name || "—"}
-                    </Typography>
-                  </Box>
-                </Grid>
+                  {studentInfo?.name || "—"}
+                </Typography>
+                <Typography sx={{ fontSize: "12px", color: DASH.muted, fontFamily: "monospace" }}>
+                  #{studentInfo?.rollNumber || "—"}
+                </Typography>
+              </Box>
+            </Box>
 
-                <Grid
-                  size={{ xs: 12, md: 4.8, lg: 1.9 }}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    borderBottom: "1px dotted #0000005A",
-                    borderTop: "1px dotted #0000005A",
-                    px: 2,
-                    py: 1,
-                    borderRight: "1px dotted #0000005A",
-                  }}
-                >
-                  <Box>
-                    <Typography sx={{ color: "#B0B0B0", fontSize: "12px" }}>
-                      Roll No
-                    </Typography>
-                    <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      {studentInfo?.rollNumber || "—"}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid
-                  size={{ xs: 12, md: 4.8, lg: 1.9 }}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    borderBottom: "1px dotted #0000005A",
-                    borderTop: "1px dotted #0000005A",
-                    px: 2,
-                    py: 1,
-                    borderRight: "1px dotted #0000005A",
-                  }}
-                >
-                  <Box>
-                    <Typography sx={{ color: "#B0B0B0", fontSize: "12px" }}>
-                      Gender
-                    </Typography>
-                    <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      {studentInfo?.gender || "—"}
-                    </Typography>
-                  </Box>
-                </Grid>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: { xs: 2, md: 3.5 },
+                flexWrap: "wrap",
+                pl: { xs: 0, md: 3 },
+                borderLeft: { xs: "none", md: `1px solid ${DASH.lineSoft}` },
+              }}
+            >
+              {[
+                { label: "Gender", value: studentInfo?.gender },
+                { label: "Grade", value: studentInfo?.grade },
+                { label: "Section", value: studentInfo?.section },
+              ].map((f) => (
+                <Box key={f.label} sx={{ minWidth: 62 }}>
+                  <Typography
+                    sx={{
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      color: DASH.faint,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {f.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: "13.5px", fontWeight: 600, color: DASH.ink, mt: 0.3 }}>
+                    {f.value || "—"}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
 
-                <Grid
-                  size={{ xs: 12, md: 4.8, lg: 1.9 }}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    borderBottom: "1px dotted #0000005A",
-                    borderTop: "1px dotted #0000005A",
-                    px: 2,
-                    py: 1,
-                    borderRight: "1px dotted #0000005A",
-                  }}
-                >
-                  <Box>
-                    <Typography sx={{ color: "#B0B0B0", fontSize: "12px" }}>
-                      Grade
-                    </Typography>
-                    <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      {studentInfo?.grade || "—"}
-                    </Typography>
-                  </Box>
-                </Grid>
-
-                <Grid
-                  size={{ xs: 12, md: 4.8, lg: 1.9 }}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    borderBottom: "1px dotted #0000005A",
-                    borderTop: "1px dotted #0000005A",
-                    px: 2,
-                    py: 1,
-                    borderRight: "1px dotted #0000005A",
-                  }}
-                >
-                  <Box>
-                    <Typography sx={{ color: "#B0B0B0", fontSize: "12px" }}>
-                      Section
-                    </Typography>
-                    <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      {studentInfo?.section || "—"}
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            </Grid>
-          </Grid>
+          </Box>
+          )}
           <Grid container sx={{ display: "flex", justifyContent: "center" }}>
             <Grid
               size={{ xs: 12, md: "auto", lg: "auto" }}
@@ -1609,10 +1589,11 @@ export default function BillingScreen() {
                   },
                 }}
                 sx={{
-                  backgroundColor: "#fff",
-                  minHeight: "10px",
-                  borderRadius: "50px",
-                  border: "1px solid rgba(0,0,0,0.1)",
+                  backgroundColor: DASH.lineSoft,
+                  minHeight: 0,
+                  borderRadius: "999px",
+                  border: `1px solid ${DASH.line}`,
+                  p: 0.5,
 
                   "& .MuiTabs-flexContainer": {
                     justifyContent: "center",
@@ -1620,22 +1601,25 @@ export default function BillingScreen() {
 
                   "& .MuiTab-root": {
                     textTransform: "none",
-                    fontSize: "13px",
-                    color: "#555",
-                    fontWeight: "bold",
+                    fontSize: "12.5px",
+                    color: DASH.muted,
+                    fontWeight: 600,
                     minWidth: 0,
-                    minHeight: "30px",
-                    height: "30px",
-                    px: 2,
-                    m: 0.8,
-                  },
+                    minHeight: 28,
+                    height: 28,
+                    px: 1.8,
+                    borderRadius: "999px",
+                    transition: "color .18s ease, background-color .18s ease",
+                    "&:hover": { color: DASH.text },
+                    },
 
                   "& .Mui-selected": {
-                    color: `${websiteSettings.textColor} !important`,
-                    bgcolor: websiteSettings.mainColor,
-                    borderRadius: "50px",
-                    boxShadow: "1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)",
-                    border: "1px solid rgba(0,0,0,0.1)",
+                    color: "#fff !important",
+                    bgcolor: "#E30053",
+                    fontWeight: 700,
+                    borderRadius: "999px",
+                    boxShadow: "0 1px 3px rgba(227,0,83,0.30)",
+                    "&:hover": { bgcolor: "#C40047" },
                   },
                 }}
               >
@@ -1647,22 +1631,28 @@ export default function BillingScreen() {
             </Grid>
           </Grid>
 
-          <Box sx={{ display: "flex", justifyContent:"space-between" }}>
-          <Box sx={{ display: "flex", }}>
+          {isLoading ? <FeeBandSkeleton /> : (
+          <Box sx={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Box
               sx={{
+                position: "relative",
+                top: "1px",
+                zIndex: 1,
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
-                backgroundColor: websiteSettings.mainColor,
-                py: 0.5,
+                backgroundColor: "#E30053",
+                border: "1px solid #E30053",
+                borderBottom: "none",
+                py: 0.6,
                 width: "fit-content",
-                px: 4,
-                borderTopLeftRadius: "5px",
-                borderTopRightRadius: "5px",
+                px: 2,
+                borderTopLeftRadius: "6px",
+                borderTopRightRadius: "6px",
               }}
             >
-              <Typography sx={{ color: websiteSettings.textColor }}>
+              <Typography sx={{ color: "#fff", fontSize: "11.5px", fontWeight: 700, letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
                 {feeTabs[value]}
               </Typography>
             </Box>
@@ -1687,24 +1677,23 @@ export default function BillingScreen() {
                       display: "flex",
                       alignItems: "center",
                       gap: 0.6,
-                      ml: 1,
-                      mt: 1,
+                      mb: 0.5,
                       px: 1.25,
-                      height: "22px",
+                      height: 22,
                       borderRadius: "999px",
-                      backgroundColor: isOld ? "#FFF7ED" : "#EEF2FF",
-                      border: `1px solid ${isOld ? "#FDBA74" : "#C7D2FE"}`,
+                      backgroundColor: isOld ? DASH.amberLight : DASH.blueLight,
+                      border: `1px solid ${isOld ? "#FDBA74" : "#BFDBFE"}`,
                     }}
                   >
                     <Box
                       sx={{
                         width: 7, height: 7, borderRadius: "50%",
-                        backgroundColor: isOld ? "#EA580C" : "#4F46E5",
+                        backgroundColor: isOld ? DASH.amber : DASH.blue,
                       }}
                     />
                     <Typography sx={{
                       fontSize: "11px", fontWeight: 700, letterSpacing: 0.2,
-                      color: isOld ? "#9A3412" : "#3730A3",
+                      color: isOld ? "#B45309" : "#1D4ED8",
                     }}>
                       {isOld ? "Old Student" : "New Student"}
                     </Typography>
@@ -1800,20 +1789,25 @@ export default function BillingScreen() {
                 });
               }}
               sx={{
-                backgroundColor: "#E60154",
+                backgroundColor: "#E30053",
+                color: "#fff",
                 textTransform: "none",
                 borderRadius: "999px",
-                px: 2,
-                fontSize: 13,
-                fontWeight: 600,
+                height: 34,
+                px: 2.2,
+                fontSize: "12.5px",
+                fontWeight: 700,
                 boxShadow: "none",
-                "&:hover": { backgroundColor: "#B8003F", boxShadow: "none" },
+                whiteSpace: "nowrap",
+                "& .MuiButton-startIcon": { mr: 0.6 },
+                "&:hover": { backgroundColor: "#C40047", boxShadow: "0 2px 8px rgba(227,0,83,0.25)" },
               }}
             >
               Transaction History
             </Button>
           </Box>
           </Box>
+          )}
           
        
 
@@ -1825,7 +1819,7 @@ export default function BillingScreen() {
             return (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
                 {inReview > 0 && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, borderRadius: '8px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, borderRadius: RADIUS, backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
                     <Typography sx={{ fontSize: 16 }}>⏳</Typography>
                     <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#92400E' }}>
                       {inReview} payment{inReview > 1 ? 's' : ''} in review — awaiting accounts team approval. These can't be paid until approved.
@@ -1833,7 +1827,7 @@ export default function BillingScreen() {
                   </Box>
                 )}
                 {rejected > 0 && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, borderRadius: '8px', backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, borderRadius: RADIUS, backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5' }}>
                     <Typography sx={{ fontSize: 16 }}>⚠️</Typography>
                     <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#991B1B' }}>
                       {rejected} payment{rejected > 1 ? 's' : ''} rejected — please review and submit again.
@@ -1844,9 +1838,14 @@ export default function BillingScreen() {
             );
           })()}
 
+          {isLoading ? (
+            <FeeTableSkeleton columns={8} rows={6} />
+          ) : (
           <TableContainer
             sx={{
-              border: "1px solid #E601542A",
+              border: `1px solid ${DASH.line}`,
+              borderRadius: "6px",
+              borderTopLeftRadius: 0,
               overflowY: "auto",
               boxShadow: "none",
               backgroundColor: "#fff",
@@ -1869,12 +1868,15 @@ export default function BillingScreen() {
                       key={index}
                       sx={{
                         borderRight: 1,
-                        borderColor: "#E601542A",
+                        borderColor: DASH.line,
                         textAlign: "center",
-                        backgroundColor: "#ff00001A",
-                        fontWeight: 600,
-                        fontSize: 14,
-                        color: "#000",
+                        backgroundColor: DASH.surface,
+                        fontWeight: 700,
+                        fontSize: "10.5px",
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: DASH.muted,
+                        py: 1.2,
                       }}
                     >
                       {header}
@@ -1886,27 +1888,28 @@ export default function BillingScreen() {
               <TableBody>
                 {getCurrentFeeData().length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} sx={{ textAlign: "center", py: 8 }}>
-                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                    <TableCell colSpan={8} sx={{ textAlign: "center", py: 7, borderBottom: "none" }}>
+                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                         <Box
                           sx={{
-                            width: 80,
-                            height: 80,
-                            borderRadius: "50%",
-                            backgroundColor: "#f1f5f9",
+                            width: 46,
+                            height: 46,
+                            borderRadius: RADIUS,
+                            backgroundColor: "#FDECF2",
+                            border: "1px solid #F7C9DA",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            mb: 1
+                            mb: 1.8,
                           }}
                         >
-                          <Typography sx={{ fontSize: "40px" }}>📋</Typography>
+                          <ReceiptLongIcon sx={{ fontSize: 22, color: "#E30053" }} />
                         </Box>
-                        <Typography sx={{ fontSize: "18px", fontWeight: 600, color: "#64748b" }}>
+                        <Typography sx={{ fontSize: "14px", fontWeight: 700, color: DASH.ink }}>
                           {getNoDataMessage()}
                         </Typography>
-                        <Typography sx={{ fontSize: "14px", color: "#94a3b8" }}>
-                          No fee records found for this student in the selected category
+                        <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6, maxWidth: 340, lineHeight: 1.6 }}>
+                          Nothing to collect here yet. Create the fee structure for this class, or pick a different fee type above.
                         </Typography>
                       </Box>
                     </TableCell>
@@ -1922,7 +1925,7 @@ export default function BillingScreen() {
                           cursor: !isRowPayable(row) ? "default" : "pointer",
                           backgroundColor: isSelected ? "#FFF7F7" : "transparent",
                           "&:hover": {
-                            backgroundColor: !isRowPayable(row) ? "transparent" : isSelected ? "#ff00001A" : "#fafafa",
+                            backgroundColor: !isRowPayable(row) ? "transparent" : isSelected ? `${DASH.red}1A` : DASH.surface,
                           },
                           transition: "background-color 0.2s ease",
                         }}
@@ -1931,7 +1934,7 @@ export default function BillingScreen() {
                         <TableCell
                           sx={{
                             borderRight: 1,
-                            borderColor: "#E601542A",
+                            borderColor: "#E300532A",
                             textAlign: "center",
                           }}
                         >
@@ -1951,7 +1954,7 @@ export default function BillingScreen() {
                               color="secondary"
                               sx={{
                                 "&.Mui-checked": {
-                                  color: "#E60154",
+                                  color: "#E30053",
                                 },
                               }}
                               onClick={(e) => e.stopPropagation()}
@@ -1965,7 +1968,7 @@ export default function BillingScreen() {
                         <TableCell
                           sx={{
                             borderRight: 1,
-                            borderColor: "#E601542A",
+                            borderColor: "#E300532A",
                             textAlign: "center",
                           }}
                         >
@@ -1982,7 +1985,7 @@ export default function BillingScreen() {
                         <TableCell
                           sx={{
                             borderRight: 1,
-                            borderColor: "#E601542A",
+                            borderColor: "#E300532A",
                             textAlign: "center",
                           }}
                         >
@@ -2020,7 +2023,7 @@ export default function BillingScreen() {
                         <TableCell
                           sx={{
                             borderRight: 1,
-                            borderColor: "#E601542A",
+                            borderColor: "#E300532A",
                             textAlign: "center",
                             padding: "8px",
                           }}
@@ -2031,8 +2034,8 @@ export default function BillingScreen() {
                             const pending = Number(row.pendingAmount) || 0;
                             let statusConfig = {
                               text: 'Unknown',
-                              color: '#64748b',
-                              bgColor: '#f1f5f9',
+                              color: DASH.muted,
+                              bgColor: DASH.lineSoft,
                               icon: '❓',
                               tooltip: '',
                             };
@@ -2040,7 +2043,7 @@ export default function BillingScreen() {
                             if (appr === 'pending') {
                               statusConfig = {
                                 text: 'In Review',
-                                color: '#f59e0b',
+                                color: DASH.amber,
                                 bgColor: '#fef3c7',
                                 icon: '⏳',
                                 tooltip: 'Payment sent for approval to the accounts team. Once approved, the status will update here.',
@@ -2049,7 +2052,7 @@ export default function BillingScreen() {
                               const reason = row.rejectionReason || row.approvalRemarks || row.paymentApprovalRemarks || row.rejectedReason || '';
                               statusConfig = {
                                 text: 'Rejected',
-                                color: '#ef4444',
+                                color: DASH.red,
                                 bgColor: '#fee2e2',
                                 icon: '⚠️',
                                 tooltip: reason
@@ -2059,7 +2062,7 @@ export default function BillingScreen() {
                             } else if (status === 'paid' || pending === 0) {
                               statusConfig = {
                                 text: 'Paid',
-                                color: '#10b981',
+                                color: DASH.green,
                                 bgColor: '#d1fae5',
                                 icon: '✓',
                                 tooltip: '',
@@ -2067,7 +2070,7 @@ export default function BillingScreen() {
                             } else if (status === 'partiallypaid') {
                               statusConfig = {
                                 text: 'Partially Paid',
-                                color: '#f59e0b',
+                                color: DASH.amber,
                                 bgColor: '#fef3c7',
                                 icon: '◐',
                                 tooltip: '',
@@ -2075,7 +2078,7 @@ export default function BillingScreen() {
                             } else if (status === 'notpaid') {
                               statusConfig = {
                                 text: 'Not Paid',
-                                color: '#ef4444',
+                                color: DASH.red,
                                 bgColor: '#fee2e2',
                                 icon: '✗',
                                 tooltip: '',
@@ -2090,7 +2093,7 @@ export default function BillingScreen() {
                                   gap: 0.5,
                                   px: 1.5,
                                   py: 0.5,
-                                  borderRadius: "6px",
+                                  borderRadius: RADIUS,
                                   backgroundColor: statusConfig.bgColor,
                                   border: `1px solid ${statusConfig.color}30`,
                                   cursor: statusConfig.tooltip ? 'help' : 'default',
@@ -2120,7 +2123,7 @@ export default function BillingScreen() {
                         <TableCell
                           sx={{
                             borderRight: 1,
-                            borderColor: "#E601542A",
+                            borderColor: "#E300532A",
                             textAlign: "center",
                           }}
                         >
@@ -2130,7 +2133,7 @@ export default function BillingScreen() {
                         <TableCell
                           sx={{
                             borderRight: 1,
-                            borderColor: "#E601542A",
+                            borderColor: "#E300532A",
                             textAlign: "center",
                           }}
                         >
@@ -2140,7 +2143,7 @@ export default function BillingScreen() {
                         <TableCell
                           sx={{
                             borderRight: 1,
-                            borderColor: "#E601542A",
+                            borderColor: "#E300532A",
                             textAlign: "center",
                           }}
                           onClick={(e) => e.stopPropagation()}
@@ -2160,13 +2163,13 @@ export default function BillingScreen() {
                               width: '120px',
                               '& .MuiOutlinedInput-root': {
                                 '& fieldset': {
-                                  borderColor: isSelected ? '#E60154' : '#ccc',
+                                  borderColor: isSelected ? '#E30053' : '#ccc',
                                 },
                                 '&:hover fieldset': {
-                                  borderColor: '#E60154',
+                                  borderColor: '#E30053',
                                 },
                                 '&.Mui-focused fieldset': {
-                                  borderColor: '#E60154',
+                                  borderColor: '#E30053',
                                 },
                                 '&.Mui-disabled': {
                                   backgroundColor: '#f5f5f5',
@@ -2186,7 +2189,7 @@ export default function BillingScreen() {
                         <TableCell
                           sx={{
                             borderRight: 1,
-                            borderColor: "#E601542A",
+                            borderColor: "#E300532A",
                             textAlign: "center",
                             padding: "8px",
                           }}
@@ -2201,7 +2204,7 @@ export default function BillingScreen() {
                                   gap: 0.5,
                                   px: 1.5,
                                   py: 0.5,
-                                  borderRadius: "6px",
+                                  borderRadius: RADIUS,
                                   backgroundColor: dueDateInfo.bgColor,
                                   border: `1px solid ${dueDateInfo.color}30`,
                                 }}
@@ -2230,6 +2233,7 @@ export default function BillingScreen() {
               </TableBody>
             </Table>
           </TableContainer>
+          )}
 
           <>
             <Dialog open={openPreview} onClose={handleClose} maxWidth="md" fullWidth keepMounted>
@@ -2238,7 +2242,7 @@ export default function BillingScreen() {
                   ref={componentRef}
                   sx={{
                     backgroundColor: "#fff",
-                    borderRadius: "6px",
+                    borderRadius: RADIUS,
                     px: 3,
                     "@media print": {
                       boxShadow: "none",
@@ -2274,7 +2278,7 @@ export default function BillingScreen() {
                       textAlign: "center",
                       fontSize: "16px",
                       mb: 1,
-                      color: "#555",
+                      color: DASH.muted,
                     }}
                   >
                     Payment Receipt - {feeTabs[value]}
@@ -2284,7 +2288,7 @@ export default function BillingScreen() {
                     sx={{
                       display: "grid",
                       gridTemplateColumns: "repeat(5, 1fr)",
-                      border: "1px solid #e0e0e0",
+                      border: `1px solid ${DASH.line}`,
                     }}
                   >
                     {[
@@ -2297,14 +2301,14 @@ export default function BillingScreen() {
                       <Box
                         key={i}
                         sx={{
-                          borderRight: i !== 4 ? "1px solid #e0e0e0" : "none",
+                          borderRight: i !== 4 ? `1px solid ${DASH.line}` : "none",
                           p: 0.7,
                         }}
                       >
                         <Typography sx={{ color: "#888", fontSize: "12px" }}>{item.label}</Typography>
                         <Typography
                           sx={{
-                            color: "#000",
+                            color: DASH.ink,
                             fontSize: "15px",
                             fontWeight: 500,
                             mt: 0.5,
@@ -2318,7 +2322,7 @@ export default function BillingScreen() {
 
                   <TableContainer
                     sx={{
-                      border: "1px solid #E601542A",
+                      border: `1px solid ${DASH.line}`,
                       mt: 1.5
                     }}
                   >
@@ -2329,11 +2333,11 @@ export default function BillingScreen() {
                             <TableCell
                               key={index}
                               sx={{
-                                backgroundColor: "#ff00001A",
+                                backgroundColor: `${DASH.red}1A`,
                                 fontWeight: header === "Paid Amount" ? 700 : 600,
                                 textAlign: "center",
-                                border: "1px solid #E601542A",
-                                color: header === "Paid Amount" ? "#00963C" : "#000",
+                                border: `1px solid ${DASH.line}`,
+                                color: header === "Paid Amount" ? DASH.green : "#000",
                                 fontSize: "14px",
                               }}
                             >
@@ -2348,10 +2352,10 @@ export default function BillingScreen() {
                           Array.isArray(selectedFee) ? (
                             selectedFee.map((fee, index) => (
                               <TableRow key={index}>
-                                <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                                   {index + 1}
                                 </TableCell>
-                                <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                                   {value === 1
                                     ? (fee.place || "-")
                                     : value === 2
@@ -2361,13 +2365,13 @@ export default function BillingScreen() {
                                         : (fee.feeDetails || "-")
                                   }
                                 </TableCell>
-                                <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                                   ₹{(fee.feeAmount || fee.amount || 0).toLocaleString()}
                                 </TableCell>
-                                <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", bgcolor: "#00963C0A", color: "#00963C", fontSize: "14px", fontWeight: 700 }}>
+                                <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, bgcolor: `${DASH.green}0A`, color: DASH.green, fontSize: "14px", fontWeight: 700 }}>
                                   ₹{(fee.paidAmount || 0).toLocaleString()}
                                 </TableCell>
-                                <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                                   ₹{(fee.pendingAmount || 0).toLocaleString()}
                                 </TableCell>
                               </TableRow>
@@ -2375,10 +2379,10 @@ export default function BillingScreen() {
                           ) : (
 
                             <TableRow>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                                 1
                               </TableCell>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                                 {value === 1
                                   ? (selectedFee.place || "-")
                                   : value === 2
@@ -2388,20 +2392,20 @@ export default function BillingScreen() {
                                       : (selectedFee.feeDetails || "-")
                                 }
                               </TableCell>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                                 ₹{(selectedFee.feeAmount || selectedFee.amount || 0).toLocaleString()}
                               </TableCell>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", bgcolor: "#00963C0A", color: "#00963C", fontSize: "14px", fontWeight: 700 }}>
+                              <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, bgcolor: `${DASH.green}0A`, color: DASH.green, fontSize: "14px", fontWeight: 700 }}>
                                 ₹{(selectedFee.paidAmount || 0).toLocaleString()}
                               </TableCell>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                                 ₹{(selectedFee.pendingAmount || 0).toLocaleString()}
                               </TableCell>
                             </TableRow>
                           )
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={5} sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#999", fontSize: "14px", py: 3 }}>
+                            <TableCell colSpan={5} sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: "#999", fontSize: "14px", py: 3 }}>
                               No fee selected
                             </TableCell>
                           </TableRow>
@@ -2413,12 +2417,12 @@ export default function BillingScreen() {
                   <Box sx={{ display: "flex", justifyContent: "end", }}>
                     <Box
                       sx={{
-                        border: "1px solid #00963C",
+                        border: `1px solid ${DASH.green}`,
                         py: 1.5,
                         px: 4,
-                        color: "#00963C",
+                        color: DASH.green,
                         fontWeight: "700",
-                        backgroundColor: "#00963C0A",
+                        backgroundColor: `${DASH.green}0A`,
                         borderTop: "none",
                         borderBottomLeftRadius: "5px",
                         mr: "-2px",
@@ -2471,12 +2475,14 @@ export default function BillingScreen() {
                     onClick={handleClose}
                     variant="outlined"
                     sx={{
-                      borderColor: "#000",
-                      color: "#000",
+                      borderColor: DASH.line,
+                      color: DASH.text,
+                      bgcolor: "#fff",
+                      fontWeight: 700,
                       textTransform: "none",
-                      borderRadius: "30px",
+                      borderRadius: RADIUS,
                       width: "100px",
-                      height: "33px",
+                      height: 34,
                     }}
                   >
                     Close
@@ -2490,8 +2496,8 @@ export default function BillingScreen() {
                       textTransform: "none",
                       color: websiteSettings.textColor,
                       width: "100px",
-                      height: "33px",
-                      borderRadius: "30px",
+                      height: 34,
+                      borderRadius: RADIUS,
                     }}
                   >
                     Print
@@ -2504,8 +2510,8 @@ export default function BillingScreen() {
                       textTransform: "none",
                       color: websiteSettings.textColor,
                       width: "110px",
-                      height: "33px",
-                      borderRadius: "30px",
+                      height: 34,
+                      borderRadius: RADIUS,
                     }}
                   >
                     Download
@@ -2518,10 +2524,10 @@ export default function BillingScreen() {
               <>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <Box sx={{ display: "flex", ml: 12 }}>
-                    <Box sx={{ border: "1px solid #ccc", py: 1, px: 3, color: "#00963C", fontWeight: "600", borderTop: "none", borderBottomLeftRadius: "5px", backgroundColor: "#fff", }}>
+                    <Box sx={{ border: "1px solid #ccc", py: 1, px: 3, color: DASH.green, fontWeight: "600", borderTop: "none", borderBottomLeftRadius: "5px", backgroundColor: "#fff", }}>
                       Total Fees Amount
                     </Box>
-                    <Box sx={{ border: "1px solid #ccc", borderLeft: "none", fontWeight: "600", py: 1, px: 2, color: "#00963C", borderTop: "none", borderBottomRightRadius: "5px", backgroundColor: "#fff", }}>
+                    <Box sx={{ border: "1px solid #ccc", borderLeft: "none", fontWeight: "600", py: 1, px: 2, color: DASH.green, borderTop: "none", borderBottomRightRadius: "5px", backgroundColor: "#fff", }}>
                       ₹{getTotalFeeAmount().toLocaleString()}
                     </Box>
                   </Box>
@@ -2535,7 +2541,7 @@ export default function BillingScreen() {
                       sx={{
                         backgroundColor: "#2e7d32",
                         textTransform: "none",
-                        borderRadius: "8px",
+                        borderRadius: RADIUS,
                         mt: 1,
                         px: 3,
                         "&:hover": {
@@ -2563,7 +2569,7 @@ export default function BillingScreen() {
                   borderRadius: "10px",
                   overflow: "hidden",
                   background: "#ffffff",
-                  boxShadow: "0 32px 64px -12px rgba(0, 0, 0, 0.3)",
+                  boxShadow: "0 12px 32px rgba(16,24,40,0.16)",
                 },
               }}
             >
@@ -2615,8 +2621,8 @@ export default function BillingScreen() {
                       {paymentSuccess ? "Your transaction was successful" : "Pay your school fees securely"}
                     </Typography>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2, backgroundColor: "#fff", width: "fit-content", px: 2, py: 0.3, borderRadius: "999px" }}>
-                      <LockIcon sx={{ fontSize: 16, color: "#10b981" }} />
-                      <Typography sx={{ fontSize: "0.75rem", color: "#10b981", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                      <LockIcon sx={{ fontSize: 16, color: DASH.green }} />
+                      <Typography sx={{ fontSize: "0.75rem", color: DASH.green, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>
                         Secure Payment
                       </Typography>
                     </Box>
@@ -2626,9 +2632,9 @@ export default function BillingScreen() {
                     sx={{
                       display: "inline-flex",
                       alignItems: "baseline",
-                      background: "#F8FAFC",
+                      background: DASH.surface,
                       px: 3,
-                      borderRadius: "14px",
+                      borderRadius: "10px",
                       height: "100%",
                       boxShadow: `0 8px 24px ${websiteSettings.mainColor}30`,
                       mt: 3,
@@ -2663,10 +2669,10 @@ export default function BillingScreen() {
                               fontSize: "0.8rem",
                               transition: "all 0.3s ease",
                               ...(paymentStep > index
-                                ? { background: "#10b981", color: "#fff" }
+                                ? { background: DASH.green, color: "#fff" }
                                 : paymentStep === index
                                   ? { background: websiteSettings.mainColor, color: websiteSettings.textColor, boxShadow: `0 4px 12px ${websiteSettings.mainColor}40` }
-                                  : { background: "#f1f5f9", color: "#94a3b8" }),
+                                  : { background: DASH.lineSoft, color: DASH.faint }),
                             }}
                           >
                             {paymentStep > index ? <CheckCircleIcon sx={{ fontSize: 18 }} /> : index + 1}
@@ -2675,7 +2681,7 @@ export default function BillingScreen() {
                             sx={{
                               fontSize: "0.8rem",
                               fontWeight: paymentStep === index ? 600 : 500,
-                              color: paymentStep >= index ? "#1e293b" : "#94a3b8",
+                              color: paymentStep >= index ? DASH.ink : DASH.faint,
                               display: { xs: "none", sm: "block" },
                             }}
                           >
@@ -2688,7 +2694,7 @@ export default function BillingScreen() {
                               width: 40,
                               height: 2,
                               borderRadius: 1,
-                              background: paymentStep > index ? "#10b981" : "#e2e8f0",
+                              background: paymentStep > index ? DASH.green : DASH.line,
                               transition: "all 0.3s ease",
                             }}
                           />
@@ -2702,11 +2708,11 @@ export default function BillingScreen() {
                 {paymentStep === 0 && !paymentSuccess && (
                   <Fade in timeout={300}>
                     <Box>
-                      <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#64748b", mb: 2, textAlign: "center" }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: DASH.muted, mb: 2, textAlign: "center" }}>
                         Select how you want to pay
                       </Typography>
                       {/* Offline Payment Notice */}
-                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "12px", p: 2, mb: 2.5 }}>
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "10px", p: 2, mb: 2.5 }}>
                         <InfoOutlinedIcon sx={{ color: "#2563EB", fontSize: 20, mt: 0.2, flexShrink: 0 }} />
                         <Box>
                           <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#1D4ED8", mb: 0.4 }}>
@@ -2728,14 +2734,14 @@ export default function BillingScreen() {
                               alignItems: "center",
                               gap: 2,
                               p: 2,
-                              borderRadius: "14px",
+                              borderRadius: "10px",
                               cursor: "pointer",
                               border: "2px solid",
                               borderColor: selectedPaymentMethod === method.id ? method.color : "#ddd",
-                              background: selectedPaymentMethod === method.id ? `${method.color}08` : "#f8fafc",
+                              background: selectedPaymentMethod === method.id ? `${method.color}08` : DASH.surface,
                               transition: "all 0.2s ease",
                               "&:hover": {
-                                background: selectedPaymentMethod === method.id ? `${method.color}12` : "#f1f5f9",
+                                background: selectedPaymentMethod === method.id ? `${method.color}12` : DASH.lineSoft,
                               },
                             }}
                           >
@@ -2743,7 +2749,7 @@ export default function BillingScreen() {
                               sx={{
                                 width: 44,
                                 height: 44,
-                                borderRadius: "12px",
+                                borderRadius: "10px",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -2756,10 +2762,10 @@ export default function BillingScreen() {
                               {method.icon}
                             </Box>
                             <Box sx={{ flex: 1 }}>
-                              <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#1e293b" }}>
+                              <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: DASH.ink }}>
                                 {method.name}
                               </Typography>
-                              <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
+                              <Typography sx={{ fontSize: "0.75rem", color: DASH.muted }}>
                                 {method.description}
                               </Typography>
                             </Box>
@@ -2791,21 +2797,21 @@ export default function BillingScreen() {
                 {paymentStep === 1 && !paymentSuccess && (
                   <Fade in timeout={300}>
                     <Box>
-                      <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#64748b", mb: 2.5, textAlign: "center" }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: DASH.muted, mb: 2.5, textAlign: "center" }}>
                         Enter your payment details
                       </Typography>
 
                       {/* Cash Payment Form */}
                       {selectedPaymentMethod === "cash" && (
                         <Box>
-                          <Box sx={{ background: "#fffbeb", border: "1px solid #fef3c7", borderRadius: "12px", p: 2, mb: 3, display: "flex", alignItems: "center", gap: 1.5 }}>
-                            <PaymentsIcon sx={{ color: "#f59e0b", fontSize: 22 }} />
+                          <Box sx={{ background: "#fffbeb", border: "1px solid #fef3c7", borderRadius: "10px", p: 2, mb: 3, display: "flex", alignItems: "center", gap: 1.5 }}>
+                            <PaymentsIcon sx={{ color: DASH.amber, fontSize: 22 }} />
                             <Typography sx={{ fontSize: "0.85rem", color: "#92400e", fontWeight: 500 }}>
                               Enter the denomination count for cash payment
                             </Typography>
                           </Box>
 
-                          <Box sx={{ background: "#f8fafc", borderRadius: "16px", p: 2.5, border: "1px solid #ccc" }}>
+                          <Box sx={{ background: DASH.surface, borderRadius: "10px", p: 2.5, border: "1px solid #ccc" }}>
                             {notesList.map((note, idx) => (
                               <Box
                                 key={note}
@@ -2814,13 +2820,13 @@ export default function BillingScreen() {
                                   alignItems: "center",
                                   gap: 2,
                                   py: 1.5,
-                                  borderBottom: idx < notesList.length - 1 ? "1px solid #e2e8f0" : "none",
+                                  borderBottom: idx < notesList.length - 1 ? `1px solid ${DASH.line}` : "none",
                                 }}
                               >
-                                <Box sx={{ width: 60, py: 0.8, px: 1.5, background: "#fff", borderRadius: "8px", border: "1px solid #e2e8f0", textAlign: "center" }}>
-                                  <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b" }}>₹{note}</Typography>
+                                <Box sx={{ width: 60, py: 0.8, px: 1.5, background: "#fff", borderRadius: RADIUS, border: `1px solid ${DASH.line}`, textAlign: "center" }}>
+                                  <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: DASH.ink }}>₹{note}</Typography>
                                 </Box>
-                                <Typography sx={{ color: "#94a3b8", fontSize: "1.2rem" }}>×</Typography>
+                                <Typography sx={{ color: DASH.faint, fontSize: "1.2rem" }}>×</Typography>
                                 <TextField
                                   size="small"
                                   type="number"
@@ -2829,15 +2835,15 @@ export default function BillingScreen() {
                                   sx={{
                                     width: 70,
                                     "& .MuiOutlinedInput-root": {
-                                      borderRadius: "8px",
+                                      borderRadius: RADIUS,
                                       background: "#fff",
                                       "& input": { textAlign: "center", fontWeight: 600, py: 1 },
                                     },
                                   }}
                                 />
-                                <Typography sx={{ color: "#94a3b8", fontSize: "1.2rem" }}>=</Typography>
+                                <Typography sx={{ color: DASH.faint, fontSize: "1.2rem" }}>=</Typography>
                                 <Box sx={{ flex: 1, textAlign: "right" }}>
-                                  <Typography sx={{ fontWeight: 700, fontSize: "1rem", color: getSubtotal(note) > 0 ? "#10b981" : "#94a3b8" }}>
+                                  <Typography sx={{ fontWeight: 700, fontSize: "1rem", color: getSubtotal(note) > 0 ? DASH.green : DASH.faint }}>
                                     ₹{getSubtotal(note).toLocaleString()}
                                   </Typography>
                                 </Box>
@@ -2845,7 +2851,7 @@ export default function BillingScreen() {
                             ))}
                           </Box>
 
-                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 3, p: 2.5, background: "#0f172a", borderRadius: "14px" }}>
+                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 3, p: 2.5, background: "#0f172a", borderRadius: "10px" }}>
                             <Typography sx={{ fontWeight: 600, fontSize: "1rem", color: "#fff" }}>Total Cash</Typography>
                             <Typography sx={{ fontWeight: 800, fontSize: "1.5rem", color: websiteSettings.mainColor }}>
                               ₹{totalCash.toLocaleString()}
@@ -2863,9 +2869,9 @@ export default function BillingScreen() {
                             return (
                               <Box sx={{ mt: 2 }}>
                                 {/* Amount to Pay */}
-                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 2, background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", mb: 1 }}>
-                                  <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#64748b" }}>Amount to Pay</Typography>
-                                  <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: "#1e293b" }}>
+                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 2, background: "#fff", borderRadius: "10px", border: `1px solid ${DASH.line}`, mb: 1 }}>
+                                  <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: DASH.muted }}>Amount to Pay</Typography>
+                                  <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: DASH.ink }}>
                                     ₹{amountToPay.toLocaleString()}
                                   </Typography>
                                 </Box>
@@ -2879,20 +2885,20 @@ export default function BillingScreen() {
                                         justifyContent: "space-between",
                                         alignItems: "center",
                                         p: 2,
-                                        background: isOverpaid ? "#ecfdf5" : "#fef2f2",
-                                        borderRadius: "12px",
-                                        border: `1px solid ${isOverpaid ? "#10b981" : "#ef4444"}`,
+                                        background: isOverpaid ? DASH.greenLight : DASH.redLight,
+                                        borderRadius: "10px",
+                                        border: `1px solid ${isOverpaid ? DASH.green : DASH.red}`,
                                       }}
                                     >
                                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                         <Typography sx={{ fontSize: "1.2rem" }}>
                                           {isOverpaid ? "💰" : "⚠️"}
                                         </Typography>
-                                        <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: isOverpaid ? "#059669" : "#dc2626" }}>
+                                        <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: isOverpaid ? "#0E9F6E" : "#dc2626" }}>
                                           {isOverpaid ? "Change to Return" : "Short Amount"}
                                         </Typography>
                                       </Box>
-                                      <Typography sx={{ fontWeight: 800, fontSize: "1.3rem", color: isOverpaid ? "#10b981" : "#ef4444" }}>
+                                      <Typography sx={{ fontWeight: 800, fontSize: "1.3rem", color: isOverpaid ? DASH.green : DASH.red }}>
                                         ₹{Math.abs(balance).toLocaleString()}
                                       </Typography>
                                     </Box>
@@ -2901,7 +2907,7 @@ export default function BillingScreen() {
                                     {isOverpaid && (
                                       <Box sx={{ mt: 1 }}>
                                         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                                          <Typography sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#059669" }}>
+                                          <Typography sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#0E9F6E" }}>
                                             💵 Enter Change Denomination
                                           </Typography>
                                           <Button
@@ -2917,7 +2923,7 @@ export default function BillingScreen() {
                                             sx={{
                                               textTransform: "none",
                                               fontSize: "0.7rem",
-                                              color: "#059669",
+                                              color: "#0E9F6E",
                                               border: "1px solid #10b981",
                                               "&:hover": { bgcolor: "#f0fdf4" },
                                             }}
@@ -2926,7 +2932,7 @@ export default function BillingScreen() {
                                           </Button>
                                         </Box>
 
-                                        <Box sx={{ background: "#f0fdf4", borderRadius: "12px", p: 2, border: "1px solid #10b981" }}>
+                                        <Box sx={{ background: "#f0fdf4", borderRadius: "10px", p: 2, border: "1px solid #10b981" }}>
                                           {notesList.map((note, idx) => (
                                             <Box
                                               key={note}
@@ -2938,10 +2944,10 @@ export default function BillingScreen() {
                                                 borderBottom: idx < notesList.length - 1 ? "1px solid #10b98130" : "none",
                                               }}
                                             >
-                                              <Box sx={{ width: 50, py: 0.5, px: 1, background: "#fff", borderRadius: "6px", border: "1px solid #10b981", textAlign: "center" }}>
+                                              <Box sx={{ width: 50, py: 0.5, px: 1, background: "#fff", borderRadius: RADIUS, border: "1px solid #10b981", textAlign: "center" }}>
                                                 <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", color: "#047857" }}>₹{note}</Typography>
                                               </Box>
-                                              <Typography sx={{ color: "#059669", fontSize: "1rem" }}>×</Typography>
+                                              <Typography sx={{ color: "#0E9F6E", fontSize: "1rem" }}>×</Typography>
                                               <TextField
                                                 size="small"
                                                 type="number"
@@ -2950,15 +2956,15 @@ export default function BillingScreen() {
                                                 sx={{
                                                   width: 60,
                                                   "& .MuiOutlinedInput-root": {
-                                                    borderRadius: "6px",
+                                                    borderRadius: RADIUS,
                                                     background: "#fff",
                                                     "& input": { textAlign: "center", fontWeight: 600, py: 0.5, fontSize: "0.8rem" },
                                                   },
                                                 }}
                                               />
-                                              <Typography sx={{ color: "#059669", fontSize: "1rem" }}>=</Typography>
+                                              <Typography sx={{ color: "#0E9F6E", fontSize: "1rem" }}>=</Typography>
                                               <Box sx={{ flex: 1, textAlign: "right" }}>
-                                                <Typography sx={{ fontWeight: 700, fontSize: "0.8rem", color: getChangeSubtotal(note) > 0 ? "#047857" : "#94a3b8" }}>
+                                                <Typography sx={{ fontWeight: 700, fontSize: "0.8rem", color: getChangeSubtotal(note) > 0 ? "#047857" : DASH.faint }}>
                                                   ₹{getChangeSubtotal(note).toLocaleString()}
                                                 </Typography>
                                               </Box>
@@ -2967,8 +2973,8 @@ export default function BillingScreen() {
 
                                           <Divider sx={{ my: 1.5, borderColor: "#10b98130" }} />
 
-                                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1, background: "#fff", borderRadius: "8px" }}>
-                                            <Typography sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#059669" }}>Total Change Given</Typography>
+                                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1, background: "#fff", borderRadius: RADIUS }}>
+                                            <Typography sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#0E9F6E" }}>Total Change Given</Typography>
                                             <Typography sx={{ fontWeight: 800, fontSize: "1.1rem", color: "#047857" }}>
                                               ₹{totalChange.toLocaleString()}
                                             </Typography>
@@ -2976,7 +2982,7 @@ export default function BillingScreen() {
 
                                           {/* Validation Message */}
                                           {totalChange !== Math.abs(balance) && totalChange > 0 && (
-                                            <Box sx={{ mt: 1, p: 1, background: "#fef2f2", borderRadius: "8px", border: "1px solid #ef4444" }}>
+                                            <Box sx={{ mt: 1, p: 1, background: DASH.redLight, borderRadius: RADIUS, border: "1px solid #ef4444" }}>
                                               <Typography sx={{ fontSize: "0.7rem", color: "#dc2626", textAlign: "center" }}>
                                                 ⚠️ Change mismatch: Expected ₹{Math.abs(balance).toLocaleString()} but giving ₹{totalChange.toLocaleString()}
                                               </Typography>
@@ -2984,8 +2990,8 @@ export default function BillingScreen() {
                                           )}
 
                                           {totalChange === Math.abs(balance) && totalChange > 0 && (
-                                            <Box sx={{ mt: 1, p: 1, background: "#ecfdf5", borderRadius: "8px", border: "1px solid #10b981" }}>
-                                              <Typography sx={{ fontSize: "0.7rem", color: "#059669", textAlign: "center" }}>
+                                            <Box sx={{ mt: 1, p: 1, background: DASH.greenLight, borderRadius: RADIUS, border: "1px solid #10b981" }}>
+                                              <Typography sx={{ fontSize: "0.7rem", color: "#0E9F6E", textAlign: "center" }}>
                                                 ✓ Change amount matches correctly
                                               </Typography>
                                             </Box>
@@ -3005,13 +3011,13 @@ export default function BillingScreen() {
                                       alignItems: "center",
                                       gap: 1,
                                       p: 2,
-                                      background: "#ecfdf5",
-                                      borderRadius: "12px",
+                                      background: DASH.greenLight,
+                                      borderRadius: "10px",
                                       border: "1px solid #10b981",
                                     }}
                                   >
-                                    <CheckCircleIcon sx={{ color: "#10b981", fontSize: 20 }} />
-                                    <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#059669" }}>
+                                    <CheckCircleIcon sx={{ color: DASH.green, fontSize: 20 }} />
+                                    <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#0E9F6E" }}>
                                       Exact Amount - No Change Required
                                     </Typography>
                                   </Box>
@@ -3019,8 +3025,8 @@ export default function BillingScreen() {
 
                                 {/* Collection Summary */}
                                 {totalCash > 0 && (
-                                  <Box sx={{ mt: 2, p: 2, background: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
-                                    <Typography sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#64748b", mb: 1 }}>
+                                  <Box sx={{ mt: 2, p: 2, background: DASH.surface, borderRadius: "10px", border: `1px solid ${DASH.line}` }}>
+                                    <Typography sx={{ fontWeight: 600, fontSize: "0.85rem", color: DASH.muted, mb: 1 }}>
                                       📊 Collection Summary
                                     </Typography>
                                     <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
@@ -3028,10 +3034,10 @@ export default function BillingScreen() {
                                         if (counts[note] > 0) {
                                           return (
                                             <Box key={note} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                              <Typography sx={{ fontSize: "0.8rem", color: "#64748b" }}>
+                                              <Typography sx={{ fontSize: "0.8rem", color: DASH.muted }}>
                                                 ₹{note} × {counts[note]}
                                               </Typography>
-                                              <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, color: "#1e293b" }}>
+                                              <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, color: DASH.ink }}>
                                                 ₹{(note * counts[note]).toLocaleString()}
                                               </Typography>
                                             </Box>
@@ -3122,9 +3128,9 @@ export default function BillingScreen() {
                                   <AccountBalanceWalletIcon sx={{ color: "#8b5cf6", fontSize: 26, mb: 0.5 }} />
                                   <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: "#6d28d9" }}>
                                     Upload UPI Payment Screenshot
-                                    <Box component="span" sx={{ color: "#ef4444", ml: 0.3 }}>*</Box>
+                                    <Box component="span" sx={{ color: DASH.red, ml: 0.3 }}>*</Box>
                                   </Typography>
-                                  <Typography sx={{ fontSize: "0.72rem", color: "#94a3b8", mt: 0.3 }}>
+                                  <Typography sx={{ fontSize: "0.72rem", color: DASH.faint, mt: 0.3 }}>
                                     PNG / JPG, up to 5MB — required
                                   </Typography>
                                 </Box>
@@ -3136,7 +3142,7 @@ export default function BillingScreen() {
                                   alignItems: "center",
                                   gap: 1.5,
                                   p: 1.2,
-                                  border: "1px solid #e2e8f0",
+                                  border: `1px solid ${DASH.line}`,
                                   borderRadius: "10px",
                                   backgroundColor: "#faf5ff",
                                 }}
@@ -3144,17 +3150,17 @@ export default function BillingScreen() {
                                 <Avatar
                                   variant="rounded"
                                   src={upiProofPreview}
-                                  sx={{ width: 48, height: 48, border: "1px solid #e2e8f0" }}
+                                  sx={{ width: 48, height: 48, border: `1px solid ${DASH.line}` }}
                                 />
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                                  <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: "#1e293b" }} noWrap>
+                                  <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: DASH.ink }} noWrap>
                                     {upiProofFile.name}
                                   </Typography>
-                                  <Typography sx={{ fontSize: "0.72rem", color: "#64748b" }}>
+                                  <Typography sx={{ fontSize: "0.72rem", color: DASH.muted }}>
                                     {(upiProofFile.size / 1024).toFixed(0)} KB
                                   </Typography>
                                 </Box>
-                                <IconButton size="small" onClick={handleRemoveUpiProof} sx={{ color: "#ef4444" }}>
+                                <IconButton size="small" onClick={handleRemoveUpiProof} sx={{ color: DASH.red }}>
                                   <CloseIcon fontSize="small" />
                                 </IconButton>
                               </Box>
@@ -3174,7 +3180,7 @@ export default function BillingScreen() {
                               value={paymentFormData.bankName}
                               onChange={(e) => handlePaymentFormChange("bankName", e.target.value)}
                               InputProps={{
-                                startAdornment: <InputAdornment position="start"><AccountBalanceIcon sx={{ color: "#3b82f6" }} /></InputAdornment>,
+                                startAdornment: <InputAdornment position="start"><AccountBalanceIcon sx={{ color: DASH.blue }} /></InputAdornment>,
                               }}
                               sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                             />
@@ -3229,7 +3235,7 @@ export default function BillingScreen() {
                                 value={paymentFormData.chequeNo}
                                 onChange={(e) => handlePaymentFormChange("chequeNo", e.target.value)}
                                 InputProps={{
-                                  startAdornment: <InputAdornment position="start"><ReceiptLongIcon sx={{ color: "#f59e0b" }} /></InputAdornment>,
+                                  startAdornment: <InputAdornment position="start"><ReceiptLongIcon sx={{ color: DASH.amber }} /></InputAdornment>,
                                 }}
                                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                               />
@@ -3281,7 +3287,7 @@ export default function BillingScreen() {
                               value={paymentFormData.cardType}
                               onChange={(e) => handlePaymentFormChange("cardType", e.target.value)}
                               InputProps={{
-                                startAdornment: <InputAdornment position="start"><CreditCardIcon sx={{ color: "#ef4444" }} /></InputAdornment>,
+                                startAdornment: <InputAdornment position="start"><CreditCardIcon sx={{ color: DASH.red }} /></InputAdornment>,
                               }}
                               sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                             />
@@ -3329,7 +3335,7 @@ export default function BillingScreen() {
                     <Box>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 3 }}>
                         <Box sx={{ width: 4, height: 24, borderRadius: 2, background: websiteSettings.mainColor }} />
-                        <Typography sx={{ fontWeight: 700, fontSize: "1.2rem", color: "#1e293b" }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: "1.2rem", color: DASH.ink }}>
                           Confirm Payment Details
                         </Typography>
                       </Box>
@@ -3337,7 +3343,7 @@ export default function BillingScreen() {
                       <Card
                         sx={{
                           borderRadius: "20px",
-                          border: "1px solid #e2e8f0",
+                          border: `1px solid ${DASH.line}`,
                           mb: 3,
                           overflow: "hidden",
                           boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
@@ -3346,10 +3352,10 @@ export default function BillingScreen() {
                         {/* Payment Method Header */}
                         <Box
                           sx={{
-                            background: `linear-gradient(135deg, ${paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.color}15 0%, ${paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.color}05 100%)`,
+                            backgroundColor: `${paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.color}12`,
                             px: 3,
                             py: 2.5,
-                            borderBottom: "1px solid #e2e8f0",
+                            borderBottom: `1px solid ${DASH.line}`,
                           }}
                         >
                           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -3357,7 +3363,7 @@ export default function BillingScreen() {
                               sx={{
                                 width: 48,
                                 height: 48,
-                                borderRadius: "12px",
+                                borderRadius: "10px",
                                 background: paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.color,
                                 display: "flex",
                                 alignItems: "center",
@@ -3369,10 +3375,10 @@ export default function BillingScreen() {
                               {paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.icon}
                             </Box>
                             <Box>
-                              <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: "#1e293b" }}>
+                              <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: DASH.ink }}>
                                 {paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name}
                               </Typography>
-                              <Typography sx={{ fontSize: "0.85rem", color: "#64748b" }}>
+                              <Typography sx={{ fontSize: "0.85rem", color: DASH.muted }}>
                                 {paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.description}
                               </Typography>
                             </Box>
@@ -3382,35 +3388,35 @@ export default function BillingScreen() {
                         <CardContent sx={{ p: 3 }}>
                           <Grid container spacing={2.5}>
                             <Grid size={{ xs: 6 }} >
-                              <Box sx={{ p: 2, background: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
-                                <Typography sx={{ color: "#64748b", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                              <Box sx={{ p: 2, background: DASH.surface, borderRadius: "10px", border: `1px solid ${DASH.line}` }}>
+                                <Typography sx={{ color: DASH.muted, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Student Name
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>{details.name}</Typography>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: DASH.ink }}>{details.name}</Typography>
                               </Box>
                             </Grid>
                             <Grid size={{ xs: 6 }} >
-                              <Box sx={{ p: 2, background: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
-                                <Typography sx={{ color: "#64748b", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                              <Box sx={{ p: 2, background: DASH.surface, borderRadius: "10px", border: `1px solid ${DASH.line}` }}>
+                                <Typography sx={{ color: DASH.muted, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Roll Number
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>{details.rollnumber}</Typography>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: DASH.ink }}>{details.rollnumber}</Typography>
                               </Box>
                             </Grid>
                             <Grid size={{ xs: 6 }} >
-                              <Box sx={{ p: 2, background: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
-                                <Typography sx={{ color: "#64748b", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                              <Box sx={{ p: 2, background: DASH.surface, borderRadius: "10px", border: `1px solid ${DASH.line}` }}>
+                                <Typography sx={{ color: DASH.muted, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Class & Section
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>{details.grade} - {details.section}</Typography>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: DASH.ink }}>{details.grade} - {details.section}</Typography>
                               </Box>
                             </Grid>
                             <Grid size={{ xs: 6 }} >
-                              <Box sx={{ p: 2, background: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
-                                <Typography sx={{ color: "#64748b", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                              <Box sx={{ p: 2, background: DASH.surface, borderRadius: "10px", border: `1px solid ${DASH.line}` }}>
+                                <Typography sx={{ color: DASH.muted, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Fee Type
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: DASH.ink }}>
                                   {feeTabs[value]}
                                 </Typography>
                               </Box>
@@ -3422,8 +3428,8 @@ export default function BillingScreen() {
                             sx={{
                               mt: 3,
                               p: 2.5,
-                              background: "linear-gradient(135deg, #10b98112 0%, #10b98108 100%)",
-                              borderRadius: "16px",
+                              backgroundColor: `${DASH.green}12`,
+                              borderRadius: "10px",
                               border: "1px solid #10b98125",
                               display: "flex",
                               justifyContent: "space-between",
@@ -3431,12 +3437,12 @@ export default function BillingScreen() {
                             }}
                           >
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                              <Box sx={{ width: 40, height: 40, borderRadius: "10px", background: "#10b981", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <Box sx={{ width: 40, height: 40, borderRadius: "10px", background: DASH.green, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                 <PaymentsIcon sx={{ color: "#fff", fontSize: 20 }} />
                               </Box>
-                              <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: "#1e293b" }}>Amount to Pay</Typography>
+                              <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: DASH.ink }}>Amount to Pay</Typography>
                             </Box>
-                            <Typography sx={{ fontWeight: 800, fontSize: "1.75rem", color: "#10b981" }}>
+                            <Typography sx={{ fontWeight: 800, fontSize: "1.75rem", color: DASH.green }}>
                               ₹{getTotalPending().toLocaleString()}
                             </Typography>
                           </Box>
@@ -3450,7 +3456,7 @@ export default function BillingScreen() {
                                   mt: 2,
                                   p: 2,
                                   background: "#f0f9ff",
-                                  borderRadius: "12px",
+                                  borderRadius: "10px",
                                   border: "1px solid #3b82f6",
                                   display: "flex",
                                   justifyContent: "space-between",
@@ -3460,7 +3466,7 @@ export default function BillingScreen() {
                                 <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#1e40af" }}>
                                   💵 Cash Received
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: "#3b82f6" }}>
+                                <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: DASH.blue }}>
                                   ₹{totalCash.toLocaleString()}
                                 </Typography>
                               </Box>
@@ -3474,18 +3480,18 @@ export default function BillingScreen() {
                                       sx={{
                                         mt: 2,
                                         p: 2,
-                                        background: "#ecfdf5",
-                                        borderRadius: "12px",
+                                        background: DASH.greenLight,
+                                        borderRadius: "10px",
                                         border: "1px solid #10b981",
                                         display: "flex",
                                         justifyContent: "space-between",
                                         alignItems: "center",
                                       }}
                                     >
-                                      <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#059669" }}>
+                                      <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#0E9F6E" }}>
                                         💰 Change to Return
                                       </Typography>
-                                      <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: "#10b981" }}>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: DASH.green }}>
                                         ₹{balance.toLocaleString()}
                                       </Typography>
                                     </Box>
@@ -3496,8 +3502,8 @@ export default function BillingScreen() {
                                       sx={{
                                         mt: 2,
                                         p: 2,
-                                        background: "#fef2f2",
-                                        borderRadius: "12px",
+                                        background: DASH.redLight,
+                                        borderRadius: "10px",
                                         border: "1px solid #ef4444",
                                         display: "flex",
                                         justifyContent: "space-between",
@@ -3507,7 +3513,7 @@ export default function BillingScreen() {
                                       <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#dc2626" }}>
                                         ⚠️ Short Amount
                                       </Typography>
-                                      <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: "#ef4444" }}>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: DASH.red }}>
                                         ₹{Math.abs(balance).toLocaleString()}
                                       </Typography>
                                     </Box>
@@ -3518,8 +3524,8 @@ export default function BillingScreen() {
                                       sx={{
                                         mt: 2,
                                         p: 2,
-                                        background: "#ecfdf5",
-                                        borderRadius: "12px",
+                                        background: DASH.greenLight,
+                                        borderRadius: "10px",
                                         border: "1px solid #10b981",
                                         display: "flex",
                                         justifyContent: "center",
@@ -3527,8 +3533,8 @@ export default function BillingScreen() {
                                         gap: 1,
                                       }}
                                     >
-                                      <CheckCircleIcon sx={{ color: "#10b981", fontSize: 20 }} />
-                                      <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#059669" }}>
+                                      <CheckCircleIcon sx={{ color: DASH.green, fontSize: 20 }} />
+                                      <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#0E9F6E" }}>
                                         Exact Amount - No Change Required
                                       </Typography>
                                     </Box>
@@ -3548,21 +3554,21 @@ export default function BillingScreen() {
                           justifyContent: "center",
                           gap: 2,
                           p: 2,
-                          background: "#f8fafc",
-                          borderRadius: "12px",
-                          border: "1px solid #e2e8f0",
+                          background: DASH.surface,
+                          borderRadius: "10px",
+                          border: `1px solid ${DASH.line}`,
                         }}
                       >
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "#10b981" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: DASH.green }}>
                           <SecurityIcon sx={{ fontSize: 20 }} />
                           <Typography sx={{ fontSize: "0.85rem", fontWeight: 600 }}>Secured</Typography>
                         </Box>
-                        <Box sx={{ width: 1, height: 16, background: "#e2e8f0" }} />
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "#3b82f6" }}>
+                        <Box sx={{ width: 1, height: 16, background: DASH.line }} />
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: DASH.blue }}>
                           <VerifiedUserIcon sx={{ fontSize: 20 }} />
                           <Typography sx={{ fontSize: "0.85rem", fontWeight: 600 }}>Verified</Typography>
                         </Box>
-                        <Box sx={{ width: 1, height: 16, background: "#e2e8f0" }} />
+                        <Box sx={{ width: 1, height: 16, background: DASH.line }} />
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "#8b5cf6" }}>
                           <LockIcon sx={{ fontSize: 20 }} />
                           <Typography sx={{ fontSize: "0.85rem", fontWeight: 600 }}>256-bit SSL</Typography>
@@ -3571,7 +3577,7 @@ export default function BillingScreen() {
 
                       {/* Offline Payment Notice */}
                       {!paymentProcessing && (
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "12px", p: 2, mt: 2 }}>
+                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "10px", p: 2, mt: 2 }}>
                           <InfoOutlinedIcon sx={{ color: "#2563EB", fontSize: 20, mt: 0.2, flexShrink: 0 }} />
                           <Typography sx={{ fontSize: "0.78rem", color: "#1e40af", lineHeight: 1.6 }}>
                             <strong>Note:</strong> Confirming this will record the payment as received in the system. This is an <strong>offline process</strong> — the transaction is being logged manually based on the payment already collected from the student.
@@ -3593,10 +3599,10 @@ export default function BillingScreen() {
                               }}
                             />
                           </Box>
-                          <Typography sx={{ fontWeight: 600, color: "#1e293b", fontSize: "1.1rem", mb: 0.5 }}>
+                          <Typography sx={{ fontWeight: 600, color: DASH.ink, fontSize: "1.1rem", mb: 0.5 }}>
                             Processing Payment
                           </Typography>
-                          <Typography sx={{ color: "#64748b", fontSize: "0.9rem" }}>
+                          <Typography sx={{ color: DASH.muted, fontSize: "0.9rem" }}>
                             Please wait while we process your transaction...
                           </Typography>
                         </Box>
@@ -3620,7 +3626,7 @@ export default function BillingScreen() {
                             width: 120,
                             height: 120,
                             borderRadius: "50%",
-                            background: "linear-gradient(135deg, #10b98115 0%, #10b98105 100%)",
+                            backgroundColor: `${DASH.green}12`,
                             animation: "pulse 2s ease-in-out infinite",
                           }}
                         />
@@ -3630,7 +3636,7 @@ export default function BillingScreen() {
                             width: 90,
                             height: 90,
                             borderRadius: "50%",
-                            background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                            backgroundColor: DASH.green,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -3641,18 +3647,18 @@ export default function BillingScreen() {
                         </Box>
                       </Box>
 
-                      <Typography sx={{ fontWeight: 800, fontSize: "1.75rem", color: "#1e293b", mb: 0.5, letterSpacing: "-0.02em" }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: "1.75rem", color: DASH.ink, mb: 0.5, letterSpacing: "-0.02em" }}>
                         Payment Successful!
                       </Typography>
-                      <Typography sx={{ color: "#64748b", mb: 4, fontSize: "1rem" }}>
+                      <Typography sx={{ color: DASH.muted, mb: 4, fontSize: "1rem" }}>
                         Your transaction has been completed successfully
                       </Typography>
 
                       {/* Student Info Card */}
                       <Card
                         sx={{
-                          borderRadius: "16px",
-                          border: "1px solid #e2e8f0",
+                          borderRadius: "10px",
+                          border: `1px solid ${DASH.line}`,
                           maxWidth: 600,
                           mx: "auto",
                           mb: 3,
@@ -3665,7 +3671,7 @@ export default function BillingScreen() {
                               sx={{
                                 width: 56,
                                 height: 56,
-                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                backgroundColor: DASH.violet,
                                 fontSize: "1.3rem",
                                 fontWeight: 700,
                               }}
@@ -3673,18 +3679,18 @@ export default function BillingScreen() {
                               {details?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'ST'}
                             </Avatar>
                             <Box sx={{ textAlign: "left", flex: 1 }}>
-                              <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: "#1e293b", mb: 0.5 }}>
+                              <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: DASH.ink, mb: 0.5 }}>
                                 {details?.name || 'Student Name'}
                               </Typography>
                               <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-                                <Typography sx={{ fontSize: "0.85rem", color: "#64748b" }}>
-                                  Roll: <span style={{ fontWeight: 600, color: "#1e293b" }}>{details?.rollNumber || rollNumber || '-'}</span>
+                                <Typography sx={{ fontSize: "0.85rem", color: DASH.muted }}>
+                                  Roll: <span style={{ fontWeight: 600, color: DASH.ink }}>{details?.rollNumber || rollNumber || '-'}</span>
                                 </Typography>
-                                <Typography sx={{ fontSize: "0.85rem", color: "#64748b" }}>
-                                  Grade: <span style={{ fontWeight: 600, color: "#1e293b" }}>{details?.grade || '-'}</span>
+                                <Typography sx={{ fontSize: "0.85rem", color: DASH.muted }}>
+                                  Grade: <span style={{ fontWeight: 600, color: DASH.ink }}>{details?.grade || '-'}</span>
                                 </Typography>
-                                <Typography sx={{ fontSize: "0.85rem", color: "#64748b" }}>
-                                  Section: <span style={{ fontWeight: 600, color: "#1e293b" }}>{details?.section || '-'}</span>
+                                <Typography sx={{ fontSize: "0.85rem", color: DASH.muted }}>
+                                  Section: <span style={{ fontWeight: 600, color: DASH.ink }}>{details?.section || '-'}</span>
                                 </Typography>
                               </Box>
                             </Box>
@@ -3696,35 +3702,35 @@ export default function BillingScreen() {
                           <Grid container spacing={2} sx={{ mb: 2 }}>
                             <Grid size={{ xs: 6 }}>
                               <Box sx={{ textAlign: "left" }}>
-                                <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Bill ID
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: DASH.ink }}>
                                   {completedBillID || '-'}
                                 </Typography>
                               </Box>
                             </Grid>
                             <Grid size={{ xs: 6 }}>
                               <Box sx={{ textAlign: "left" }}>
-                                <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Date & Time
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: DASH.ink }}>
                                   {dayjs().format("DD MMM YYYY")}
                                 </Typography>
-                                <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                <Typography sx={{ fontSize: "0.75rem", color: DASH.muted }}>
                                   {dayjs().format("hh:mm A")}
                                 </Typography>
                               </Box>
                             </Grid>
                             <Grid size={{ xs: 6 }}>
                               <Box sx={{ textAlign: "left" }}>
-                                <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Payment Method
                                 </Typography>
                                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                   {paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.icon}
-                                  <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b" }}>
+                                  <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: DASH.ink }}>
                                     {paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name}
                                   </Typography>
                                 </Box>
@@ -3732,10 +3738,10 @@ export default function BillingScreen() {
                             </Grid>
                             <Grid size={{ xs: 6 }}>
                               <Box sx={{ textAlign: "left" }}>
-                                <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Paid Amount
                                 </Typography>
-                                <Typography sx={{ fontWeight: 800, fontSize: "1.15rem", color: "#10b981" }}>
+                                <Typography sx={{ fontWeight: 800, fontSize: "1.15rem", color: DASH.green }}>
                                   ₹{completedPaymentAmount.toLocaleString()}
                                 </Typography>
                               </Box>
@@ -3743,10 +3749,10 @@ export default function BillingScreen() {
                             {paymentFormData.transactionId && (
                               <Grid size={{ xs: 6 }}>
                                 <Box sx={{ textAlign: "left" }}>
-                                  <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                  <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                     Transaction ID
                                   </Typography>
-                                  <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                  <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: DASH.ink }}>
                                     {paymentFormData.transactionId}
                                   </Typography>
                                 </Box>
@@ -3757,10 +3763,10 @@ export default function BillingScreen() {
                             {selectedPaymentMethod === "upi" && paymentFormData.upiId && (
                               <Grid size={{ xs: 6 }}>
                                 <Box sx={{ textAlign: "left" }}>
-                                  <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                  <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                     UPI ID
                                   </Typography>
-                                  <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                  <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: DASH.ink }}>
                                     {paymentFormData.upiId}
                                   </Typography>
                                 </Box>
@@ -3771,10 +3777,10 @@ export default function BillingScreen() {
                             {selectedPaymentMethod === "netbanking" && paymentFormData.bankName && (
                               <Grid size={{ xs: 6 }}>
                                 <Box sx={{ textAlign: "left" }}>
-                                  <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                  <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                     Bank Name
                                   </Typography>
-                                  <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                  <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: DASH.ink }}>
                                     {paymentFormData.bankName}
                                   </Typography>
                                 </Box>
@@ -3787,10 +3793,10 @@ export default function BillingScreen() {
                                 {paymentFormData.bankName && (
                                   <Grid size={{ xs: 6 }}>
                                     <Box sx={{ textAlign: "left" }}>
-                                      <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                      <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                         Bank Name
                                       </Typography>
-                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: DASH.ink }}>
                                         {paymentFormData.bankName}
                                       </Typography>
                                     </Box>
@@ -3799,10 +3805,10 @@ export default function BillingScreen() {
                                 {paymentFormData.chequeNo && (
                                   <Grid size={{ xs: 6 }}>
                                     <Box sx={{ textAlign: "left" }}>
-                                      <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                      <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                         Cheque No
                                       </Typography>
-                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: DASH.ink }}>
                                         {paymentFormData.chequeNo}
                                       </Typography>
                                     </Box>
@@ -3811,10 +3817,10 @@ export default function BillingScreen() {
                                 {paymentFormData.chequeDate && (
                                   <Grid size={{ xs: 6 }}>
                                     <Box sx={{ textAlign: "left" }}>
-                                      <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                      <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                         Cheque Date
                                       </Typography>
-                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: DASH.ink }}>
                                         {dayjs(paymentFormData.chequeDate).format("DD MMM YYYY")}
                                       </Typography>
                                     </Box>
@@ -3829,10 +3835,10 @@ export default function BillingScreen() {
                                 {paymentFormData.cardType && (
                                   <Grid size={{ xs: 6 }}>
                                     <Box sx={{ textAlign: "left" }}>
-                                      <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                      <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                         Card Type
                                       </Typography>
-                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: DASH.ink }}>
                                         {paymentFormData.cardType}
                                       </Typography>
                                     </Box>
@@ -3841,10 +3847,10 @@ export default function BillingScreen() {
                                 {paymentFormData.cardLast4 && (
                                   <Grid size={{ xs: 6 }}>
                                     <Box sx={{ textAlign: "left" }}>
-                                      <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                      <Typography sx={{ color: DASH.faint, fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                         Card (Last 4)
                                       </Typography>
-                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: DASH.ink }}>
                                         **** **** **** {paymentFormData.cardLast4}
                                       </Typography>
                                     </Box>
@@ -3858,15 +3864,15 @@ export default function BillingScreen() {
 
                           {/* Payment Breakdown */}
                           <Box sx={{ textAlign: "left" }}>
-                            <Typography sx={{ color: "#1e293b", fontSize: "0.9rem", fontWeight: 700, mb: 2 }}>
+                            <Typography sx={{ color: DASH.ink, fontSize: "0.9rem", fontWeight: 700, mb: 2 }}>
                               Payment Summary
                             </Typography>
 
                             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1.5 }}>
-                              <Typography sx={{ fontSize: "0.9rem", color: "#64748b" }}>
+                              <Typography sx={{ fontSize: "0.9rem", color: DASH.muted }}>
                                 Amount Paid
                               </Typography>
-                              <Typography sx={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>
+                              <Typography sx={{ fontSize: "0.95rem", fontWeight: 700, color: DASH.ink }}>
                                 ₹{completedPaymentAmount.toLocaleString()}
                               </Typography>
                             </Box>
@@ -3874,10 +3880,10 @@ export default function BillingScreen() {
                             {selectedPaymentMethod === "cash" && (
                               <>
                                 <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1.5 }}>
-                                  <Typography sx={{ fontSize: "0.9rem", color: "#64748b" }}>
+                                  <Typography sx={{ fontSize: "0.9rem", color: DASH.muted }}>
                                     💵 Cash Received
                                   </Typography>
-                                  <Typography sx={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>
+                                  <Typography sx={{ fontSize: "0.95rem", fontWeight: 700, color: DASH.ink }}>
                                     ₹{totalCash.toLocaleString()}
                                   </Typography>
                                 </Box>
@@ -3890,22 +3896,22 @@ export default function BillingScreen() {
                                         sx={{
                                           mt: 2,
                                           p: 2,
-                                          background: "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
-                                          borderRadius: "12px",
+                                          backgroundColor: DASH.greenLight,
+                                          borderRadius: "10px",
                                           border: "1px solid #10b981",
                                         }}
                                       >
                                         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                          <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#059669" }}>
+                                          <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#0E9F6E" }}>
                                             💰 Change to Return
                                           </Typography>
-                                          <Typography sx={{ fontWeight: 800, fontSize: "1.3rem", color: "#10b981" }}>
+                                          <Typography sx={{ fontWeight: 800, fontSize: "1.3rem", color: DASH.green }}>
                                             ₹{balance.toLocaleString()}
                                           </Typography>
                                         </Box>
                                         {totalChange > 0 && (
                                           <Box sx={{ mt: 1.5, pt: 1.5, borderTop: "1px solid #10b98130" }}>
-                                            <Typography sx={{ fontSize: "0.75rem", color: "#059669", fontWeight: 600, mb: 1 }}>
+                                            <Typography sx={{ fontSize: "0.75rem", color: "#0E9F6E", fontWeight: 600, mb: 1 }}>
                                               Change Breakdown:
                                             </Typography>
                                             <Grid container spacing={1}>
@@ -3937,8 +3943,8 @@ export default function BillingScreen() {
                                         sx={{
                                           mt: 2,
                                           p: 2,
-                                          background: "#fef2f2",
-                                          borderRadius: "12px",
+                                          background: DASH.redLight,
+                                          borderRadius: "10px",
                                           border: "1px solid #ef4444",
                                           display: "flex",
                                           justifyContent: "space-between",
@@ -3948,7 +3954,7 @@ export default function BillingScreen() {
                                         <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#dc2626" }}>
                                           ⚠️ Short Amount
                                         </Typography>
-                                        <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: "#ef4444" }}>
+                                        <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: DASH.red }}>
                                           ₹{Math.abs(balance).toLocaleString()}
                                         </Typography>
                                       </Box>
@@ -3959,8 +3965,8 @@ export default function BillingScreen() {
                                         sx={{
                                           mt: 2,
                                           p: 2,
-                                          background: "#ecfdf5",
-                                          borderRadius: "12px",
+                                          background: DASH.greenLight,
+                                          borderRadius: "10px",
                                           border: "1px solid #10b981",
                                           display: "flex",
                                           justifyContent: "center",
@@ -3968,8 +3974,8 @@ export default function BillingScreen() {
                                           gap: 1,
                                         }}
                                       >
-                                        <CheckCircleIcon sx={{ color: "#10b981", fontSize: 20 }} />
-                                        <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#059669" }}>
+                                        <CheckCircleIcon sx={{ color: DASH.green, fontSize: 20 }} />
+                                        <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#0E9F6E" }}>
                                           Exact Amount - No Change Required
                                         </Typography>
                                       </Box>
@@ -3991,19 +3997,19 @@ export default function BillingScreen() {
                           gap: 1.5,
                           px: 3,
                           py: 1.5,
-                          background: "linear-gradient(135deg, #10b98112 0%, #10b98108 100%)",
+                          backgroundColor: `${DASH.green}12`,
                           borderRadius: "100px",
                           border: "1px solid #10b98125",
                         }}
                       >
-                        <VerifiedUserIcon sx={{ fontSize: 20, color: "#10b981" }} />
-                        <Typography sx={{ fontSize: "0.9rem", fontWeight: 600, color: "#10b981" }}>
+                        <VerifiedUserIcon sx={{ fontSize: 20, color: DASH.green }} />
+                        <Typography sx={{ fontSize: "0.9rem", fontWeight: 600, color: DASH.green }}>
                           Verified & Secured Payment
                         </Typography>
                       </Box>
 
                       {/* Offline Payment Notice */}
-                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "12px", p: 2, mt: 2, textAlign: "left" }}>
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "10px", p: 2, mt: 2, textAlign: "left" }}>
                         <InfoOutlinedIcon sx={{ color: "#2563EB", fontSize: 20, mt: 0.2, flexShrink: 0 }} />
                         <Typography sx={{ fontSize: "0.78rem", color: "#1e40af", lineHeight: 1.6 }}>
                           <strong>Payment Recorded:</strong> This transaction has been saved in the system as an offline payment. The record will reflect in the student's fee history and financial reports.
@@ -4020,7 +4026,7 @@ export default function BillingScreen() {
                   pb: 2,
                   pt: 2,
                   borderTop: "1px solid #ccc",
-                  background: "linear-gradient(180deg, #ffffff 0%, #fafafa 100%)",
+                  backgroundColor: "#fff",
                 }}
               >
                 {!paymentSuccess && paymentStep > 0 && (
@@ -4029,13 +4035,13 @@ export default function BillingScreen() {
                     disabled={paymentProcessing}
                     startIcon={<ArrowBackIcon />}
                     sx={{
-                      borderRadius: "12px",
+                      borderRadius: "10px",
                       textTransform: "none",
                       fontWeight: 600,
-                      color: "#64748b",
+                      color: DASH.muted,
                       px: 2.5,
                       py: 1.2,
-                      "&:hover": { background: "#f1f5f9" },
+                      "&:hover": { background: DASH.lineSoft },
                     }}
                   >
                     Back
@@ -4048,17 +4054,17 @@ export default function BillingScreen() {
                     onClick={handleCloseAttempt}
                     disabled={paymentProcessing}
                     sx={{
-                      borderRadius: "12px",
+                      borderRadius: "10px",
                       textTransform: "none",
                       fontWeight: 600,
-                      color: "#555",
-                      border: "2px solid #e2e8f0",
+                      color: DASH.muted,
+                      border: `2px solid ${DASH.line}`,
                       px: 3,
                       mr: 1,
                       py: 1.2,
                       "&:hover": {
                         borderColor: "#555",
-                        background: "#f8fafc",
+                        background: DASH.surface,
                       },
                     }}
                   >
@@ -4073,17 +4079,17 @@ export default function BillingScreen() {
                     disabled={paymentStep === 0 && !selectedPaymentMethod}
                     endIcon={<ArrowForwardIcon />}
                     sx={{
-                      borderRadius: "12px",
+                      borderRadius: "10px",
                       textTransform: "none",
                       fontWeight: 700,
                       px: 4,
                       py: 1.2,
-                      background: `linear-gradient(135deg, ${websiteSettings.mainColor} 0%, ${websiteSettings.darkColor} 100%)`,
+                      backgroundColor: websiteSettings.mainColor,
                       color: websiteSettings.textColor,
                       boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
                       border: "1px solid rgba(0,0,0,0.1)",
                       "&:disabled": {
-                        background: "#e2e8f0",
+                        background: DASH.line,
                         boxShadow: "none",
                       },
                       transition: "all 0.2s ease",
@@ -4100,20 +4106,20 @@ export default function BillingScreen() {
                     disabled={paymentProcessing}
                     startIcon={paymentProcessing ? null : <CheckCircleIcon />}
                     sx={{
-                      borderRadius: "12px",
+                      borderRadius: RADIUS,
                       textTransform: "none",
                       fontWeight: 700,
-                      px: 4,
-                      py: 1.2,
-                      background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                      boxShadow: "0 4px 14px rgba(16, 185, 129, 0.4)",
+                      fontSize: "13px",
+                      height: 38,
+                      px: 3.5,
+                      backgroundColor: DASH.green,
+                      boxShadow: "none",
                       "&:hover": {
-                        background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
-                        boxShadow: "0 6px 20px rgba(16, 185, 129, 0.5)",
-                        transform: "translateY(-1px)",
+                        backgroundColor: "#0E9F6E",
+                        boxShadow: "0 2px 8px rgba(16,185,129,0.25)",
                       },
                       "&:disabled": {
-                        background: "#94a3b8",
+                        background: DASH.faint,
                         boxShadow: "none",
                       },
                       transition: "all 0.2s ease",
@@ -4130,7 +4136,7 @@ export default function BillingScreen() {
                       startIcon={<PrintIcon />}
                       onClick={handleOpenPrintReceipt}
                       sx={{
-                        borderRadius: "12px",
+                        borderRadius: "10px",
                         textTransform: "none",
                         fontWeight: 600,
                         px: 3,
@@ -4151,16 +4157,16 @@ export default function BillingScreen() {
                       variant="contained"
                       onClick={handleClosePaymentPopup}
                       sx={{
-                        borderRadius: "12px",
+                        borderRadius: "10px",
                         textTransform: "none",
                         fontWeight: 700,
                         px: 4,
                         py: 1.2,
-                        background: `linear-gradient(135deg, ${websiteSettings.mainColor} 0%, ${websiteSettings.darkColor} 100%)`,
+                        backgroundColor: websiteSettings.mainColor,
                         color: websiteSettings.textColor,
                         boxShadow: `0 4px 14px ${websiteSettings.mainColor}40`,
                         "&:hover": {
-                          background: `linear-gradient(135deg, ${websiteSettings.darkColor} 0%, ${websiteSettings.darkColor} 100%)`,
+                          backgroundColor: websiteSettings.darkColor,
                           boxShadow: `0 6px 20px ${websiteSettings.mainColor}50`,
                           transform: "translateY(-1px)",
                         },
@@ -4182,7 +4188,7 @@ export default function BillingScreen() {
               fullWidth
               PaperProps={{
                 sx: {
-                  borderRadius: "16px",
+                  borderRadius: "10px",
                   overflow: "hidden",
                 },
               }}
@@ -4193,7 +4199,7 @@ export default function BillingScreen() {
                     width: 64,
                     height: 64,
                     borderRadius: "50%",
-                    bgcolor: "#FEF2F2",
+                    bgcolor: DASH.redLight,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -4203,10 +4209,10 @@ export default function BillingScreen() {
                 >
                   <Typography sx={{ fontSize: "32px" }}>⚠️</Typography>
                 </Box>
-                <Typography sx={{ fontSize: "20px", fontWeight: 700, color: "#1e293b", mb: 1 }}>
+                <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, mb: 1 }}>
                   Discard Payment Details?
                 </Typography>
-                <Typography sx={{ fontSize: "14px", color: "#64748b", mb: 3 }}>
+                <Typography sx={{ fontSize: "14px", color: DASH.muted, mb: 3 }}>
                   You have unsaved payment information. If you close now, all entered data will be lost.
                 </Typography>
               </DialogContent>
@@ -4220,11 +4226,11 @@ export default function BillingScreen() {
                     fontWeight: 600,
                     px: 3,
                     py: 1.2,
-                    border: "2px solid #e2e8f0",
-                    color: "#64748b",
+                    border: `2px solid ${DASH.line}`,
+                    color: DASH.muted,
                     "&:hover": {
                       border: "2px solid #cbd5e1",
-                      background: "#f8fafc",
+                      background: DASH.surface,
                     },
                   }}
                 >
@@ -4239,7 +4245,7 @@ export default function BillingScreen() {
                     fontWeight: 700,
                     px: 3,
                     py: 1.2,
-                    background: "#ef4444",
+                    background: DASH.red,
                     "&:hover": {
                       background: "#dc2626",
                     },
@@ -4262,7 +4268,7 @@ export default function BillingScreen() {
               }}
               PaperProps={{
                 sx: {
-                  borderRadius: "16px",
+                  borderRadius: "10px",
                   overflow: "hidden",
                 }
               }}
@@ -4272,7 +4278,7 @@ export default function BillingScreen() {
                   ref={printReceiptRef}
                   sx={{
                     backgroundColor: "#fff",
-                    borderRadius: "6px",
+                    borderRadius: RADIUS,
                     px: 3,
                     "@media print": {
                       boxShadow: "none",
@@ -4310,7 +4316,7 @@ export default function BillingScreen() {
                       // fontWeight: 600,
                       fontSize: "16px",
                       mb: 1,
-                      color: "#555",
+                      color: DASH.muted,
                     }}
                   >
                     Payment Receipt - {feeTabs[value]}
@@ -4321,7 +4327,7 @@ export default function BillingScreen() {
                     sx={{
                       display: "grid",
                       gridTemplateColumns: "repeat(5, 1fr)",
-                      border: "1px solid #e0e0e0",
+                      border: `1px solid ${DASH.line}`,
                     }}
                   >
                     {[
@@ -4334,14 +4340,14 @@ export default function BillingScreen() {
                       <Box
                         key={i}
                         sx={{
-                          borderRight: i !== 4 ? "1px solid #e0e0e0" : "none",
+                          borderRight: i !== 4 ? `1px solid ${DASH.line}` : "none",
                           p: 0.7,
                         }}
                       >
                         <Typography sx={{ color: "#888", fontSize: "12px" }}>{item.label}</Typography>
                         <Typography
                           sx={{
-                            color: "#000",
+                            color: DASH.ink,
                             fontSize: "15px",
                             fontWeight: 500,
                             mt: 0.5,
@@ -4356,7 +4362,7 @@ export default function BillingScreen() {
                   {/* Fee Details Table */}
                   <TableContainer
                     sx={{
-                      border: "1px solid #E601542A",
+                      border: `1px solid ${DASH.line}`,
                       mt: 1.5
                     }}
                   >
@@ -4367,11 +4373,11 @@ export default function BillingScreen() {
                             <TableCell
                               key={index}
                               sx={{
-                                backgroundColor: header === "Paid Amount" ? "#00963C1A" : "#ff00001A",
+                                backgroundColor: header === "Paid Amount" ? `${DASH.green}1A` : `${DASH.red}1A`,
                                 fontWeight: header === "Paid Amount" ? 700 : 600,
                                 textAlign: "center",
-                                border: "1px solid #E601542A",
-                                color: header === "Paid Amount" ? "#00963C" : "#000",
+                                border: `1px solid ${DASH.line}`,
+                                color: header === "Paid Amount" ? DASH.green : "#000",
                                 fontSize: "14px",
                               }}
                             >
@@ -4385,13 +4391,13 @@ export default function BillingScreen() {
                         {completedPaymentFees && completedPaymentFees.length > 0 ? (
                           completedPaymentFees.map((fee, index) => (
                             <TableRow key={index}>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                                 {index + 1}
                               </TableCell>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px", fontWeight: 600 }}>
+                              <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px", fontWeight: 600 }}>
                                 {feeTabs[value]}
                               </TableCell>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                                 {value === 1
                                   ? (fee.place || "-")
                                   : value === 2
@@ -4401,29 +4407,29 @@ export default function BillingScreen() {
                                       : (fee.feeDetails || "-")
                                 }
                               </TableCell>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                                 ₹{(fee.feeAmount || fee.amount || 0).toLocaleString()}
                               </TableCell>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", bgcolor: "#00963C0A", color: "#00963C", fontSize: "14px", fontWeight: 700 }}>
+                              <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, bgcolor: `${DASH.green}0A`, color: DASH.green, fontSize: "14px", fontWeight: 700 }}>
                                 ₹{(fee.paidAmount || fee.actualPaidAmount || (completedPaymentAmount / completedPaymentFees.length) || 0).toLocaleString()}
                               </TableCell>
                             </TableRow>
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                            <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                               1
                             </TableCell>
-                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px", fontWeight: 600 }}>
+                            <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px", fontWeight: 600 }}>
                               {feeTabs[value]}
                             </TableCell>
-                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                            <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                               Payment
                             </TableCell>
-                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                            <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, color: DASH.ink, fontSize: "14px" }}>
                               ₹{completedPaymentAmount.toLocaleString()}
                             </TableCell>
-                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", bgcolor: "#00963C0A", color: "#00963C", fontSize: "14px", fontWeight: 700 }}>
+                            <TableCell sx={{ textAlign: "center", border: `1px solid ${DASH.line}`, bgcolor: `${DASH.green}0A`, color: DASH.green, fontSize: "14px", fontWeight: 700 }}>
                               ₹{completedPaymentAmount.toLocaleString()}
                             </TableCell>
                           </TableRow>
@@ -4435,12 +4441,12 @@ export default function BillingScreen() {
                   {/* Total Paid Amount */}
                   <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 0 }}>
                     <Box sx={{
-                      border: "1px solid #00963C",
+                      border: `1px solid ${DASH.green}`,
                       py: 1.5,
                       px: 4,
-                      color: "#00963C",
+                      color: DASH.green,
                       fontWeight: "700",
-                      backgroundColor: "#00963C0A",
+                      backgroundColor: `${DASH.green}0A`,
                       borderTop: "none",
                       borderBottomLeftRadius: "5px",
                       mr: "-2px",
@@ -4461,7 +4467,7 @@ export default function BillingScreen() {
                     }}
                   >
                     <Box>
-                      <Typography sx={{ fontSize: "15px", color: "#000", mb: 0.5 }}>
+                      <Typography sx={{ fontSize: "15px", color: DASH.ink, mb: 0.5 }}>
                         <b>Paid amount in words:</b> {convertNumberToWords(completedPaymentAmount)} rupees only
                       </Typography>
                       <Typography sx={{ fontSize: "14px", color: "#666" }}>
@@ -4498,12 +4504,14 @@ export default function BillingScreen() {
                     onClick={handleClosePrintReceipt}
                     variant="outlined"
                     sx={{
-                      borderColor: "#000",
-                      color: "#000",
+                      borderColor: DASH.line,
+                      color: DASH.text,
+                      bgcolor: "#fff",
+                      fontWeight: 700,
                       textTransform: "none",
-                      borderRadius: "30px",
+                      borderRadius: RADIUS,
                       width: "100px",
-                      height: "33px",
+                      height: 34,
                       fontWeight: 600,
                       "&:hover": {
                         borderColor: "#333",
@@ -4522,8 +4530,8 @@ export default function BillingScreen() {
                       textTransform: "none",
                       color: websiteSettings.textColor,
                       width: "120px",
-                      height: "33px",
-                      borderRadius: "30px",
+                      height: 34,
+                      borderRadius: RADIUS,
                       fontWeight: 600,
                       "&:hover": {
                         backgroundColor: websiteSettings.darkColor,
@@ -4540,8 +4548,8 @@ export default function BillingScreen() {
                       textTransform: "none",
                       color: websiteSettings.textColor,
                       width: "130px",
-                      height: "33px",
-                      borderRadius: "30px",
+                      height: 34,
+                      borderRadius: RADIUS,
                       fontWeight: 600,
                       "&:hover": {
                         backgroundColor: websiteSettings.darkColor,
@@ -4561,11 +4569,11 @@ export default function BillingScreen() {
               fullWidth
             >
               <DialogContent>
-                <Box sx={{ backgroundColor: "#f2f2f2", px: 2, py: 1, borderBottom: "1px solid #ddd", mb: 0.13, }}>
+                <Box sx={{ backgroundColor: DASH.canvas, px: 2, py: 1.2, borderBottom: `1px solid ${DASH.line}` }}>
                   <Grid container>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center" }}>
 
-                      <Typography sx={{ fontWeight: "600", fontSize: "19px" }} >Transaction History</Typography>
+                      <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>Transaction History</Typography>
                     </Grid>
                   </Grid>
                 </Box>
@@ -4573,7 +4581,7 @@ export default function BillingScreen() {
                   sx={{
                     display: "grid",
                     gridTemplateColumns: "repeat(5, 1fr)",
-                    border: "1px solid #e0e0e0",
+                    border: `1px solid ${DASH.line}`,
                     mt: 2
                   }}
                 >
@@ -4587,14 +4595,14 @@ export default function BillingScreen() {
                     <Box
                       key={i}
                       sx={{
-                        borderRight: i !== 4 ? "1px solid #e0e0e0" : "none",
+                        borderRight: i !== 4 ? `1px solid ${DASH.line}` : "none",
                         p: 0.7,
                       }}
                     >
                       <Typography sx={{ color: "#888", fontSize: "12px" }}>{item.label}</Typography>
                       <Typography
                         sx={{
-                          color: "#000",
+                          color: DASH.ink,
                           fontSize: "15px",
                           fontWeight: 500,
                           mt: 0.5,

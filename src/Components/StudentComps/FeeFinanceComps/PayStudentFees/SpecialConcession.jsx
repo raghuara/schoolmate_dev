@@ -1,16 +1,18 @@
 import { Box } from '@mui/system'
 import React, { useEffect, useState } from 'react'
-import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
 import { Button, Card, FormControlLabel, Grid, IconButton, InputAdornment, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Tooltip, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CategoryIcon from '@mui/icons-material/Category';
 import PersonIcon from '@mui/icons-material/Person';
 import NotesIcon from '@mui/icons-material/Notes';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
 import axios from 'axios';
+import { DASH, RADIUS } from "../../../DashBoardComps/dashboardTheme";
+import { FeeTableSkeleton, ConcessionFormSkeleton } from "./BillingSkeletons";
 import {
     postSchoolFeeConcession,
     postEcaFeeConcession,
@@ -459,21 +461,28 @@ export default function SpecialConcession() {
         <Box>
             <Box sx={{ width: "100%", }}>
                 <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-                {isLoading && <Loader />}
-                <Box sx={{ position: "fixed", backgroundColor: "#f2f2f2", px: 2, py: 1.5, borderBottom: "1px solid #ddd", mb: 0.13, zIndex: "1200", width: "100%" }}>
-                    <Grid container>
-                        <Grid size={{ xs: 12, sm: 12, md: 3, lg: 3 }} sx={{ display: "flex", alignItems: "center" }}>
-                            <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: '2px', }}>
-                                <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                            </IconButton>
-                            <Typography sx={{ fontWeight: "600", fontSize: "19px" }} >Apply special concession</Typography>
-                        </Grid>
-                        <Grid
-                            size={{ xs: 12, sm: 12, md: 6, lg: 6 }}
-                            sx={{
-                                display: "flex",
-                                justifyContent: "start",
-                            }}>
+                <Box
+                    sx={{
+                        backgroundColor: DASH.canvas,
+                        px: 2,
+                        py: 1.5,
+                        borderBottom: `1px solid ${DASH.line}`,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 2,
+                        flexWrap: "wrap",
+                    }}
+                >
+                    <Box sx={{ display: "flex", alignItems: "center", minWidth: 0, flex: { xs: "1 1 100%", md: "1 1 0" } }}>
+                        <IconButton onClick={() => navigate(-1)} sx={{ width: 28, height: 28 }}>
+                            <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
+                        </IconButton>
+                        <Box sx={{ ml: 1, minWidth: 0 }}>
+                            <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>Apply special concession</Typography>
+                            <Typography sx={{ fontSize: "11.5px", color: DASH.muted, whiteSpace: "nowrap" }}>Reduce a fee element for one student</Typography>
+                        </Box>
+                    </Box>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", flex: { xs: "1 1 100%", md: "0 0 auto" } }}>
                             <Tabs
                                 value={tabValue}
                                 onChange={handleTabChange}
@@ -484,30 +493,34 @@ export default function SpecialConcession() {
                                     },
                                 }}
                                 sx={{
-                                    backgroundColor: "#fff",
-                                    minHeight: "10px",
-                                    borderRadius: "50px",
-                                    border: "1px solid rgba(0,0,0,0.1)",
+                                    backgroundColor: DASH.lineSoft,
+                                    minHeight: 0,
+                                    borderRadius: "999px",
+                                    border: `1px solid ${DASH.line}`,
+                                    p: 0.5,
                                     "& .MuiTabs-flexContainer": {
                                         justifyContent: "center",
                                     },
                                     "& .MuiTab-root": {
                                         textTransform: "none",
-                                        fontSize: "13px",
-                                        color: "#555",
-                                        fontWeight: "bold",
+                                        fontSize: "12.5px",
+                                        color: DASH.muted,
+                                        fontWeight: 600,
                                         minWidth: 0,
-                                        minHeight: "30px",
-                                        height: "30px",
-                                        px: 2,
-                                        m: 0.8,
-                                    },
+                                        minHeight: 28,
+                                        height: 28,
+                                        px: 1.8,
+                                        borderRadius: "999px",
+                                        transition: "color .18s ease, background-color .18s ease",
+                                        "&:hover": { color: DASH.text },
+                                        },
                                     "& .Mui-selected": {
-                                        color: `${websiteSettings.textColor} !important`,
-                                        bgcolor: websiteSettings.mainColor,
-                                        borderRadius: "50px",
-                                        boxShadow: "1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)",
-                                        border: "1px solid rgba(0,0,0,0.1)",
+                                        color: "#fff !important",
+                                        bgcolor: "#E30053",
+                                        fontWeight: 700,
+                                        borderRadius: "999px",
+                                        boxShadow: "0 1px 3px rgba(227,0,83,0.30)",
+                                        "&:hover": { bgcolor: "#C40047" },
                                     },
                                 }}
                             >
@@ -515,25 +528,36 @@ export default function SpecialConcession() {
                                     <Tab key={idx} label={label} />
                                 ))}
                             </Tabs>
-                        </Grid>
-                    </Grid>
+                        </Box>
+
+                        <Box sx={{ display: { xs: "none", md: "block" }, flex: "1 1 0" }} />
                 </Box>
                 
                 <Box sx={{
-                    px: 2, pb: 2, pt: "68px", minHeight: "72vh",
+                    px: 2, pb: 2, pt: 1, minHeight: "72vh",
                 }}>
+                    {isLoading && (
+                      <>
+                        <ConcessionFormSkeleton />
+                        <Box sx={{ mt: 2 }}>
+                          <FeeTableSkeleton columns={isIndividual ? 9 : 6} rows={5} />
+                        </Box>
+                      </>
+                    )}
+                    {!isLoading && (
+                      <>
 
-                    <Card sx={{ mt: 2, mb: 1, border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', backgroundColor: '#fff' }}>
+                    <Card sx={{ mt: 2, mb: 1, border: `1px solid ${DASH.line}`, borderRadius: '10px', boxShadow: 'none', backgroundColor: '#fff' }}>
                         {/* Card header */}
-                        <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid #F0F0F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FAFAFA', borderRadius: '12px 12px 0 0' }}>
+                        <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid #F0F0F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: DASH.surface, borderRadius: '10px 10px 0 0' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Box sx={{ width: 28, height: 28, borderRadius: '8px', backgroundColor: `${websiteSettings.mainColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <NotesIcon sx={{ fontSize: 16, color: websiteSettings.mainColor }} />
+                                <Box sx={{ width: 28, height: 28, borderRadius: RADIUS, backgroundColor: "#FDECF2", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <NotesIcon sx={{ fontSize: 16, color: "#E30053" }} />
                                 </Box>
-                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
+                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.text }}>
                                     Concession Details
                                 </Typography>
-                                <Typography sx={{ fontSize: 11, color: '#9CA3AF', ml: 0.5 }}>
+                                <Typography sx={{ fontSize: 11, color: DASH.faint, ml: 0.5 }}>
                                     — {isIndividual ? 'Enter details for each fee separately in the table below' : 'Fill in the details below before applying concession'}
                                 </Typography>
                             </Box>
@@ -544,13 +568,13 @@ export default function SpecialConcession() {
                                         checked={isIndividual}
                                         onChange={(e) => setIsIndividual(e.target.checked)}
                                         sx={{
-                                            "& .MuiSwitch-switchBase.Mui-checked": { color: websiteSettings.mainColor },
-                                            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: websiteSettings.mainColor },
+                                            "& .MuiSwitch-switchBase.Mui-checked": { color: "#E30053" },
+                                            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: "#E30053" },
                                         }}
                                     />
                                 }
                                 label={
-                                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: DASH.text }}>
                                         Separate Details per Fee
                                     </Typography>
                                 }
@@ -562,8 +586,8 @@ export default function SpecialConcession() {
                         {!isIndividual && (
                         <Grid container spacing={2} sx={{ px: 2.5, py: 2 }} alignItems="flex-end">
                             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <CategoryIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: DASH.text, mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <CategoryIcon sx={{ fontSize: 14, color: "#E30053" }} />
                                     Concession Category <span style={{ color: 'red' }}>*</span>
                                 </Typography>
                                 <TextField
@@ -577,25 +601,25 @@ export default function SpecialConcession() {
                                         input: {
                                             startAdornment: (
                                                 <InputAdornment position="start">
-                                                    <CategoryIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                                                    <CategoryIcon sx={{ fontSize: 16, color: DASH.faint }} />
                                                 </InputAdornment>
                                             ),
                                         }
                                     }}
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
-                                            height: 40, borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
-                                            '& fieldset': { borderColor: '#E5E7EB' },
-                                            '&:hover fieldset': { borderColor: websiteSettings.mainColor },
-                                            '&.Mui-focused fieldset': { borderColor: websiteSettings.mainColor },
+                                            height: 40, borderRadius: RADIUS, fontSize: 13, backgroundColor: DASH.surface,
+                                            '& fieldset': { borderColor: DASH.line },
+                                            '&:hover fieldset': { borderColor: "#E30053" },
+                                            '&.Mui-focused fieldset': { borderColor: "#E30053" },
                                         }
                                     }}
                                 />
                             </Grid>
 
                             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <PersonIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: DASH.text, mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <PersonIcon sx={{ fontSize: 14, color: "#E30053" }} />
                                     Recommended By <span style={{ color: 'red' }}>*</span>
                                 </Typography>
                                 <TextField
@@ -609,25 +633,25 @@ export default function SpecialConcession() {
                                         input: {
                                             startAdornment: (
                                                 <InputAdornment position="start">
-                                                    <PersonIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                                                    <PersonIcon sx={{ fontSize: 16, color: DASH.faint }} />
                                                 </InputAdornment>
                                             ),
                                         }
                                     }}
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
-                                            height: 40, borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
-                                            '& fieldset': { borderColor: '#E5E7EB' },
-                                            '&:hover fieldset': { borderColor: websiteSettings.mainColor },
-                                            '&.Mui-focused fieldset': { borderColor: websiteSettings.mainColor },
+                                            height: 40, borderRadius: RADIUS, fontSize: 13, backgroundColor: DASH.surface,
+                                            '& fieldset': { borderColor: DASH.line },
+                                            '&:hover fieldset': { borderColor: "#E30053" },
+                                            '&.Mui-focused fieldset': { borderColor: "#E30053" },
                                         }
                                     }}
                                 />
                             </Grid>
 
                             <Grid size={{ xs: 12, sm: 12, md: 4, lg: 4 }}>
-                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <NotesIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: DASH.text, mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <NotesIcon sx={{ fontSize: 14, color: "#E30053" }} />
                                     Recommendation Reason <span style={{ color: 'red' }}>*</span>
                                 </Typography>
                                 <TextField
@@ -641,17 +665,17 @@ export default function SpecialConcession() {
                                         input: {
                                             startAdornment: (
                                                 <InputAdornment position="start">
-                                                    <NotesIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                                                    <NotesIcon sx={{ fontSize: 16, color: DASH.faint }} />
                                                 </InputAdornment>
                                             ),
                                         }
                                     }}
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
-                                            height: 40, borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
-                                            '& fieldset': { borderColor: '#E5E7EB' },
-                                            '&:hover fieldset': { borderColor: websiteSettings.mainColor },
-                                            '&.Mui-focused fieldset': { borderColor: websiteSettings.mainColor },
+                                            height: 40, borderRadius: RADIUS, fontSize: 13, backgroundColor: DASH.surface,
+                                            '& fieldset': { borderColor: DASH.line },
+                                            '&:hover fieldset': { borderColor: "#E30053" },
+                                            '&.Mui-focused fieldset': { borderColor: "#E30053" },
                                         }
                                     }}
                                 />
@@ -659,12 +683,33 @@ export default function SpecialConcession() {
                         </Grid>
                         )}
                     </Card>
-                    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: websiteSettings.mainColor, py: 1, width: "fit-content", px: 4, borderTopLeftRadius: "5px", borderTopRightRadius: "5px", mt: 2 }}>
-                        <Typography sx={{ color: websiteSettings.textColor }}>Concession {feeTabs[tabValue]} Detail</Typography>
+                    <Box
+                        sx={{
+                            position: "relative",
+                            top: "1px",
+                            zIndex: 1,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            backgroundColor: "#E30053",
+                            border: "1px solid #E30053",
+                            borderBottom: "none",
+                            py: 0.6,
+                            width: "fit-content",
+                            px: 2,
+                            borderTopLeftRadius: "6px",
+                            borderTopRightRadius: "6px",
+                            mt: 2,
+                        }}
+                    >
+                        <Typography sx={{ color: "#fff", fontSize: "11.5px", fontWeight: 700, letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
+                            Concession {feeTabs[tabValue]} Detail
+                        </Typography>
                     </Box>
                     <TableContainer
                         sx={{
-                            border: "1px solid #E601542A",
+                            border: `1px solid ${DASH.line}`,
+                            borderRadius: "6px",
+                            borderTopLeftRadius: 0,
                             boxShadow: "none",
                             backgroundColor: "#fff",
                         }}
@@ -685,12 +730,15 @@ export default function SpecialConcession() {
                                             key={index}
                                             sx={{
                                                 borderRight: 1,
-                                                borderColor: "#E601542A",
+                                                borderColor: DASH.line,
                                                 textAlign: "center",
-                                                backgroundColor: "#B05DD03A",
-                                                fontWeight: 600,
-                                                fontSize: 14,
-                                                color: "#000",
+                                                backgroundColor: DASH.surface,
+                                                fontWeight: 700,
+                                                fontSize: "10.5px",
+                                                letterSpacing: "0.06em",
+                                                textTransform: "uppercase",
+                                                color: DASH.muted,
+                                                py: 1.2,
                                             }}
                                         >
                                             {header}
@@ -702,9 +750,12 @@ export default function SpecialConcession() {
                             <TableBody>
                                 {rows.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={isIndividual ? 9 : 6} sx={{ textAlign: "center", py: 6 }}>
-                                            <Typography sx={{ fontSize: "14px", color: "#94a3b8" }}>
-                                                No fee records available for concession
+                                        <TableCell colSpan={isIndividual ? 9 : 6} sx={{ textAlign: "center", py: 6, borderBottom: "none" }}>
+                                            <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                                                No fee records to discount
+                                            </Typography>
+                                            <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.5 }}>
+                                                This student has no {String(feeTabs[tabValue]).toLowerCase()} entries for the selected year.
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -715,14 +766,14 @@ export default function SpecialConcession() {
                                             sx={{
                                                 cursor: "pointer",
                                                 backgroundColor: "transparent",
-                                                "&:hover": { backgroundColor: "#fafafa" },
+                                                "&:hover": { backgroundColor: DASH.surface },
                                                 transition: "background-color 0.2s ease",
                                             }}
                                         >
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E601542A",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
                                                 }}
                                             >
@@ -734,7 +785,7 @@ export default function SpecialConcession() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E601542A",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
                                                 }}
                                             >
@@ -744,13 +795,13 @@ export default function SpecialConcession() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E601542A",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
                                                 }}
                                             >
                                                 ₹ {row.displayAmount}
                                                 {Number(row.pendingAmount) < Number(row.displayAmount) && (
-                                                    <Typography sx={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>
+                                                    <Typography sx={{ fontSize: 11, color: DASH.amber, fontWeight: 600 }}>
                                                         ₹{row.pendingAmount} pending
                                                     </Typography>
                                                 )}
@@ -759,7 +810,7 @@ export default function SpecialConcession() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E601542A",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
                                                 }}
                                             >
@@ -784,7 +835,7 @@ export default function SpecialConcession() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E601542A",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
                                                 }}
                                             >
@@ -812,7 +863,7 @@ export default function SpecialConcession() {
                                                     fontWeight: 500,
                                                     color: "#333",
                                                     borderRight: isIndividual ? 1 : 0,
-                                                    borderColor: "#E601542A",
+                                                    borderColor: DASH.line,
                                                 }}
                                             >
                                                 ₹ {row.finalFee}
@@ -820,7 +871,7 @@ export default function SpecialConcession() {
 
                                             {isIndividual && (
                                                 <>
-                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E601542A", textAlign: "center" }}>
+                                                    <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                                                         <TextField
                                                             variant="outlined"
                                                             size="small"
@@ -830,7 +881,7 @@ export default function SpecialConcession() {
                                                             sx={{ width: "130px", '& .MuiOutlinedInput-root': { fontSize: 12, borderRadius: '6px' } }}
                                                         />
                                                     </TableCell>
-                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E601542A", textAlign: "center" }}>
+                                                    <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                                                         <TextField
                                                             variant="outlined"
                                                             size="small"
@@ -864,7 +915,7 @@ export default function SpecialConcession() {
                                                 textAlign: "right",
                                                 fontWeight: 600,
                                                 borderRight: 1,
-                                                borderColor: "#E601542A",
+                                                borderColor: DASH.line,
                                             }}
                                         >
                                             <Typography sx={{ color: "green" }}>Total Amount</Typography>
@@ -884,32 +935,43 @@ export default function SpecialConcession() {
                         </Table>
                     </TableContainer>
 
+                      </>
+                    )}
                 </Box>
-                <Box sx={{ display: "flex", justifyContent: "center", pb: 2 }}>
+                <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, px: 2, pb: 2 }}>
                     <Button
                         onClick={handleResetAll}
+                        startIcon={<RestartAltIcon sx={{ fontSize: 18 }} />}
                         sx={{
-                            border: "1px solid #000",
-                            borderRadius: "30px",
                             textTransform: "none",
-                            width: "100px",
-                            height: "30px",
-                            color: "#000"
+                            fontSize: "12.5px",
+                            fontWeight: 700,
+                            height: 34,
+                            px: 1.8,
+                            borderRadius: RADIUS,
+                            color: DASH.text,
+                            bgcolor: "#fff",
+                            border: `1px solid ${DASH.line}`,
+                            boxShadow: "none",
+                            "& .MuiButton-startIcon": { mr: 0.6 },
+                            "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
                         }}>
                         Reset All
                     </Button>
                     <Button
                         onClick={handleApplyConcession}
+                        disableElevation
                         sx={{
-                            backgroundColor: websiteSettings.mainColor,
-                            borderRadius: "30px",
                             textTransform: "none",
-                            ml: "10px",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                            border: "1px solid rgba(0,0,0,0.1)",
-                            px: 3,
-                            height: "30px",
-                            color: websiteSettings.textColor
+                            fontSize: "12.5px",
+                            fontWeight: 700,
+                            height: 34,
+                            px: 2.2,
+                            borderRadius: RADIUS,
+                            backgroundColor: "#E30053",
+                            color: "#fff",
+                            boxShadow: "none",
+                            "&:hover": { backgroundColor: "#C40047", boxShadow: "0 2px 8px rgba(227,0,83,0.25)" },
                         }}>
                         Apply Concession
                     </Button>

@@ -1,18 +1,19 @@
-import { Box, Button, Grid, IconButton, Tab, Tabs, Typography } from "@mui/material";
+import { Box, Grid, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { hasPermission } from "../../Redux/Slices/AuthSlice";
-import Loader from "../Loader";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useEffect, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import AppsIcon from '@mui/icons-material/Apps';
+import { DASH, RADIUS, BRAND, CARD_DESC_H, PageHeader, SectionTitle, EmptyNote } from "../DashBoardComps/dashboardTheme";
 import { ApprovalStatusCircularFetch, ApprovalStatusHomeWorkFetch, ApprovalStatusMessageFetch, ApprovalStatusNewsFetch } from "../../Api/Api";
 import axios from "axios";
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import HttpsIcon from '@mui/icons-material/Https';
 import LoginIcon from '@mui/icons-material/Login';
 
 export default function UsersPage() {
+    const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const [newsIntimation, setNewsIntimation] = useState(false);
     const [messageIntimation, setMessageIntimation] = useState(false);
@@ -31,164 +32,134 @@ export default function UsersPage() {
     const canPasswords = can("allowpasswordmanagementstudent") || can("allowpasswordmanagementstaff");
 
     const items = [
-        { color: "#A749CC", icon: LoginIcon, text: "Users Activity", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/useractivity', show: can("allowuseractivity") },
-        { color: "#ED9146", icon: HttpsIcon, text: "Password Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/password', show: canPasswords },
+        { color: BRAND.purple.main, icon: LoginIcon, text: "Users Activity", desc: "See who signed in, from where and when across the school.", path: '/dashboardmenu/access/useractivity', show: can("allowuseractivity") },
+        { color: BRAND.orange.main, icon: HttpsIcon, text: "Password Management", desc: "Reset or reissue login passwords for staff and students.", path: '/dashboardmenu/access/password', show: canPasswords },
     ].filter((item) => item.show);
 
 
     return (
-        <Box sx={{ width: "100%", }}>
-            {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", p: 1.5, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-                <Grid container>
-                    <Grid
-                        sx={{ display: "flex", alignItems: "center", }}
-                        size={{
-                            xs: 6,
-                            sm: 6,
-                            md: 3,
-                            lg: 3
-                        }}>
-                        <Link style={{ textDecoration: "none" }} to="/dashboardmenu/access">
-                            <IconButton sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                                <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                            </IconButton>
-                        </Link>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px", ml: 2 }} >Users</Typography>
-                    </Grid>
-                    <Grid
-                        sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
-                        size={{
-                            xs: 6,
-                            sm: 6,
-                            md: 3,
-                            lg: 6
-                        }}>
-                    </Grid>
-                </Grid>
-            </Box>
-            <Box>
-                <Box sx={{ p: 2, }}>
-                <Box sx={{ display: "flex", justifyContent: "center", height: "70vh", overflowY: "auto" }}>
-                        <Grid container spacing={2} sx={{width:"100%"}}>
-                            {items.map((item, index) => {
-                                const IconComponent = item.icon;
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: 4,
+                bgcolor: DASH.canvas,
+                minHeight: "100%",
+                boxSizing: "border-box",
+            }}
+        >
+            <PageHeader
+                title="Users"
+                subtitle="Login activity and password control for staff and students"
+                onBack={() => navigate("/dashboardmenu/access")}
+            />
 
-                                return (
-                                    <Grid
-                                        sx={{ display: "flex", justifyContent: "center" }}
-                                        key={index}
-                                        size={{
-                                            xs: 12,
-                                            sm: 6,
-                                            md: 3
-                                        }}>
-                                        <Link
-                                            to={item.path}
-                                            state={{ value: 'N' }}
-                                            style={{
-                                                textDecoration: 'none',
-                                                height: "60px",
-                                                width: "100%",
+            <SectionTitle icon={AppsIcon}>Screens</SectionTitle>
+
+            {items.length === 0 && (
+                <Box sx={{ bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS, p: 3 }}>
+                    <EmptyNote text="You do not have access to any user screens." />
+                </Box>
+            )}
+
+            <Grid container spacing={2} alignItems="stretch" sx={{ pb: 1 }}>
+                {items.map((item) => {
+                    const IconComponent = item.icon;
+                    return (
+                        <Grid key={item.path} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                            <Link
+                                to={item.path}
+                                state={{ value: "N" }}
+                                style={{ textDecoration: "none", display: "block", height: "100%" }}
+                            >
+                                <Box
+                                    sx={{
+                                        bgcolor: `${item.color}0A`,
+                                        borderTop: `1px solid ${item.color}38`,
+                                        borderLeft: `1px solid ${item.color}38`,
+                                        borderBottom: "1px solid transparent",
+                                        borderRight: "1px solid transparent",
+                                        borderRadius: RADIUS,
+                                        boxShadow: "1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)",
+                                        p: 1.4,
+                                        height: "100%",
+                                        boxSizing: "border-box",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        transition: "box-shadow 0.2s ease, border-color 0.2s ease",
+                                        "&:hover": {
+                                            boxShadow: "0 4px 16px rgba(17,24,39,0.10)",
+                                            borderBottomColor: `${item.color}38`,
+                                            borderRightColor: `${item.color}38`,
+                                            ".upArrow": { transform: "translateX(3px)", opacity: 1 },
+                                        },
+                                    }}
+                                >
+                                    <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.2 }}>
+                                        <Box
+                                            sx={{
+                                                width: 34,
+                                                height: 34,
+                                                borderRadius: "50%",
+                                                bgcolor: `${item.color}14`,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                flexShrink: 0,
                                             }}
                                         >
-                                            {/* <Box sx={{ width: "20px", height: "20px", backgroundColor: "black", position: "absolute" }} /> */}
-                                            <Box
-                                                sx={{
-                                                    position: "relative",
-                                                    backgroundColor: item.bgColor,
-                                                    boxShadow: "1px 1px 2px 0.5px rgba(0, 0, 0, 0.3)",
-                                                    borderTop: "1px solid rgba(0, 0, 0, 0.08)",
-                                                    width: "100%",
-                                                    height: "105px",
-                                                    borderRadius: "7px",
-                                                    cursor: "pointer",
+                                            <IconComponent sx={{ color: item.color, fontSize: 19 }} />
+                                        </Box>
 
-                                                    '&:hover': {
-                                                        '.arrowIcon': {
-                                                            opacity: 1,
-                                                        },
-                                                    },
+                                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: "13.5px",
+                                                        fontWeight: 700,
+                                                        color: DASH.ink,
+                                                        minWidth: 0,
+                                                        whiteSpace: "nowrap",
+                                                        overflow: "hidden",
+                                                        textOverflow: "ellipsis",
+                                                    }}
+                                                >
+                                                    {item.text}
+                                                </Typography>
+                                                <ArrowForwardIcon
+                                                    className="upArrow"
+                                                    sx={{
+                                                        fontSize: 16,
+                                                        color: item.color,
+                                                        opacity: 0.45,
+                                                        transition: "transform 0.2s ease, opacity 0.2s ease",
+                                                        ml: "auto",
+                                                    }}
+                                                />
+                                            </Box>
+                                            <Typography
+                                                sx={{
+                                                    fontSize: "11.5px",
+                                                    color: DASH.muted,
+                                                    mt: 0.3,
+                                                    lineHeight: 1.45,
+                                                    height: CARD_DESC_H,
+                                                    display: "-webkit-box",
+                                                    WebkitBoxOrient: "vertical",
+                                                    WebkitLineClamp: 2,
+                                                    overflow: "hidden",
                                                 }}
                                             >
-                                               
-                                               <Grid container spacing={1} sx={{ height: '100%', px: 2, }}>
-                                                    <Grid
-                                                        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                                                        size={{
-                                                            md: 0.5
-                                                        }}>
-                                                        <Box
-                                                            sx={{
-                                                                width: '7px',
-                                                                backgroundColor: item.color,
-                                                                height: '100%',
-                                                                position: 'absolute',
-                                                                left: 0,
-                                                                top: 0,
-                                                                borderTopLeftRadius: '5px',
-                                                                borderBottomLeftRadius: '5px',
-                                                            }}
-                                                        />
-                                                    </Grid>
-                                                    <Grid
-                                                        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                                                        size={{
-                                                            md: 2
-                                                        }}>
-                                                        <Box sx={{
-                                                            backgroundColor: item.iconBgColor,
-                                                            borderRadius: "50px",
-                                                            width: "25px",
-                                                            height: "25px",
-                                                            p: 1.3,
-                                                            display: "flex",
-                                                            justifyContent: "center",
-                                                            alignItems: "center"
-                                                        }}>
-                                                            {/* <img src={item.icon} width={25} height={25} /> */}
-                                                            <IconComponent sx={{ color: item.color, fontSize: "23px" }} />
-                                                        </Box>
-                                                    </Grid>
-                                                    <Grid
-                                                        sx={{
-                                                            display: 'flex',
-                                                            justifyContent: 'center',
-                                                            alignItems: 'center',
-                                                        }}
-                                                        size={{
-                                                            md: 7
-                                                        }}>
-                                                        <Typography sx={{ fontWeight: "600", color: "#000" }}>
-                                                            {item.text}
-                                                        </Typography>
-                                                    </Grid>
-                                                    <Grid
-                                                        sx={{
-                                                            display: 'flex',
-                                                            justifyContent: "center",
-                                                            alignItems: 'center',
-                                                            height: '100%'
-                                                        }}
-                                                        size={{
-                                                            md: 2
-                                                        }}>
-                                                        <ArrowForwardIcon className="arrowIcon" sx={{
-                                                            opacity: 0,
-                                                            transition: 'opacity 0.3s ease',
-                                                            color: item.color,
-                                                        }} />
-                                                    </Grid>
-                                                </Grid>
-                                            </Box>
-                                        </Link>
-                                    </Grid>
-                                );
-                            })}
+                                                {item.desc}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                            </Link>
                         </Grid>
-                    </Box>
-                </Box>
-            </Box>
+                    );
+                })}
+            </Grid>
         </Box>
     );
 }

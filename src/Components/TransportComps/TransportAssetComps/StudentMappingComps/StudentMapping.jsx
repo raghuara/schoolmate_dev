@@ -52,10 +52,11 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CancelIcon from '@mui/icons-material/Cancel'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
 import StudentSelectionPopup from '../../../Tools/StudentSelectionPopup'
 import axios from 'axios'
+import { DASH, RADIUS } from "../../../DashBoardComps/dashboardTheme";
+import { BusRouteCardsSkeleton } from "../../../StudentComps/FeeFinanceComps/PayStudentFees/BillingSkeletons";
 import { getRouteFullDetailsById, GetUsersBaseDetails, postStudentRouteMapping, getAllStudentMappingCards } from '../../../../Api/Api'
 import { selectAcademicYear } from '../../../../Redux/Slices/academicYearSlice'
 import { findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice'
@@ -303,7 +304,7 @@ const BusCard = ({
                                         gap: 1,
                                         py: 0.8,
                                         px: 0.5,
-                                        borderBottom: index < bus.intermediateStops.length - 1 ? "1px dashed #E5E7EB" : "none",
+                                        borderBottom: index < bus.intermediateStops.length - 1 ? `1px dashed ${DASH.line}` : "none",
                                         transition: "background-color 0.2s",
                                         '&:hover': {
                                             backgroundColor: 'rgba(0,0,0,0.02)',
@@ -337,7 +338,7 @@ const BusCard = ({
                                 </Box>
                             ))
                         ) : (
-                            <Typography sx={{ fontSize: "11px", color: "#999", textAlign: "center", py: 2 }}>
+                            <Typography sx={{ fontSize: "11px", color: DASH.faint, textAlign: "center", py: 2 }}>
                                 No intermediate stops configured
                             </Typography>
                         )}
@@ -454,7 +455,6 @@ const BusCard = ({
 export default function StudentMapping() {
     const navigate = useNavigate();
     const token = "123";
-    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
     const [isLoading, setIsLoading] = useState(false);
     const [open, setOpen] = useState(false);
@@ -835,34 +835,33 @@ export default function StudentMapping() {
     });
 
     return (
-        <Box sx={{ width: '100%', backgroundColor: "#F8F9FA", }}>
+        <Box sx={{ width: '100%', backgroundColor: DASH.canvas }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-            {isLoading && <Loader />}
 
             {/* Header */}
             <Box sx={{
-                 position: "fixed",
-                 top: "60px",
-                 left: isExpanded ? "260px" : "80px",
-                 right: 0,
-                 backgroundColor: "#f2f2f2",
+                 backgroundColor: DASH.canvas,
                  px: 2,
-                 py: 0.5,
-                 borderBottom: "1px solid #ddd",
-                 zIndex: 1200,
-                 transition: "left 0.3s ease-in-out",
-                 overflow: 'hidden',
+                 py: 1.2,
+                 borderBottom: `1px solid ${DASH.line}`,
                  display: "flex",
                  justifyContent: "space-between",
                  alignItems: "center",
+                 gap: 1.5,
+                 flexWrap: "wrap",
             }}>
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                    <IconButton onClick={() => navigate(-1)} sx={{ mr: 1 }}>
-                        <ArrowBackIcon />
+                <Box sx={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+                    <IconButton onClick={() => navigate(-1)} sx={{ width: 28, height: 28 }}>
+                        <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                     </IconButton>
-                    <Typography sx={{ fontWeight: 600, fontSize: 20 }}>
-                        Transport Student Mapping
-                    </Typography>
+                    <Box sx={{ ml: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>
+                            Transport Student Mapping
+                        </Typography>
+                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, whiteSpace: "nowrap" }}>
+                            Assign students to a route and stop
+                        </Typography>
+                    </Box>
                 </Box>
 
                 <TextField
@@ -872,14 +871,16 @@ export default function StudentMapping() {
                     InputProps={{
                         startAdornment: (
                             <InputAdornment position="start">
-                                <SearchIcon sx={{ color: "#999" }} />
+                                <SearchIcon sx={{ color: DASH.faint }} />
                             </InputAdornment>
                         ),
                         sx: {
-                            borderRadius: "25px",
-                            height: "36px",
-                            fontSize: "13px",
-                            backgroundColor: "#fff"
+                            borderRadius: RADIUS,
+                            height: 34,
+                            fontSize: "12.5px",
+                            backgroundColor: "#fff",
+                            "& fieldset": { borderColor: DASH.line },
+                            "&:hover fieldset": { borderColor: DASH.faint },
                         }
                     }}
                     sx={{ width: 300 }}
@@ -887,7 +888,10 @@ export default function StudentMapping() {
             </Box>
 
             {/* Main Content */}
-            <Box sx={{ p: 3, pt:9 }}>
+            <Box sx={{ p: 3 }}>
+                {isLoading && <BusRouteCardsSkeleton count={6} />}
+
+                {!isLoading && (
                 <Grid container spacing={3}>
                     {filteredBusRoutes.map((bus, index) => (
                         <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={bus.id}>
@@ -902,16 +906,31 @@ export default function StudentMapping() {
                         </Grid>
                     ))}
                 </Grid>
+                )}
 
-                {filteredBusRoutes.length === 0 && (
-                    <Box sx={{
-                        textAlign: "center",
-                        py: 8,
-                        color: "#999"
-                    }}>
-                        <DirectionsBusIcon sx={{ fontSize: 60, mb: 2, opacity: 0.5 }} />
-                        <Typography sx={{ fontSize: "16px" }}>
+                {!isLoading && filteredBusRoutes.length === 0 && (
+                    <Box sx={{ textAlign: "center", py: 7 }}>
+                        <Box
+                            sx={{
+                                width: 46,
+                                height: 46,
+                                mx: "auto",
+                                mb: 1.8,
+                                borderRadius: RADIUS,
+                                bgcolor: DASH.blueLight,
+                                border: `1px solid #BFDBFE`,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                            }}
+                        >
+                            <DirectionsBusIcon sx={{ fontSize: 22, color: DASH.blue }} />
+                        </Box>
+                        <Typography sx={{ fontSize: "14px", fontWeight: 700, color: DASH.ink }}>
                             No bus routes found
+                        </Typography>
+                        <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6 }}>
+                            {searchQuery ? "Try a different route name, bus or stop." : "Create a route first, then map students onto it."}
                         </Typography>
                     </Box>
                 )}
@@ -935,33 +954,33 @@ export default function StudentMapping() {
                 onClose={() => setViewExistingDialog(false)}
                 maxWidth="lg"
                 fullWidth
-                PaperProps={{ sx: { borderRadius: 0, border: "1px solid #E5E7EB" } }}
+                PaperProps={{ sx: { borderRadius: 0, border: `1px solid ${DASH.line}` } }}
             >
                 <DialogTitle sx={{
                     backgroundColor: '#fff',
                     py: 2.5,
                     px: 3,
-                    borderBottom: '2px solid #E5E7EB'
+                    borderBottom: `2px solid ${DASH.line}`
                 }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                             <Box sx={{
                                 width: 44,
                                 height: 44,
-                                backgroundColor: '#F3F4F6',
+                                backgroundColor: DASH.lineSoft,
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
                                 borderRadius: "8px",
-                                border: '1px solid #E5E7EB'
+                                border: `1px solid ${DASH.line}`
                             }}>
-                                <PeopleIcon sx={{ color: "#6B7280", fontSize: 24 }} />
+                                <PeopleIcon sx={{ color: DASH.muted, fontSize: 24 }} />
                             </Box>
                             <Box>
                                 <Typography sx={{ fontWeight: 700, fontSize: "17px", color: "#111827" }}>
                                     Mapped Students
                                 </Typography>
-                                <Typography sx={{ fontSize: "13px", color: "#6B7280" }}>
+                                <Typography sx={{ fontSize: "13px", color: DASH.muted }}>
                                     {selectedBus?.routeName} • {selectedBus?.busName}
                                 </Typography>
                             </Box>
@@ -971,8 +990,8 @@ export default function StudentMapping() {
                                 icon={<SchoolIcon sx={{ fontSize: 16 }} />}
                                 label={`${existingStudents.length} Students`}
                                 sx={{
-                                    backgroundColor: '#F3F4F6',
-                                    color: "#374151",
+                                    backgroundColor: DASH.lineSoft,
+                                    color: DASH.text,
                                     fontWeight: 600,
                                     borderRadius: "6px",
                                     border: '1px solid #D1D5DB',
@@ -982,10 +1001,10 @@ export default function StudentMapping() {
                             <IconButton
                                 onClick={() => setViewExistingDialog(false)}
                                 sx={{
-                                    color: "#6B7280",
+                                    color: DASH.muted,
                                     '&:hover': {
-                                        backgroundColor: '#F3F4F6',
-                                        color: '#374151'
+                                        backgroundColor: DASH.lineSoft,
+                                        color: DASH.text
                                     }
                                 }}
                             >
@@ -995,7 +1014,7 @@ export default function StudentMapping() {
                     </Box>
                 </DialogTitle>
 
-                <DialogContent sx={{ p: 3, backgroundColor: '#F9FAFB' }}>
+                <DialogContent sx={{ p: 3, backgroundColor: DASH.surface }}>
                     {/* Search Bar */}
                     <Box sx={{ mb: 3 }}>
                         <TextField
@@ -1017,13 +1036,13 @@ export default function StudentMapping() {
                                 '& .MuiOutlinedInput-root': {
                                     borderRadius: '8px',
                                     '& fieldset': {
-                                        borderColor: '#D1D5DB',
+                                        borderColor: DASH.faint,
                                     },
                                     '&:hover fieldset': {
                                         borderColor: '#9CA3AF',
                                     },
                                     '&.Mui-focused fieldset': {
-                                        borderColor: '#6B7280',
+                                        borderColor: DASH.muted,
                                         borderWidth: '2px'
                                     },
                                 }
@@ -1039,17 +1058,17 @@ export default function StudentMapping() {
                             overflowY: "auto",
                             backgroundColor: '#fff',
                             borderRadius: "12px",
-                            border: "1px solid #E5E7EB",
+                            border: `1px solid ${DASH.line}`,
                             boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                             '&::-webkit-scrollbar': {
                                 width: '8px',
                             },
                             '&::-webkit-scrollbar-track': {
-                                backgroundColor: '#F3F4F6',
+                                backgroundColor: DASH.lineSoft,
                                 borderRadius: '10px',
                             },
                             '&::-webkit-scrollbar-thumb': {
-                                backgroundColor: '#D1D5DB',
+                                backgroundColor: DASH.faint,
                                 borderRadius: '10px',
                                 '&:hover': {
                                     backgroundColor: '#9CA3AF',
@@ -1061,68 +1080,68 @@ export default function StudentMapping() {
                                     <TableRow>
                                         <TableCell sx={{
                                             fontWeight: 600,
-                                            backgroundColor: '#F9FAFB',
-                                            color: "#374151",
+                                            backgroundColor: DASH.surface,
+                                            color: DASH.text,
                                             fontSize: "12px",
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.5px',
                                             py: 2,
-                                            borderBottom: '2px solid #E5E7EB'
+                                            borderBottom: `2px solid ${DASH.line}`
                                         }}>
                                             Student Details
                                         </TableCell>
                                         <TableCell sx={{
                                             fontWeight: 600,
-                                            backgroundColor: '#F9FAFB',
-                                            color: "#374151",
+                                            backgroundColor: DASH.surface,
+                                            color: DASH.text,
                                             fontSize: "12px",
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.5px',
-                                            borderBottom: '2px solid #E5E7EB'
+                                            borderBottom: `2px solid ${DASH.line}`
                                         }}>
                                             Roll Number
                                         </TableCell>
                                         <TableCell sx={{
                                             fontWeight: 600,
-                                            backgroundColor: '#F9FAFB',
-                                            color: "#374151",
+                                            backgroundColor: DASH.surface,
+                                            color: DASH.text,
                                             fontSize: "12px",
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.5px',
-                                            borderBottom: '2px solid #E5E7EB'
+                                            borderBottom: `2px solid ${DASH.line}`
                                         }}>
                                             Class
                                         </TableCell>
                                         <TableCell sx={{
                                             fontWeight: 600,
-                                            backgroundColor: '#F9FAFB',
-                                            color: "#374151",
+                                            backgroundColor: DASH.surface,
+                                            color: DASH.text,
                                             fontSize: "12px",
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.5px',
-                                            borderBottom: '2px solid #E5E7EB'
+                                            borderBottom: `2px solid ${DASH.line}`
                                         }}>
                                             Bus Stop
                                         </TableCell>
                                         <TableCell sx={{
                                             fontWeight: 600,
-                                            backgroundColor: '#F9FAFB',
-                                            color: "#374151",
+                                            backgroundColor: DASH.surface,
+                                            color: DASH.text,
                                             fontSize: "12px",
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.5px',
-                                            borderBottom: '2px solid #E5E7EB'
+                                            borderBottom: `2px solid ${DASH.line}`
                                         }}>
                                             Contact
                                         </TableCell>
                                         <TableCell sx={{
                                             fontWeight: 600,
-                                            backgroundColor: '#F9FAFB',
-                                            color: "#374151",
+                                            backgroundColor: DASH.surface,
+                                            color: DASH.text,
                                             fontSize: "12px",
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.5px',
-                                            borderBottom: '2px solid #E5E7EB'
+                                            borderBottom: `2px solid ${DASH.line}`
                                         }}>
                                             Status
                                         </TableCell>
@@ -1135,7 +1154,7 @@ export default function StudentMapping() {
                                                 key={student.id}
                                                 hover
                                                 sx={{
-                                                    backgroundColor: idx % 2 === 0 ? "#fff" : "#F9FAFB",
+                                                    backgroundColor: idx % 2 === 0 ? "#fff" : DASH.surface,
                                                     '&:hover': {
                                                         backgroundColor: '#F3F4F6 !important',
                                                         transition: 'all 0.2s ease'
@@ -1143,16 +1162,16 @@ export default function StudentMapping() {
                                                 }}
                                             >
                                                 {/* Student Details */}
-                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
+                                                <TableCell sx={{ borderBottom: `1px solid ${DASH.line}`, py: 2 }}>
                                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                                                         <Avatar sx={{
                                                             width: 36,
                                                             height: 36,
                                                             fontSize: "14px",
-                                                            backgroundColor: '#F3F4F6',
-                                                            color: "#374151",
+                                                            backgroundColor: DASH.lineSoft,
+                                                            color: DASH.text,
                                                             fontWeight: 600,
-                                                            border: '2px solid #E5E7EB'
+                                                            border: `2px solid ${DASH.line}`
                                                         }}>
                                                             {student.name?.charAt(0)?.toUpperCase()}
                                                         </Avatar>
@@ -1161,7 +1180,7 @@ export default function StudentMapping() {
                                                                 {student.name}
                                                             </Typography>
                                                             {student.email && student.email !== 'N/A' && (
-                                                                <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
+                                                                <Typography sx={{ fontSize: "11px", color: DASH.muted }}>
                                                                     {student.email}
                                                                 </Typography>
                                                             )}
@@ -1170,13 +1189,13 @@ export default function StudentMapping() {
                                                 </TableCell>
 
                                                 {/* Roll Number */}
-                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
+                                                <TableCell sx={{ borderBottom: `1px solid ${DASH.line}`, py: 2 }}>
                                                     <Chip
                                                         label={student.rollNumber}
                                                         size="small"
                                                         sx={{
-                                                            backgroundColor: "#F9FAFB",
-                                                            color: "#374151",
+                                                            backgroundColor: DASH.surface,
+                                                            color: DASH.text,
                                                             fontWeight: 600,
                                                             fontSize: "12px",
                                                             border: '1px solid #D1D5DB'
@@ -1185,19 +1204,19 @@ export default function StudentMapping() {
                                                 </TableCell>
 
                                                 {/* Grade & Section */}
-                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
+                                                <TableCell sx={{ borderBottom: `1px solid ${DASH.line}`, py: 2 }}>
                                                     <Box>
                                                         <Typography sx={{ fontSize: "13px", fontWeight: 600, color: '#111827' }}>
                                                             {student.grade}
                                                         </Typography>
-                                                        <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
+                                                        <Typography sx={{ fontSize: "11px", color: DASH.muted }}>
                                                             Section {student.section}
                                                         </Typography>
                                                     </Box>
                                                 </TableCell>
 
                                                 {/* Bus Stop */}
-                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
+                                                <TableCell sx={{ borderBottom: `1px solid ${DASH.line}`, py: 2 }}>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                         <LocationOnIcon sx={{ fontSize: 15, color: '#3457D5' }} />
                                                         <Box>
@@ -1205,7 +1224,7 @@ export default function StudentMapping() {
                                                                {student.stopPoint}
                                                             </Typography>
                                                             {student.stopPoint && (
-                                                                <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
+                                                                <Typography sx={{ fontSize: "11px", color: DASH.muted }}>
                                                                     Stop Name:{student.stopName}
                                                                 </Typography>
                                                             )}
@@ -1214,14 +1233,14 @@ export default function StudentMapping() {
                                                 </TableCell>
 
                                                 {/* Contact */}
-                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
-                                                    <Typography sx={{ fontSize: "13px", color: "#374151", fontWeight: 500 }}>
+                                                <TableCell sx={{ borderBottom: `1px solid ${DASH.line}`, py: 2 }}>
+                                                    <Typography sx={{ fontSize: "13px", color: DASH.text, fontWeight: 500 }}>
                                                         {student.phone}
                                                     </Typography>
                                                 </TableCell>
 
                                                 {/* Status */}
-                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
+                                                <TableCell sx={{ borderBottom: `1px solid ${DASH.line}`, py: 2 }}>
                                                     <Chip
                                                         label={student.status || 'Active'}
                                                         size="small"
@@ -1240,7 +1259,7 @@ export default function StudentMapping() {
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={6} sx={{ textAlign: "center", py: 6 }}>
-                                                <SchoolIcon sx={{ fontSize: 48, color: "#D1D5DB", mb: 2 }} />
+                                                <SchoolIcon sx={{ fontSize: 48, color: DASH.faint, mb: 2 }} />
                                                 <Typography sx={{ fontSize: "14px", color: "#9CA3AF", fontWeight: 500 }}>
                                                     No students match your search
                                                 </Typography>
@@ -1256,10 +1275,10 @@ export default function StudentMapping() {
                             py: 8,
                             backgroundColor: '#fff',
                             borderRadius: '12px',
-                            border: '2px dashed #E5E7EB'
+                            border: `2px dashed ${DASH.line}`
                         }}>
-                            <SchoolIcon sx={{ fontSize: 64, color: "#D1D5DB", mb: 2 }} />
-                            <Typography sx={{ fontSize: "16px", fontWeight: 600, color: "#374151", mb: 1 }}>
+                            <SchoolIcon sx={{ fontSize: 64, color: DASH.faint, mb: 2 }} />
+                            <Typography sx={{ fontSize: "16px", fontWeight: 600, color: DASH.text, mb: 1 }}>
                                 No Students Mapped Yet
                             </Typography>
                             <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>
@@ -1272,13 +1291,13 @@ export default function StudentMapping() {
                 <DialogActions sx={{
                     px: 3,
                     py: 2.5,
-                    borderTop: "2px solid #E5E7EB",
+                    borderTop: `2px solid ${DASH.line}`,
                     backgroundColor: "#fff",
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center'
                 }}>
-                    <Typography sx={{ fontSize: "13px", color: "#6B7280", fontWeight: 500 }}>
+                    <Typography sx={{ fontSize: "13px", color: DASH.muted, fontWeight: 500 }}>
                         Total: {existingStudents.length} student{existingStudents.length !== 1 ? 's' : ''} mapped to this route
                     </Typography>
                     <Button
@@ -1291,7 +1310,7 @@ export default function StudentMapping() {
                             py: 1,
                             fontWeight: 600,
                             fontSize: 14,
-                            backgroundColor: '#374151',
+                            backgroundColor: DASH.text,
                             boxShadow: 'none',
                             '&:hover': {
                                 backgroundColor: '#1F2937',

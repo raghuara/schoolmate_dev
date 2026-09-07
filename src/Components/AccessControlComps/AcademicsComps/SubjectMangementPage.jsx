@@ -1,9 +1,9 @@
-import { Box, Grid, IconButton, Typography, Chip, Divider, Button } from '@mui/material';
+import { Box, Grid, IconButton, Typography, Chip, Divider, Button , Skeleton } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import Loader from '../../Loader';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { DASH, RADIUS } from '../../DashBoardComps/dashboardTheme';
 import AddIcon from '@mui/icons-material/Add';
 import ArticleIcon from '@mui/icons-material/Article';
 import axios from 'axios';
@@ -19,6 +19,37 @@ const CATEGORY_COLORS = {
     'Secondary':        { color: '#388E3C', bg: '#E8F5E9', chipBg: '#D9F0DB' },
     'Higher Secondary': { color: '#F57C00', bg: '#FFF3E0', chipBg: '#FFE9C8' },
 };
+
+
+const AcademicCardsSkeleton = ({ count = 8 }) => (
+    <Grid container spacing={2}>
+        {[...Array(count)].map((_, i) => (
+            <Grid key={i} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                <Box
+                    sx={{
+                        border: `1px solid ${DASH.line}`,
+                        borderRadius: '10px',
+                        overflow: 'hidden',
+                        bgcolor: '#fff',
+                        boxShadow: '0 1px 3px rgba(16,24,40,0.06)',
+                    }}
+                >
+                    <Box sx={{ bgcolor: DASH.surface, borderBottom: `1px solid ${DASH.line}`, px: 2, py: 1.4 }}>
+                        <Skeleton variant="rounded" width="58%" height={12} sx={{ bgcolor: DASH.lineSoft }} />
+                    </Box>
+                    <Box sx={{ p: 2 }}>
+                        <Skeleton variant="rounded" width="40%" height={9} sx={{ bgcolor: DASH.lineSoft }} />
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mt: 1.4 }}>
+                            {[...Array(4)].map((_, c) => (
+                                <Skeleton key={c} variant="rounded" width={46} height={24} sx={{ bgcolor: DASH.lineSoft, borderRadius: '999px' }} />
+                            ))}
+                        </Box>
+                    </Box>
+                </Box>
+            </Grid>
+        ))}
+    </Grid>
+);
 
 export default function SubjectMangementPage() {
     const navigate = useNavigate();
@@ -73,17 +104,19 @@ export default function SubjectMangementPage() {
 
     return (
         <Box sx={{ width: '100%' }}>
-            {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
 
             {/* Header */}
-            <Box sx={{ backgroundColor: '#f2f2f2', p: 1.5, borderRadius: '10px 10px 10px 0px', borderBottom: '1px solid #ddd' }}>
+            <Box sx={{ backgroundColor: DASH.canvas, px: 2, py: 1.2, borderBottom: `1px solid ${DASH.line}` }}>
                 <Grid container alignItems="center">
                     <Grid size={{ xs: 12, sm: 6 }} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <IconButton sx={{ width: 27, height: 27 }} onClick={() => navigate(-1)}>
-                            <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
+                            <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                         </IconButton>
-                        <Typography sx={{ fontWeight: 600, fontSize: '20px' }}>Subject Management</Typography>
+                        <Box>
+                            <Typography sx={{ fontWeight: 700, fontSize: '20px', color: DASH.ink, lineHeight: 1.2 }}>Subject Management</Typography>
+                            <Typography sx={{ fontSize: '11.5px', color: DASH.muted, whiteSpace: 'nowrap' }}>Maintain the subject list and map it onto each class</Typography>
+                        </Box>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}>
                         <Button
@@ -134,7 +167,9 @@ export default function SubjectMangementPage() {
                 </Box>
 
                 {/* Class cards */}
-                {filteredGrades.length === 0 ? (
+                {isLoading ? (
+                    <AcademicCardsSkeleton count={8} />
+                ) : filteredGrades.length === 0 ? (
                     <Box sx={{ textAlign: 'center', py: 8, color: '#aaa' }}>
                         <ArticleIcon sx={{ fontSize: 48, mb: 1 }} />
                         <Typography sx={{ fontSize: '15px' }}>

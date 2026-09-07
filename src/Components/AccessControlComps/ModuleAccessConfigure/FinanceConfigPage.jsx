@@ -14,6 +14,8 @@ const PAGES = [
     "Expense",
     "Concession Log",
     "Create Fees Structure",
+    "Payment Approval",
+    "Finance Teams",
 ];
 
 // `subMenu` + all permission keys MUST match the backend exactly.
@@ -25,6 +27,8 @@ const PAGE_OVERRIDES = {
     "Expense": { subMenu: "expense", opsKeys: [] },
     "Concession Log": { subMenu: "concessionlog", opsKeys: ["view"] },
     "Create Fees Structure": { subMenu: "createfeesstructure", opsKeys: ["view", "create", "edit"] },
+    "Payment Approval": { subMenu: "paymentapproval", opsKeys: [] },
+    "Finance Teams": { subMenu: "financeteam", opsKeys: [] },
 };
 
 const EXTRA_OPS = {
@@ -50,6 +54,12 @@ const EXTRA_OPS = {
         { key: "allowaddbudget", label: "Allow Add Budget" },
         { key: "allowaddexpense", label: "Allow Add Expense" },
     ],
+    "Payment Approval": [
+        { key: "allowaccess", label: "Allow Access" },
+    ],
+    "Finance Teams": [
+        { key: "allowaccess", label: "Allow Access" },
+    ],
 };
 
 const EXTRA_OPS_LABELS = {
@@ -58,6 +68,8 @@ const EXTRA_OPS_LABELS = {
     "ECA Management": "Student Access",
     "Additional Fee Management": "Student Access",
     "Expense": "Expense Access",
+    "Payment Approval": "",
+    "Finance Teams": "",
 };
 
 export default function FinanceConfigPage() {

@@ -1,6 +1,5 @@
 import { Box } from '@mui/system'
 import React, { useEffect, useState } from 'react'
-import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
 import { Autocomplete, Button, Card, CardContent, Grid, IconButton, InputAdornment, Paper, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Tooltip, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -9,8 +8,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
 import SearchIcon from '@mui/icons-material/Search';
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
 import avatarImage from '../../../../Images/PagesImage/avatar.png'
 import axios from 'axios';
+import { DASH, RADIUS } from "../../../DashBoardComps/dashboardTheme";
+import { StudentGridSkeleton } from "./BillingSkeletons";
 import { findStudents, GetStudentsInformation } from '../../../../Api/Api';
 
 export default function PayStudentFeePage() {
@@ -101,14 +103,16 @@ export default function PayStudentFeePage() {
     <Box>
       <Box sx={{ width: "100%", }}>
         <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-        {isLoading && <Loader />}
-        <Box sx={{ backgroundColor: "#f2f2f2", px: 2, py: 1.5, borderBottom: "1px solid #ddd", mb: 0.13, }}>
+        <Box sx={{ backgroundColor: DASH.canvas, px: 2, py: 1.5, borderBottom: `1px solid ${DASH.line}` }}>
           <Grid container>
             <Grid size={{ xs: 12, sm: 12, md: 3, lg: 3 }} sx={{ display: "flex", alignItems: "center" }}>
               <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: '2px', }}>
-                <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
               </IconButton>
-              <Typography sx={{ fontWeight: "600", fontSize: "19px" }} >Pay Student Fees </Typography>
+              <Box>
+                <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>Pay Student Fees</Typography>
+                <Typography sx={{ fontSize: "11.5px", color: DASH.muted, whiteSpace: "nowrap" }}>Pick a student to collect or record a payment</Typography>
+              </Box>
             </Grid>
             <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
               <TextField
@@ -122,10 +126,10 @@ export default function PayStudentFeePage() {
                   ),
                   sx: {
                     padding: "0 5px",
-                    borderRadius: "50px",
-                    height: "33px",
-                    fontSize: "12px",
-                    width: "270px"
+                    borderRadius: RADIUS,
+                    height: 34,
+                    fontSize: "12.5px",
+                    width: "270px",
                   },
                 }}
                 sx={{
@@ -133,6 +137,8 @@ export default function PayStudentFeePage() {
                     minHeight: "28px",
                     paddingRight: "3px",
                     backgroundColor: "#fff",
+                    "& fieldset": { borderColor: DASH.line },
+                    "&:hover fieldset": { borderColor: DASH.faint },
                   },
                   "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
                     borderColor: websiteSettings.mainColor,
@@ -180,9 +186,14 @@ export default function PayStudentFeePage() {
                       ...params.InputProps,
                       sx: {
                         paddingRight: 0,
-                        height: "33px",
-                        fontSize: "13px",
-                        fontWeight: "600",
+                        height: 34,
+                        fontSize: "12.5px",
+                        fontWeight: 600,
+                        borderRadius: RADIUS,
+                        bgcolor: "#fff",
+                        "& fieldset": { borderColor: DASH.line },
+                        "&:hover fieldset": { borderColor: DASH.faint },
+                        "&.Mui-focused fieldset": { borderColor: "#E30053", borderWidth: "1px" },
                       },
                     }}
                   />
@@ -225,9 +236,14 @@ export default function PayStudentFeePage() {
                       ...params.InputProps,
                       sx: {
                         paddingRight: 0,
-                        height: "33px",
-                        fontSize: "13px",
-                        fontWeight: "600",
+                        height: 34,
+                        fontSize: "12.5px",
+                        fontWeight: 600,
+                        borderRadius: RADIUS,
+                        bgcolor: "#fff",
+                        "& fieldset": { borderColor: DASH.line },
+                        "&:hover fieldset": { borderColor: DASH.faint },
+                        "&.Mui-focused fieldset": { borderColor: "#E30053", borderWidth: "1px" },
                       },
                     }}
                   />
@@ -237,9 +253,13 @@ export default function PayStudentFeePage() {
           </Grid>
         </Box>
         <Box sx={{ p: 2 }}>
+          {isLoading ? (
+            <StudentGridSkeleton count={10} columns={7} />
+          ) : (
           <TableContainer
             sx={{
-              border: "1px solid #E601542A",
+              border: `1px solid ${DASH.line}`,
+              borderRadius: "6px",
               maxHeight: "79vh",
               overflowY: "auto",
 
@@ -248,26 +268,26 @@ export default function PayStudentFeePage() {
             <Table stickyHeader aria-label="attendance table" sx={{ minWidth: '100%' }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center", backgroundColor: "#F7DDDE" }}>
+                  <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: DASH.muted, py: 1.2 }}>
                     S.No
                   </TableCell>
-                  <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center", backgroundColor: "#F7DDDE" }}>
+                  <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: DASH.muted, py: 1.2 }}>
                     Roll Number
                   </TableCell>
-                  <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center", backgroundColor: "#F7DDDE" }}>
+                  <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: DASH.muted, py: 1.2 }}>
                     Student Name
                   </TableCell>
-                  <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center", backgroundColor: "#F7DDDE" }}>
+                  <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: DASH.muted, py: 1.2 }}>
                     Gender
                   </TableCell>
-                  <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center", backgroundColor: "#F7DDDE" }}>
+                  <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: DASH.muted, py: 1.2 }}>
                     Class
                   </TableCell>
 
-                  <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center", backgroundColor: "#F7DDDE" }}>
+                  <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: DASH.muted, py: 1.2 }}>
                     Section
                   </TableCell>
-                  <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center", backgroundColor: "#F7DDDE" }}>
+                  <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: DASH.muted, py: 1.2 }}>
                     Fee Payment
                   </TableCell>
                 </TableRow>
@@ -275,43 +295,55 @@ export default function PayStudentFeePage() {
               <TableBody>
                 {filteredStudents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} sx={{ textAlign: "center", py: 3 }}>
-                      No students found
+                    <TableCell colSpan={7} sx={{ textAlign: "center", py: 5, borderBottom: "none" }}>
+                      <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                        No students found
+                      </Typography>
+                      <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.5 }}>
+                        Try a different class, section or search term.
+                      </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredStudents.map((row, index) => (
                     <TableRow key={row.rollNumber || index}>
-                      <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center" }}>
+                      <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                         {index + 1}
                       </TableCell>
-                      <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center" }}>
+                      <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                         {row.rollNumber}
                       </TableCell>
-                      <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center", color: row.name ? "inherit" : "red" }}>
+                      <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", color: row.name ? DASH.text : DASH.red }}>
                         {row.name || "Name not provided"}
                       </TableCell>
-                      <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center" }}>
+                      <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                         Male
                       </TableCell>
-                      <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center" }}>
+                      <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                         {row.grade || "N/A"}
                       </TableCell>
-                      <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center" }}>
+                      <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                         {row.section || "N/A"}
                       </TableCell>
-                      <TableCell sx={{ borderRight: 1, borderColor: "#F3D1E0", textAlign: "center" }}>
+                      <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                         <Button
                           onClick={() => handlePayClick(row.rollNumber)}
-                          variant='outlined'
+                          variant="contained"
+                          disableElevation
+                          startIcon={<PaymentsOutlinedIcon sx={{ fontSize: 16 }} />}
                           sx={{
                             borderRadius: "999px",
-                            borderColor: "#E10052",
-                            color: "#E10052",
-                            height: "28px",
-                            width: "100px",
+                            bgcolor: "#E30053",
+                            color: "#fff",
+                            height: 30,
+                            px: 2,
                             fontSize: "12px",
-                            textTransform: "none"
+                            fontWeight: 700,
+                            textTransform: "none",
+                            boxShadow: "none",
+                            whiteSpace: "nowrap",
+                            "& .MuiButton-startIcon": { mr: 0.6 },
+                            "&:hover": { bgcolor: "#C40047", boxShadow: "0 2px 8px rgba(227,0,83,0.25)" },
                           }}
                         >
                           Pay Fee
@@ -325,6 +357,7 @@ export default function PayStudentFeePage() {
 
             </Table>
           </TableContainer>
+          )}
 
         </Box>
       </Box>

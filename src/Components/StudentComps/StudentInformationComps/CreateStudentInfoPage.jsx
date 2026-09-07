@@ -10,7 +10,7 @@ import { useDispatch, useSelector } from "react-redux";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useDropzone } from "react-dropzone";
 import { Textarea } from "@mui/joy";
-import { postStudentAcademicInformation, postStudentDocumentInformation, postStudentFamilyInformation, postStudentgeneralhealthInformation, postStudentGuardianInformation, postStudentInformation, postStudentSiblingInformation } from "../../../Api/Api";
+import { LinkPreviousRecord, postStudentAcademicInformation, postStudentDocumentInformation, postStudentFamilyInformation, postStudentgeneralhealthInformation, postStudentGuardianInformation, postStudentInformation, postStudentSiblingInformation } from "../../../Api/Api";
 import axios from "axios";
 import DropDownList from "../../DropdownList";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
@@ -26,9 +26,11 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
+import PendingActionsOutlinedIcon from '@mui/icons-material/PendingActionsOutlined';
 import KeyboardIcon from "@mui/icons-material/Keyboard";
 import TamilKeyboard from "../../Tools/TamilKeyBoardLayout";
 import ExistingStudentVerification from "./ExistingStudentVerification";
+import PreviousRecordPanel from "./PreviousRecordPanel";
 import { apiErrorMessage, responseErrorMessage } from "../../../Api/apiError";
 
 // Compact Tamil-translate icon: small "A→அ" sized to match a regular icon button.
@@ -91,13 +93,53 @@ export default function CreateStudentInfoPage() {
     const [verifyMode, setVerifyMode] = useState(false); // "Check Existing Student Records" toggle
     const websiteSettings = useSelector(selectWebsiteSettings);
 
-    const handleLoadExisting = () => {
-        // TODO: prefill the form fields from the chosen record (once the search API is wired)
+    const [previousRecord, setPreviousRecord] = useState(null);
+    const [linkedRollNumber, setLinkedRollNumber] = useState("");
+    const [linkRefreshKey, setLinkRefreshKey] = useState(0);
+
+    const handleSelectPreviousRecord = (record) => {
+        setPreviousRecord(record);
+        setIsNewStudent(false);
         setVerifyMode(false);
-        setMessage("Existing details loaded. Continue creating the student profile.");
+        setMessage(`Linked to #${record.rollNumber}. Save Student Academic Info to complete the readmission.`);
         setColor(true);
         setStatus(true);
         setOpen(true);
+    };
+
+    const handleClearPreviousRecord = () => {
+        setPreviousRecord(null);
+        setVerifyMode(true);
+    };
+
+    const linkPreviousRecord = async (newRollNumber) => {
+        if (!previousRecord || !newRollNumber) return;
+        try {
+            const res = await axios.post(
+                LinkPreviousRecord,
+                {
+                    newRollNumber,
+                    studentExitId: previousRecord.studentExitId,
+                    oldRollNumber: previousRecord.rollNumber,
+                    linkedByRollNumber: RollNumber,
+                    linkedByUserType: userType,
+                    notes: `Readmission - linked to previous roll number ${previousRecord.rollNumber}`,
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const body = res?.data || {};
+            if (body.error) {
+                showError(body.message || "Student created, but the previous record could not be linked.");
+                return;
+            }
+            setLinkedRollNumber(newRollNumber);
+            setLinkRefreshKey((k) => k + 1);
+            showSuccess(`Student created and linked to previous roll number ${previousRecord.rollNumber}.`);
+        } catch (error) {
+            showError(
+                apiErrorMessage(error, "Student created, but the previous record could not be linked. Link it again from Old Student Mapping.")
+            );
+        }
     };
     const [changesHappended, setChangesHappended] = useState(false);
     const [value, setValue] = useState("");
@@ -829,6 +871,7 @@ export default function CreateStudentInfoPage() {
 
             showSuccess(`Student created successfully with roll number ${studentPermanentNumber}.`);
             setFetchRollNumber(studentPermanentNumber);
+            if (previousRecord) await linkPreviousRecord(studentPermanentNumber);
             setIsDisabledAcademic(true);
             setActiveStep(1);
             setOpenSection(nextSectionAfter("academic"));
@@ -1525,10 +1568,63 @@ export default function CreateStudentInfoPage() {
                 {/* Verification view — shown only when the toggle is ON */}
                 {verifyMode && (
                     <ExistingStudentVerification
-                        mainColor={websiteSettings.mainColor || "#E60154"}
-                        defaultAcademicYear={academicYear}
-                        onLoadExisting={handleLoadExisting}
+                        accent={themeColor}
+                        selectedRecord={previousRecord}
+                        onSelectRecord={handleSelectPreviousRecord}
+                        onClearRecord={() => setPreviousRecord(null)}
                     />
+                )}
+
+                {!verifyMode && previousRecord && !linkedRollNumber && (
+                    <Box sx={{ px: 2, pt: 2 }}>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1.5,
+                                p: 2,
+                                borderRadius: "10px",
+                                bgcolor: DASH.amberLight,
+                                border: "1px solid #FDE68A",
+                                borderLeft: `3px solid ${DASH.amber}`,
+                                flexWrap: "wrap",
+                            }}
+                        >
+                            <PendingActionsOutlinedIcon sx={{ fontSize: 20, color: DASH.amber, flexShrink: 0 }} />
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                                    Readmitting {previousRecord.name} · old roll number #{previousRecord.rollNumber}
+                                </Typography>
+                                <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                                    The link is created once Student Academic Info is saved with the new roll number.
+                                </Typography>
+                            </Box>
+                            <Button
+                                onClick={handleClearPreviousRecord}
+                                sx={{
+                                    textTransform: "none",
+                                    fontSize: "12.5px",
+                                    fontWeight: 700,
+                                    height: 34,
+                                    px: 1.8,
+                                    borderRadius: RADIUS,
+                                    color: DASH.text,
+                                    bgcolor: "#fff",
+                                    border: `1px solid ${DASH.line}`,
+                                    flexShrink: 0,
+                                    "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+                                }}
+                            >
+                                Change record
+                            </Button>
+                        </Box>
+                    </Box>
+                )}
+
+                {!verifyMode && linkedRollNumber && (
+                    <Box sx={{ px: 2, pt: 2 }}>
+                        <PreviousRecordPanel newRollNumber={linkedRollNumber} refreshKey={linkRefreshKey} />
+                    </Box>
                 )}
 
                 <Box sx={{ px: 2, pt: 2, display: verifyMode ? "none" : "block" }}>

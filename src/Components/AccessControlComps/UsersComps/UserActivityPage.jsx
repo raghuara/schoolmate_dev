@@ -1,10 +1,9 @@
 import {
     Box, Button, Chip, IconButton, InputAdornment, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, TextField, Typography,
+    TableContainer, TableHead, TableRow, TextField, Typography, Skeleton,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Loader from "../../Loader";
 import SnackBar from "../../SnackBar";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -17,7 +16,7 @@ import { useSelector } from "react-redux";
 import { LoginList } from "../../../Api/Api";
 import axios from "axios";
 import * as XLSX from 'xlsx';
-import { DASH, RADIUS, Panel, EmptyNote } from "../../DashBoardComps/dashboardTheme";
+import { DASH, RADIUS, BRAND, Panel, EmptyNote } from "../../DashBoardComps/dashboardTheme";
 
 const TH = ({ children, align }) => (
     <TableCell
@@ -179,6 +178,41 @@ const UserTable = ({ rows, search, onSearch, onClearSearch, onExport, accent, em
     </>
 );
 
+
+const MemberTableSkeleton = ({ rows = 8 }) => (
+    <Box>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, mb: 1.5, flexWrap: "wrap" }}>
+            <Skeleton variant="rounded" width={260} height={34} sx={{ bgcolor: DASH.lineSoft, borderRadius: RADIUS }} />
+            <Skeleton variant="rounded" width={140} height={34} sx={{ bgcolor: DASH.lineSoft, borderRadius: RADIUS }} />
+        </Box>
+
+        <TableContainer sx={{ border: `1px solid ${DASH.line}`, borderRadius: RADIUS, bgcolor: "#fff" }}>
+            <Table size="small">
+                <TableHead>
+                    <TableRow>
+                        {[...Array(6)].map((_, i) => (
+                            <TableCell key={i} sx={{ bgcolor: DASH.surface, borderBottom: `1px solid ${DASH.line}`, py: 1.1 }}>
+                                <Skeleton variant="rounded" height={9} width="65%" sx={{ bgcolor: DASH.lineSoft, mx: "auto" }} />
+                            </TableCell>
+                        ))}
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {[...Array(rows)].map((_, r) => (
+                        <TableRow key={r}>
+                            {[...Array(6)].map((_, c) => (
+                                <TableCell key={c} sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, py: 1.3 }}>
+                                    <Skeleton variant="rounded" height={11} width={c === 2 ? "80%" : "55%"} sx={{ bgcolor: DASH.lineSoft, mx: "auto" }} />
+                                </TableCell>
+                            ))}
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </TableContainer>
+    </Box>
+);
+
 export default function UserActivityPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [open, setOpen] = useState(false);
@@ -198,6 +232,7 @@ export default function UserActivityPage() {
     const [filteredDataNotLogged, setFilteredDataNotLogged] = useState([]);
 
     const mainColor = websiteSettings.mainColor || DASH.primary;
+    const ACCENT = BRAND.purple.main;
 
     useEffect(() => {
         fetcDetails()
@@ -282,26 +317,25 @@ export default function UserActivityPage() {
     const handleExportNotLoggedIn = () => exportRows(filteredDataNotLogged, 'NotLoggedInUsers', 'not_logged_in_users.xlsx');
 
     const TABS = [
-        { key: 0, label: "Logged-In Users", icon: HowToRegOutlinedIcon, count: loggedInTotal },
-        { key: 1, label: "Not Logged-In", icon: PersonOffOutlinedIcon, count: notLoggedInTotal },
+        { key: 0, label: "Logged-In Users", icon: HowToRegOutlinedIcon, count: loggedInTotal, accent: ACCENT },
+        { key: 1, label: "Not Logged-In", icon: PersonOffOutlinedIcon, count: notLoggedInTotal, accent: ACCENT },
     ];
 
     return (
         <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%", boxSizing: "border-box" }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-            {isLoading && <Loader />}
 
-            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, minWidth: 0, mb: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", minWidth: 0, mb: 2 }}>
                 <Link style={{ textDecoration: "none" }} to="/dashboardmenu/access/users">
-                    <IconButton sx={{ mt: -0.5 }}>
-                        <ArrowBackIcon sx={{ fontSize: 20, color: DASH.text }} />
+                    <IconButton sx={{ width: 28, height: 28 }}>
+                        <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                     </IconButton>
                 </Link>
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: "21px", fontWeight: 700, color: DASH.ink }}>
+                <Box sx={{ ml: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
                         Member Download Report
                     </Typography>
-                    <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.2 }}>
+                    <Typography sx={{ fontSize: "11.5px", color: DASH.muted, whiteSpace: "nowrap" }}>
                         See who is using SchoolMate, and who has not signed in yet
                     </Typography>
                 </Box>
@@ -319,7 +353,7 @@ export default function UserActivityPage() {
                     maxWidth: "100%",
                     bgcolor: DASH.lineSoft,
                     border: `1px solid ${DASH.line}`,
-                    borderRadius: RADIUS,
+                    borderRadius: "999px",
                     overflowX: "auto",
                     scrollbarWidth: "none",
                     "&::-webkit-scrollbar": { display: "none" },
@@ -337,36 +371,43 @@ export default function UserActivityPage() {
                                 alignItems: "center",
                                 gap: 0.7,
                                 flexShrink: 0,
-                                height: 32,
-                                px: 1.4,
-                                borderRadius: RADIUS,
+                                height: 28,
+                                px: 1.8,
+                                borderRadius: "999px",
                                 cursor: "pointer",
                                 whiteSpace: "nowrap",
-                                bgcolor: active ? "#fff" : "transparent",
-                                border: `1px solid ${active ? DASH.line : "transparent"}`,
-                                boxShadow: active ? "0 1px 3px rgba(17,24,39,0.12)" : "none",
-                                transition: "background-color .15s ease, box-shadow .15s ease",
-                                "&:hover": { bgcolor: active ? "#fff" : "rgba(17,24,39,0.04)" },
+                                bgcolor: active ? tab.accent : "transparent",
+                                boxShadow: active ? `0 1px 3px ${tab.accent}4D` : "none",
+                                transition: "background-color .18s ease, color .18s ease",
+                                "&:hover": { bgcolor: active ? tab.accent : "rgba(17,24,39,0.04)" },
                             }}
                         >
-                            <TabIcon sx={{ fontSize: 16, color: active ? mainColor : DASH.faint }} />
-                            <Typography sx={{ fontSize: "12.5px", fontWeight: active ? 700 : 600, color: active ? DASH.ink : DASH.muted }}>
+                            <TabIcon sx={{ fontSize: 15, color: active ? "#fff" : DASH.faint }} />
+                            <Typography sx={{ fontSize: "12.5px", fontWeight: active ? 700 : 600, color: active ? "#fff" : DASH.muted }}>
                                 {tab.label}
                             </Typography>
                             <Box
                                 sx={{
                                     px: 0.7,
-                                    height: 18,
+                                    height: 17,
                                     display: "flex",
                                     alignItems: "center",
-                                    borderRadius: RADIUS,
-                                    bgcolor: active ? `${mainColor}1A` : "#fff",
-                                    color: active ? mainColor : DASH.faint,
+                                    borderRadius: "999px",
+                                    bgcolor: active ? "rgba(255,255,255,0.24)" : "#fff",
+                                    color: active ? "#fff" : DASH.faint,
                                     fontSize: "10px",
                                     fontWeight: 700,
                                 }}
                             >
-                                {tab.count}
+                                {isLoading ? (
+                                    <Skeleton
+                                        variant="text"
+                                        width={22}
+                                        sx={{ bgcolor: active ? "rgba(255,255,255,0.45)" : DASH.lineSoft, fontSize: "10px" }}
+                                    />
+                                ) : (
+                                    tab.count
+                                )}
                             </Box>
                         </Box>
                     );
@@ -377,33 +418,41 @@ export default function UserActivityPage() {
                 <Panel
                     title="Logged-In Users"
                     subtitle={isLoading ? "Loading…" : `${filteredData.length} of ${loggedInTotal} member${loggedInTotal === 1 ? "" : "s"} have signed in`}
-                    accent={DASH.green}
+                    accent={ACCENT}
                 >
+                    {isLoading ? (
+                        <MemberTableSkeleton />
+                    ) : (
                     <UserTable
                         rows={filteredData}
                         search={searchQuery}
                         onSearch={handleSearchChange}
                         onClearSearch={() => handleSearchChange({ target: { value: "" } })}
                         onExport={handleExport}
-                        accent={mainColor}
+                        accent={ACCENT}
                         emptyText={searchQuery ? `No member matches “${searchQuery}”.` : "Nobody has signed in yet."}
                     />
+                    )}
                 </Panel>
             ) : (
                 <Panel
                     title="Not Logged-In Users"
                     subtitle={isLoading ? "Loading…" : `${filteredDataNotLogged.length} of ${notLoggedInTotal} member${notLoggedInTotal === 1 ? "" : "s"} have never signed in`}
-                    accent={DASH.amber}
+                    accent={ACCENT}
                 >
+                    {isLoading ? (
+                        <MemberTableSkeleton />
+                    ) : (
                     <UserTable
                         rows={filteredDataNotLogged}
                         search={searchQueryNotLogged}
                         onSearch={handleSearchChangeNotLogged}
                         onClearSearch={() => handleSearchChangeNotLogged({ target: { value: "" } })}
                         onExport={handleExportNotLoggedIn}
-                        accent={mainColor}
+                        accent={ACCENT}
                         emptyText={searchQueryNotLogged ? `No member matches “${searchQueryNotLogged}”.` : "Everyone has signed in at least once."}
                     />
+                    )}
                 </Panel>
             )}
         </Box>

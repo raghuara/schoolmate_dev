@@ -4,6 +4,7 @@ import {
     FormControl, InputLabel, Checkbox, Table, TableHead, TableBody, TableRow, TableCell,
     TableContainer, Avatar, Divider, InputAdornment, Tooltip, Dialog, DialogTitle,
     DialogContent, DialogActions, CircularProgress,
+Skeleton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -16,10 +17,12 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 import axios from 'axios';
+import { DASH, RADIUS, KPI_TONES, SolidStatCard } from '../DashBoardComps/dashboardTheme';
 import { selectGrades, selectGradesLoading, fetchGradesData } from '../../Redux/Slices/DropdownController';
 import {
     FetchPromotableStudents,
@@ -32,15 +35,15 @@ import SnackBar from '../SnackBar';
 const TOKEN = '123';
 
 // Promote = emerald green, Edit = indigo (clearly different).
-const PROMOTE_THEME = { main: '#16A34A', light: '#F0FDF4', dark: '#15803D', border: '#A7F3D0' };
-const EDIT_THEME    = { main: '#4F46E5', light: '#EEF2FF', dark: '#3730A3', border: '#C7D2FE' };
+const PROMOTE_THEME = { main: DASH.green, light: DASH.greenLight, dark: '#15803D', border: `${DASH.green}4D` };
+const EDIT_THEME    = { main: '#4F46E5', light: DASH.blueLight, dark: '#3730A3', border: '#BFDBFE' };
 
 const DEFAULT_CAPACITY = 35;
 
 const getInitials = (name = '') =>
     name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
 
-const AVATAR_PALETTE = ['#0891B2', '#7C3AED', '#EA580C', '#DC2626', '#16A34A', '#2563EB', '#DB2777', '#CA8A04'];
+const AVATAR_PALETTE = [DASH.cyan, '#7C3AED', '#EA580C', DASH.red, DASH.green, '#2563EB', '#DB2777', '#CA8A04'];
 const colorFor = (name = '') => AVATAR_PALETTE[name.charCodeAt(0) % AVATAR_PALETTE.length];
 
 const GENDER_STYLES = {
@@ -53,6 +56,85 @@ const genderStyle = (g) => {
     if (norm.startsWith('f')) return GENDER_STYLES.female;
     return null;
 };
+
+
+const FieldSkeleton = () => (
+    <Box>
+        <Skeleton variant="rounded" width="42%" height={9} sx={{ bgcolor: DASH.lineSoft }} />
+        <Skeleton variant="rounded" height={38} sx={{ bgcolor: DASH.lineSoft, borderRadius: RADIUS, mt: 0.8 }} />
+    </Box>
+);
+
+const SelectorPanelsSkeleton = () => (
+    <Grid container spacing={2} alignItems="flex-start">
+        <Grid size={{ xs: 12, md: 5 }}>
+            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}` }}>
+                <Skeleton variant="rounded" width="55%" height={13} sx={{ bgcolor: DASH.lineSoft, mb: 2 }} />
+                <Grid container spacing={2}>
+                    {[0, 1].map((i) => (
+                        <Grid key={i} size={{ xs: 12, sm: 6 }}>
+                            <FieldSkeleton />
+                        </Grid>
+                    ))}
+                </Grid>
+            </Box>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 7 }}>
+            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}` }}>
+                <Skeleton variant="rounded" width="45%" height={13} sx={{ bgcolor: DASH.lineSoft, mb: 2 }} />
+                <Grid container spacing={2} alignItems="flex-end">
+                    <Grid size={{ xs: 6, sm: 5 }}><FieldSkeleton /></Grid>
+                    <Grid size={{ xs: 6, sm: 4 }}><FieldSkeleton /></Grid>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                        <Skeleton variant="rounded" height={38} sx={{ bgcolor: DASH.lineSoft, borderRadius: RADIUS }} />
+                    </Grid>
+                </Grid>
+            </Box>
+        </Grid>
+    </Grid>
+);
+
+const PromotionStatsSkeleton = () => (
+    <Grid container spacing={2} sx={{ mt: 0.5 }} alignItems="stretch">
+        {[0, 1, 2, 3].map((i) => (
+            <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
+                <Skeleton variant="rounded" height={100} sx={{ bgcolor: DASH.lineSoft, borderRadius: '7px' }} />
+            </Grid>
+        ))}
+    </Grid>
+);
+
+const StudentRowsSkeleton = ({ rows = 8, columns = 6 }) => (
+    <TableContainer sx={{ border: `1px solid ${DASH.line}`, borderRadius: RADIUS, bgcolor: '#fff' }}>
+        <Table size="small">
+            <TableHead>
+                <TableRow>
+                    {[...Array(columns)].map((_, i) => (
+                        <TableCell key={i} sx={{ bgcolor: DASH.surface, borderBottom: `1px solid ${DASH.line}`, py: 1.1 }}>
+                            <Skeleton variant="rounded" height={9} width="62%" sx={{ bgcolor: DASH.lineSoft }} />
+                        </TableCell>
+                    ))}
+                </TableRow>
+            </TableHead>
+            <TableBody>
+                {[...Array(rows)].map((_, r) => (
+                    <TableRow key={r}>
+                        {[...Array(columns)].map((_, c) => (
+                            <TableCell key={c} sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, py: 1.2 }}>
+                                {c === 0 ? (
+                                    <Skeleton variant="rounded" width={18} height={18} sx={{ bgcolor: DASH.lineSoft }} />
+                                ) : (
+                                    <Skeleton variant="rounded" height={11} width={c === 2 ? '78%' : '52%'} sx={{ bgcolor: DASH.lineSoft }} />
+                                )}
+                            </TableCell>
+                        ))}
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+    </TableContainer>
+);
 
 export default function StudentPromotionPage() {
     const navigate = useNavigate();
@@ -445,26 +527,26 @@ export default function StudentPromotionPage() {
 
             <Box sx={{ width: '100%' }}>
                 <Box sx={{
-                    backgroundColor: '#f2f2f2', p: 1.5, borderRadius: '10px 10px 10px 0px',
-                    borderBottom: '1px solid #ddd',
+                    backgroundColor: DASH.canvas, px: 2, py: 1.2,
+                    borderBottom: `1px solid ${DASH.line}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap',
                 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <IconButton onClick={() => navigate(-1)} sx={{ width: 32, height: 32 }}>
-                            <ArrowBackIcon sx={{ fontSize: 18, color: '#000' }} />
+                            <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                         </IconButton>
                         <Box sx={{
-                            width: 32, height: 32, borderRadius: '8px',
+                            width: 30, height: 30, borderRadius: RADIUS,
                             bgcolor: T.light, border: `1px solid ${T.border}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
                             <TrendingUpIcon sx={{ color: T.main, fontSize: 18 }} />
                         </Box>
                         <Box>
-                            <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#111', lineHeight: 1.2 }}>
+                            <Typography sx={{ fontSize: 20, fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
                                 {isEditMode ? 'Edit Promoted Students' : 'Student Promotion'}
                             </Typography>
-                            <Typography sx={{ fontSize: 11, color: '#666' }}>
+                            <Typography sx={{ fontSize: 11.5, color: DASH.muted }}>
                                 {isEditMode
                                     ? 'Re-route already-promoted students to a different class or section'
                                     : 'Move students from one class & section to another — year-end or mid-year'}
@@ -498,7 +580,7 @@ export default function StudentPromotionPage() {
                                             px: 1.6, py: 0.5, borderRadius: '50px',
                                             cursor: 'pointer', userSelect: 'none',
                                             bgcolor: active ? opt.tone.main : 'transparent',
-                                            color: active ? '#fff' : '#374151',
+                                            color: active ? '#fff' : DASH.text,
                                             fontSize: 12, fontWeight: 700,
                                             transition: 'all 0.18s',
                                             boxShadow: active ? `0 2px 6px ${opt.tone.main}55` : 'none',
@@ -519,11 +601,12 @@ export default function StudentPromotionPage() {
                     overflowY: 'auto',
                     '&::-webkit-scrollbar': { width: 6 },
                     '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
-                    '&::-webkit-scrollbar-thumb': { bgcolor: '#D1D5DB', borderRadius: 10 },
+                    '&::-webkit-scrollbar-thumb': { bgcolor: DASH.faint, borderRadius: 10 },
                 }}>
+                    {isLoadingGrades ? <SelectorPanelsSkeleton /> : (
                     <Grid container spacing={2} alignItems="flex-start">
                         <Grid size={{ xs: 12, md: 5 }}>
-                            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB' }}>
+                            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}` }}>
                                 <StepHeader number={1} title="Source Class" theme={T} />
                                 <Grid container spacing={1.5}>
                                     <Grid size={{ xs: 12, sm: 6 }}>
@@ -560,17 +643,17 @@ export default function StudentPromotionPage() {
 
                                 <Box sx={{
                                     mt: 2,
-                                    p: 1.2, borderRadius: '8px',
-                                    bgcolor: srcClassId ? T.light : '#FAFAFA',
-                                    border: `1px solid ${srcClassId ? T.border : '#E5E7EB'}`,
+                                    p: 1.2, borderRadius: RADIUS,
+                                    bgcolor: srcClassId ? T.light : DASH.surface,
+                                    border: `1px solid ${srcClassId ? T.border : DASH.line}`,
                                     display: 'flex', alignItems: 'center', gap: 1,
                                 }}>
-                                    <GroupsIcon sx={{ fontSize: 18, color: srcClassId ? T.main : '#9CA3AF', flexShrink: 0 }} />
+                                    <GroupsIcon sx={{ fontSize: 18, color: srcClassId ? T.main : DASH.faint, flexShrink: 0 }} />
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography sx={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                                        <Typography sx={{ fontSize: 11, color: DASH.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
                                             Selected source
                                         </Typography>
-                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: srcClassId ? T.dark : '#9CA3AF' }} noWrap>
+                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: srcClassId ? T.dark : DASH.faint }} noWrap>
                                             {srcClassId
                                                 ? `${srcClass.sign} ${srcSection || '— no section —'}`
                                                 : 'Choose a class & section to load students'}
@@ -581,7 +664,7 @@ export default function StudentPromotionPage() {
                                             <Typography sx={{ fontSize: 18, fontWeight: 800, color: T.dark, lineHeight: 1 }}>
                                                 {totalStudents}
                                             </Typography>
-                                            <Typography sx={{ fontSize: 11, color: '#666', fontWeight: 600 }}>
+                                            <Typography sx={{ fontSize: 11.5, color: DASH.muted, fontWeight: 600 }}>
                                                 students
                                             </Typography>
                                         </Box>
@@ -591,7 +674,7 @@ export default function StudentPromotionPage() {
                         </Grid>
 
                         <Grid size={{ xs: 12, md: 7 }}>
-                            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB' }}>
+                            <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}` }}>
                                 <StepHeader number={2} title="Destination Classes" hint="add one or more — students get split across these" theme={T} />
 
                                 <Grid container spacing={1.5}>
@@ -635,10 +718,10 @@ export default function StudentPromotionPage() {
                                             onClick={handleAddDestination}
                                             sx={{
                                                 textTransform: 'none', fontSize: 13, fontWeight: 700,
-                                                bgcolor: T.main, color: '#fff', borderRadius: '6px', height: 40,
+                                                bgcolor: T.main, color: '#fff', borderRadius: RADIUS, height: 40,
                                                 boxShadow: `0 2px 6px ${T.main}33`,
                                                 '&:hover': { bgcolor: T.dark, boxShadow: `0 4px 12px ${T.main}55` },
-                                                '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' },
+                                                '&.Mui-disabled': { bgcolor: DASH.line, color: DASH.faint },
                                             }}
                                         >
                                             Add
@@ -648,7 +731,7 @@ export default function StudentPromotionPage() {
 
                                 {eligibilityHint && (
                                     <Box sx={{
-                                        mt: 1, p: 0.8, borderRadius: '6px',
+                                        mt: 1, p: 0.8, borderRadius: RADIUS,
                                         bgcolor: '#EFF6FF', border: '1px solid #BFDBFE',
                                         display: 'flex', alignItems: 'center', gap: 0.6,
                                     }}>
@@ -663,10 +746,10 @@ export default function StudentPromotionPage() {
                                     {destinations.length === 0 ? (
                                         <Box sx={{
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            border: '1px dashed #E5E7EB', borderRadius: '8px',
-                                            bgcolor: '#FAFAFA', minHeight: 80, p: 2,
+                                            border: `1px dashed ${DASH.line}`, borderRadius: RADIUS,
+                                            bgcolor: DASH.surface, minHeight: 80, p: 2,
                                         }}>
-                                            <Typography sx={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center' }}>
+                                            <Typography sx={{ fontSize: 12, color: DASH.faint, textAlign: 'center' }}>
                                                 Pick a class & section above and click <strong>Add</strong> to create a destination.
                                                 You can add multiple to split students across them.
                                             </Typography>
@@ -676,13 +759,13 @@ export default function StudentPromotionPage() {
                                             const filled = distributionCounts[d.key] || 0;
                                             return (
                                                 <Box key={d.key} sx={{
-                                                    p: 1.2, borderRadius: '8px',
+                                                    p: 1.2, borderRadius: RADIUS,
                                                     bgcolor: '#fff',
                                                     border: `1.5px solid ${T.border}`,
                                                     display: 'flex', alignItems: 'center', gap: 1,
                                                 }}>
                                                     <Box sx={{
-                                                        width: 32, height: 32, borderRadius: '8px',
+                                                        width: 30, height: 30, borderRadius: RADIUS,
                                                         bgcolor: T.light,
                                                         border: `1px solid ${T.border}`,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -693,16 +776,16 @@ export default function StudentPromotionPage() {
                                                         </Typography>
                                                     </Box>
                                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111' }} noWrap>
+                                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.ink }} noWrap>
                                                             {d.classLabel} {d.section}
                                                         </Typography>
-                                                        <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+                                                        <Typography sx={{ fontSize: 11, color: DASH.muted }}>
                                                             {filled} student{filled !== 1 ? 's' : ''} assigned
                                                         </Typography>
                                                     </Box>
                                                     <Tooltip title="Remove this destination">
                                                         <IconButton size="small" onClick={() => handleRemoveDestination(d.key)}
-                                                            sx={{ width: 26, height: 26, color: '#9CA3AF', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}>
+                                                            sx={{ width: 26, height: 26, color: DASH.faint, '&:hover': { color: DASH.red, bgcolor: DASH.redLight } }}>
                                                             <CloseIcon sx={{ fontSize: 14 }} />
                                                         </IconButton>
                                                     </Tooltip>
@@ -714,28 +797,72 @@ export default function StudentPromotionPage() {
                             </Box>
                         </Grid>
                     </Grid>
+                    )}
 
-                    <Box sx={{ p: 2, mt: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB' }}>
+                    {sourceKey && (
+                        isLoadingStudents ? <PromotionStatsSkeleton /> : (
+                            <Grid container spacing={2} sx={{ mt: 0.5 }} alignItems="stretch">
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                    <SolidStatCard
+                                        icon={GroupsIcon}
+                                        label={isEditMode ? 'Promoted' : 'In This Class'}
+                                        value={students.length}
+                                        note={isEditMode ? 'Already moved, editable' : 'Awaiting promotion'}
+                                        tone={KPI_TONES.blue}
+                                    />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                    <SolidStatCard
+                                        icon={PlaylistAddCheckIcon}
+                                        label="Selected"
+                                        value={selectedCount}
+                                        note={selectedCount > 0 ? 'Ready for bulk assign' : 'Tick rows to bulk assign'}
+                                        tone={KPI_TONES.violet}
+                                    />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                    <SolidStatCard
+                                        icon={CheckCircleIcon}
+                                        label="Assigned"
+                                        value={assignedCount}
+                                        note={`Across ${destinations.filter(d => distributionCounts[d.key] > 0).length} destination${destinations.filter(d => distributionCounts[d.key] > 0).length === 1 ? '' : 's'}`}
+                                        tone={KPI_TONES.green}
+                                    />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                    <SolidStatCard
+                                        icon={WarningAmberIcon}
+                                        label="Unassigned"
+                                        value={Math.max(0, students.length - assignedCount)}
+                                        note={students.length - assignedCount > 0 ? 'Still need a destination' : 'Everyone has a destination'}
+                                        tone={KPI_TONES.orange}
+                                    />
+                                </Grid>
+                            </Grid>
+                        )
+                    )}
+
+                    <Box sx={{ p: 2, mt: 2, borderRadius: '10px', bgcolor: '#fff', border: `1px solid ${DASH.line}` }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.2, flexWrap: 'wrap', gap: 1 }}>
                             <StepHeader number={3} title="Assign Students" hint="select rows + pick destination per student or in bulk" theme={T} />
                             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                 <TextField
                                     size="small" placeholder="Search name or roll no…"
                                     value={search} onChange={(e) => setSearch(e.target.value)}
-                                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: '#9CA3AF' }} /></InputAdornment> } }}
-                                    sx={{ width: 220, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 13 } }}
+                                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: DASH.faint }} /></InputAdornment> } }}
+                                    sx={{ width: 220, '& .MuiOutlinedInput-root': { borderRadius: RADIUS, fontSize: 13 } }}
                                 />
                             </Box>
                         </Box>
 
                         {sourceKey && (
                             <Box sx={{
-                                p: 1, mb: 1, borderRadius: '8px',
-                                bgcolor: selectedCount > 0 ? T.light : '#F9FAFB',
-                                border: `1px solid ${selectedCount > 0 ? T.border : '#E5E7EB'}`,
+                                p: 1, mb: 1, borderRadius: RADIUS,
+                                bgcolor: selectedCount > 0 ? T.light : DASH.surface,
+                                border: `1px solid ${selectedCount > 0 ? T.border : DASH.line}`,
                                 display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap',
                             }}>
-                                <Typography sx={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>
+                                <Typography sx={{ fontSize: 12, color: DASH.text, fontWeight: 600 }}>
                                     {selectedCount > 0
                                         ? `${selectedCount} of ${filteredStudents.length} selected`
                                         : 'Select students to apply bulk actions'}
@@ -761,9 +888,9 @@ export default function StudentPromotionPage() {
                                         onClick={handleApplyBulkDestination}
                                         sx={{
                                             textTransform: 'none', fontSize: 12, fontWeight: 700,
-                                            bgcolor: T.main, color: '#fff', borderRadius: '6px', height: 32, px: 1.5,
+                                            bgcolor: T.main, color: '#fff', borderRadius: RADIUS, height: 32, px: 1.5,
                                             '&:hover': { bgcolor: T.dark },
-                                            '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' },
+                                            '&.Mui-disabled': { bgcolor: DASH.line, color: DASH.faint },
                                         }}
                                     >
                                         Apply
@@ -796,8 +923,8 @@ export default function StudentPromotionPage() {
                                                     }}
                                                     renderValue={() => (
                                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                                                            <ShuffleIcon sx={{ fontSize: 14, color: '#6B7280' }} />
-                                                            <Typography sx={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>
+                                                            <ShuffleIcon sx={{ fontSize: 14, color: DASH.muted }} />
+                                                            <Typography sx={{ fontSize: 12, color: DASH.text, fontWeight: 600 }}>
                                                                 Distribute Evenly
                                                             </Typography>
                                                         </Box>
@@ -805,13 +932,13 @@ export default function StudentPromotionPage() {
                                                     MenuProps={{
                                                         anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
                                                         transformOrigin: { vertical: 'top', horizontal: 'left' },
-                                                        slotProps: { paper: { sx: { mt: 0.5, borderRadius: '8px', boxShadow: '0 6px 20px rgba(0,0,0,0.12)' } } },
+                                                        slotProps: { paper: { sx: { mt: 0.5, borderRadius: RADIUS, boxShadow: '0 6px 20px rgba(0,0,0,0.12)' } } },
                                                     }}
                                                     sx={{
                                                         fontSize: 12, minWidth: 180, height: 32, bgcolor: '#fff',
-                                                        borderRadius: '6px',
-                                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' },
-                                                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#D1D5DB' },
+                                                        borderRadius: RADIUS,
+                                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: DASH.line },
+                                                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: DASH.faint },
                                                     }}
                                                 >
                                                     <MenuItem value="sequential" sx={{ fontSize: 12 }}>
@@ -831,8 +958,8 @@ export default function StudentPromotionPage() {
                                         size="small" onClick={handleClearAssignments}
                                         sx={{
                                             textTransform: 'none', fontSize: 12, fontWeight: 600,
-                                            color: '#DC2626', borderRadius: '6px', height: 32, px: 1.2,
-                                            '&:hover': { bgcolor: '#FEF2F2' },
+                                            color: DASH.red, borderRadius: RADIUS, height: 32, px: 1.2,
+                                            '&:hover': { bgcolor: DASH.redLight },
                                         }}
                                     >
                                         Clear All
@@ -843,26 +970,27 @@ export default function StudentPromotionPage() {
 
                         {!sourceKey ? (
                             <Box sx={{ py: 6, textAlign: 'center' }}>
-                                <Typography sx={{ fontSize: 13, color: '#9CA3AF' }}>
+                                <Typography sx={{ fontSize: 13, color: DASH.faint }}>
                                     Pick the source class above to load students.
                                 </Typography>
                             </Box>
                         ) : isLoadingStudents ? (
-                            <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-                                <CircularProgress size={28} sx={{ color: T.main }} />
-                            </Box>
+                            <StudentRowsSkeleton rows={8} columns={6} />
                         ) : filteredStudents.length === 0 ? (
                             <Box sx={{ py: 6, textAlign: 'center' }}>
-                                <Typography sx={{ fontSize: 13, color: '#9CA3AF' }}>
-                                    {search ? `No students match "${search}".` : 'No students in this class.'}
+                                <Typography sx={{ fontSize: '13.5px', fontWeight: 700, color: DASH.ink }}>
+                                    {search ? 'No matching students' : 'No students in this class'}
+                                </Typography>
+                                <Typography sx={{ fontSize: '12px', color: DASH.muted, mt: 0.5 }}>
+                                    {search ? `Nothing matches "${search}" — try a roll number or a different name.` : 'Pick another class and section above.'}
                                 </Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ maxHeight: 420, border: '1px solid #E5E7EB', borderRadius: '8px' }}>
+                            <TableContainer sx={{ maxHeight: 420, border: `1px solid ${DASH.line}`, borderRadius: RADIUS }}>
                                 <Table size="small" stickyHeader>
                                     <TableHead>
-                                        <TableRow sx={{ bgcolor: '#F9FAFB' }}>
-                                            <TableCell padding="checkbox" sx={{ bgcolor: '#F9FAFB' }}>
+                                        <TableRow sx={{ bgcolor: DASH.surface }}>
+                                            <TableCell padding="checkbox" sx={{ bgcolor: DASH.surface }}>
                                                 <Checkbox
                                                     size="small"
                                                     checked={filteredStudents.length > 0 && filteredStudents.every(s => selected[s.rollNumber])}
@@ -872,7 +1000,7 @@ export default function StudentPromotionPage() {
                                                 />
                                             </TableCell>
                                             {['#', 'Roll No', 'Student', 'Gender', 'Current', 'Move To'].map(h => (
-                                                <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, bgcolor: '#F9FAFB' }}>
+                                                <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, color: DASH.muted, textTransform: 'uppercase', letterSpacing: 0.4, bgcolor: DASH.surface }}>
                                                     {h}
                                                 </TableCell>
                                             ))}
@@ -883,7 +1011,7 @@ export default function StudentPromotionPage() {
                                             const isSel = !!selected[s.rollNumber];
                                             const dest = assignments[s.rollNumber] || '';
                                             return (
-                                                <TableRow key={s.rollNumber} sx={{ '&:hover': { bgcolor: '#FAFAFA' } }}>
+                                                <TableRow key={s.rollNumber} sx={{ '&:hover': { bgcolor: DASH.surface } }}>
                                                     <TableCell padding="checkbox">
                                                         <Checkbox
                                                             size="small"
@@ -892,9 +1020,9 @@ export default function StudentPromotionPage() {
                                                             sx={{ color: T.main, '&.Mui-checked': { color: T.main } }}
                                                         />
                                                     </TableCell>
-                                                    <TableCell sx={{ fontSize: 12, color: '#9CA3AF' }}>{idx + 1}</TableCell>
+                                                    <TableCell sx={{ fontSize: 12, color: DASH.faint }}>{idx + 1}</TableCell>
                                                     <TableCell>
-                                                        <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 600, color: '#374151' }}>
+                                                        <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 600, color: DASH.text }}>
                                                             {s.rollNumber}
                                                         </Typography>
                                                     </TableCell>
@@ -906,7 +1034,7 @@ export default function StudentPromotionPage() {
                                                             >
                                                                 {getInitials(s.name)}
                                                             </Avatar>
-                                                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{s.name}</Typography>
+                                                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: DASH.ink }}>{s.name}</Typography>
                                                         </Box>
                                                     </TableCell>
                                                     <TableCell>
@@ -923,7 +1051,7 @@ export default function StudentPromotionPage() {
                                                                     }}
                                                                 />
                                                             ) : (
-                                                                <Typography sx={{ fontSize: 12, color: '#9CA3AF' }}>—</Typography>
+                                                                <Typography sx={{ fontSize: 12, color: DASH.faint }}>—</Typography>
                                                             );
                                                         })()}
                                                     </TableCell>
@@ -934,12 +1062,12 @@ export default function StudentPromotionPage() {
                                                                 label={`${s.grade || ''}${s.grade && s.section ? ' · ' : ''}${s.section || ''}`}
                                                                 sx={{
                                                                     fontSize: 11, fontWeight: 700, height: 22,
-                                                                    bgcolor: '#F3F4F6', color: '#374151',
-                                                                    border: '1px solid #E5E7EB',
+                                                                    bgcolor: DASH.lineSoft, color: DASH.text,
+                                                                    border: `1px solid ${DASH.line}`,
                                                                 }}
                                                             />
                                                         ) : (
-                                                            <Typography sx={{ fontSize: 12, color: '#9CA3AF' }}>—</Typography>
+                                                            <Typography sx={{ fontSize: 12, color: DASH.faint }}>—</Typography>
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
@@ -979,12 +1107,12 @@ export default function StudentPromotionPage() {
 
                     <Box sx={{
                         mt: 2, p: 1.5, borderRadius: '10px',
-                        bgcolor: '#fff', border: '1px solid #E5E7EB',
+                        bgcolor: '#fff', border: `1px solid ${DASH.line}`,
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1,
                     }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <InfoOutlinedIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
-                            <Typography sx={{ fontSize: 12, color: '#6B7280' }}>
+                            <InfoOutlinedIcon sx={{ fontSize: 16, color: DASH.faint }} />
+                            <Typography sx={{ fontSize: 12, color: DASH.muted }}>
                                 {assignedCount > 0
                                     ? `${assignedCount} student${assignedCount !== 1 ? 's' : ''} ready to ${isEditMode ? 'update' : 'promote'} across ${destinations.filter(d => distributionCounts[d.key] > 0).length} destination${destinations.filter(d => distributionCounts[d.key] > 0).length !== 1 ? 's' : ''}`
                                     : sourceKey
@@ -998,8 +1126,8 @@ export default function StudentPromotionPage() {
                                 onClick={() => navigate(-1)}
                                 sx={{
                                     textTransform: 'none', fontSize: 13, fontWeight: 600,
-                                    color: '#374151', borderRadius: '8px', px: 2, height: 36,
-                                    border: '1px solid #E5E7EB', '&:hover': { bgcolor: '#F9FAFB' },
+                                    color: DASH.text, borderRadius: RADIUS, px: 2, height: 36,
+                                    border: `1px solid ${DASH.line}`, '&:hover': { bgcolor: DASH.surface },
                                 }}
                             >
                                 Cancel
@@ -1011,7 +1139,7 @@ export default function StudentPromotionPage() {
                                 sx={{
                                     textTransform: 'none', fontSize: 13, fontWeight: 700,
                                     bgcolor: T.main, color: '#fff',
-                                    borderRadius: '8px', px: 2.5, height: 36,
+                                    borderRadius: RADIUS, px: 2.5, height: 36,
                                     boxShadow: `0 2px 6px ${T.main}33`,
                                     transition: 'transform 0.2s, box-shadow 0.2s, background-color 0.2s',
                                     '&:hover': {
@@ -1020,7 +1148,7 @@ export default function StudentPromotionPage() {
                                         transform: 'translateY(-1px)',
                                     },
                                     '&:active': { transform: 'translateY(0)' },
-                                    '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF', boxShadow: 'none' },
+                                    '&.Mui-disabled': { bgcolor: DASH.line, color: DASH.faint, boxShadow: 'none' },
                                 }}
                             >
                                 {isEditMode ? 'Update Students' : 'Promote Students'}
@@ -1031,18 +1159,18 @@ export default function StudentPromotionPage() {
             </Box>
 
             <Dialog open={confirmOpen} onClose={() => !isSubmitting && setConfirmOpen(false)} maxWidth="sm" fullWidth
-                PaperProps={{ sx: { borderRadius: '12px' } }}>
+                PaperProps={{ sx: { borderRadius: '10px' } }}>
                 <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, bgcolor: T.light, borderBottom: `1px solid ${T.border}` }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
                         <Box sx={{
-                            width: 32, height: 32, borderRadius: '8px',
+                            width: 30, height: 30, borderRadius: RADIUS,
                             bgcolor: '#fff', border: `1px solid ${T.border}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
                             <CheckCircleIcon sx={{ color: T.main, fontSize: 18 }} />
                         </Box>
                         <Box>
-                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#111' }}>
+                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: DASH.ink }}>
                                 {isEditMode ? 'Confirm Update' : 'Confirm Promotion'}
                             </Typography>
                             <Typography sx={{ fontSize: 11, color: '#5B7A6E' }}>
@@ -1055,7 +1183,7 @@ export default function StudentPromotionPage() {
                     </IconButton>
                 </DialogTitle>
                 <DialogContent sx={{ pt: '12px !important' }}>
-                    <Typography sx={{ fontSize: 12, color: '#6B7280', mb: 1.2 }}>
+                    <Typography sx={{ fontSize: 12, color: DASH.muted, mb: 1.2 }}>
                         From <strong>{srcClass?.sign} {srcSection}</strong> →
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
@@ -1064,11 +1192,11 @@ export default function StudentPromotionPage() {
                             return (
                                 <Box key={d.key} sx={{
                                     display: 'flex', alignItems: 'center', gap: 1,
-                                    p: 1.2, borderRadius: '8px',
-                                    bgcolor: '#FAFAFA', border: '1px solid #E5E7EB',
+                                    p: 1.2, borderRadius: RADIUS,
+                                    bgcolor: DASH.surface, border: `1px solid ${DASH.line}`,
                                 }}>
                                     <Box sx={{
-                                        width: 32, height: 32, borderRadius: '8px',
+                                        width: 30, height: 30, borderRadius: RADIUS,
                                         bgcolor: T.light, border: `1px solid ${T.border}`,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     }}>
@@ -1077,10 +1205,10 @@ export default function StudentPromotionPage() {
                                         </Typography>
                                     </Box>
                                     <Box sx={{ flex: 1 }}>
-                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111' }}>
+                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.ink }}>
                                             {d.classLabel} {d.section}
                                         </Typography>
-                                        <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+                                        <Typography sx={{ fontSize: 11, color: DASH.muted }}>
                                             {filled} student{filled !== 1 ? 's' : ''} moving here
                                         </Typography>
                                     </Box>
@@ -1088,7 +1216,7 @@ export default function StudentPromotionPage() {
                                         <Typography sx={{ fontSize: 18, fontWeight: 800, color: T.dark, lineHeight: 1 }}>
                                             {filled}
                                         </Typography>
-                                        <Typography sx={{ fontSize: 10, color: '#6B7280' }}>
+                                        <Typography sx={{ fontSize: 10, color: DASH.muted }}>
                                             student{filled !== 1 ? 's' : ''}
                                         </Typography>
                                     </Box>
@@ -1103,9 +1231,9 @@ export default function StudentPromotionPage() {
                         disabled={isSubmitting}
                         sx={{
                             textTransform: 'none', fontSize: 13, fontWeight: 600,
-                            color: '#374151', borderRadius: '8px',
-                            border: '1px solid #E5E7EB', px: 2, height: 36,
-                            '&:hover': { bgcolor: '#F9FAFB' },
+                            color: DASH.text, borderRadius: RADIUS,
+                            border: `1px solid ${DASH.line}`, px: 2, height: 36,
+                            '&:hover': { bgcolor: DASH.surface },
                         }}
                     >
                         Back
@@ -1117,7 +1245,7 @@ export default function StudentPromotionPage() {
                             : <CheckCircleIcon sx={{ fontSize: 16 }} />}
                         sx={{
                             textTransform: 'none', fontSize: 13, fontWeight: 700,
-                            bgcolor: T.main, color: '#fff', borderRadius: '8px',
+                            bgcolor: T.main, color: '#fff', borderRadius: RADIUS,
                             px: 2.5, height: 36,
                             boxShadow: `0 2px 6px ${T.main}33`,
                             '&:hover': { bgcolor: T.dark, boxShadow: `0 4px 12px ${T.main}55` },
@@ -1138,7 +1266,7 @@ const StepHeader = ({ number, title, hint, theme }) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2 }}>
         <Box sx={{
             width: 22, height: 22, borderRadius: '50%',
-            bgcolor: theme?.main || '#16A34A', color: '#fff',
+            bgcolor: theme?.main || DASH.green, color: '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 11, fontWeight: 700, flexShrink: 0,
         }}>

@@ -19,6 +19,7 @@ import WorkOutlineOutlinedIcon from "@mui/icons-material/WorkOutlineOutlined";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
 import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
+import SupportAgentOutlinedIcon from "@mui/icons-material/SupportAgentOutlined";
 import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -47,6 +48,7 @@ const MODULE_TO_MAINMENU = {
     // the split is a display grouping, exactly as the sidebar does it.
     academics: "communication",
     books: "questionpapergeneration",
+    complaints: "complaints",
 };
 
 /* Cards that own only part of a main menu name the subMenus they cover, so the
@@ -95,6 +97,7 @@ const MODULES = [
     { key: "transport", name: "Transport", desc: "Manage vehicles, routes, student transportation, and travel assignments.", tags: ["Vehicles", "Routes"], color: BRAND.green.main, icon: DirectionsBusOutlinedIcon },
     { key: "myprojects", name: "My Projects", desc: "Track staff work done — daily entries, teacher-wise, class-wise, and period settings.", tags: ["Workdone"], color: BRAND.cyan.main, icon: WorkOutlineOutlinedIcon },
     { key: "books", name: "Books & Chapters", desc: "Upload books and manage their chapters for question paper generation.", tags: ["Books", "Chapters"], color: BRAND.cyan.main, icon: MenuBookOutlinedIcon },
+    { key: "complaints", name: "Complaints", desc: "Parent complaints and internal school operations, from intake through to resolution.", tags: ["Management", "My Work", "Config"], color: "#B45309", icon: SupportAgentOutlinedIcon },
     { key: "access", name: "Access Control", desc: "Manage roles, permissions, and who can access which screen.", tags: ["Roles", "Permissions"], color: ACCENT, icon: AdminPanelSettingsOutlinedIcon },
 ];
 

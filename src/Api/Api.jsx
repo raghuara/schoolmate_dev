@@ -588,6 +588,9 @@ const FetchExitHistory = `${baseApiurl}studentExit/FetchExitHistory`;
 const PostAcademicYearConfig = `${baseApiurl}academicyear/PostAcademicYearConfig`;
 const GetAcademicYearConfig = `${baseApiurl}academicyear/GetAcademicYearConfig`;
 const GetExitFeesSummary = `${baseApiurl}studentExit/GetExitFeesSummary`;
+const LinkPreviousRecord = `${baseApiurl}studentReadmission/LinkPreviousRecord`;
+const FetchOldStudentRecords = `${baseApiurl}studentReadmission/FetchOldStudentRecords`;
+const FetchAllLinkedRecords = `${baseApiurl}studentReadmission/FetchAllLinkedRecords`;
 
 // Role based access 
 const UserTypes = `${baseApiurl}/UserTypes/`;
@@ -1147,6 +1150,9 @@ export {
     DiscontinueStudent,
     PostStudentExit,
     FetchExitHistory,
+    LinkPreviousRecord,
+    FetchOldStudentRecords,
+    FetchAllLinkedRecords,
     SyncStatus,
     TriggerManualSync,
     GetBiometricMappings,

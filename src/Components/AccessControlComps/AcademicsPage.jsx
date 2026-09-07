@@ -1,18 +1,19 @@
-import { Box, Grid, IconButton, Tab, Tabs, Typography } from "@mui/material";
+import { Box, Grid, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { hasPermission } from "../../Redux/Slices/AuthSlice";
-import Loader from "../Loader";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useEffect, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { Link, useNavigate } from "react-router-dom";
+import AppsIcon from '@mui/icons-material/Apps';
+import { DASH, RADIUS, BRAND, CARD_DESC_H, PageHeader, SectionTitle, EmptyNote } from "../DashBoardComps/dashboardTheme";
 import ArticleIcon from '@mui/icons-material/Article';
 import SubjectIcon from '@mui/icons-material/Subject';
 import ClassIcon from '@mui/icons-material/Class';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 
 export default function AcademicsPage() {
+    const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const [newsIntimation, setNewsIntimation] = useState(false);
     const [messageIntimation, setMessageIntimation] = useState(false);
@@ -30,163 +31,136 @@ export default function AcademicsPage() {
     const can = (key) => hasPermission(permissions, "accesscontrol", "academics", key);
 
     const items = [
-        { color: "#059669", icon: CalendarMonthOutlinedIcon, text: "Academic Year", bgColor: "#F5FCF9", iconBgColor: "#E6F7F0", path: '/dashboardmenu/access/academics/academic-year', intimation: false, show: can("allowacademicyear") },
-        { color: "#1976D2", icon: ClassIcon, text: "Class & Section Management", bgColor: "#F5F9FF", iconBgColor: "#E3F0FD", path: '/dashboardmenu/access/class-section', intimation: false, show: can("allowclasssectionmanagement") },
-        { color: "#A749CC", icon: ArticleIcon, text: "Exam Management", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/exam', intimation: newsIntimation, show: can("allowexammanagement") },
-        { color: "#ED9146", icon: SubjectIcon, text: "Subject Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/subject', intimation: messageIntimation, show: can("allowsubjectmanagement") },
+        { color: DASH.green, icon: CalendarMonthOutlinedIcon, text: "Academic Year", desc: "Set the year window and roll the school over into the next one.", path: '/dashboardmenu/access/academics/academic-year', show: can("allowacademicyear") },
+        { color: DASH.blue, icon: ClassIcon, text: "Class & Section Management", desc: "Add classes and the sections that sit under each of them.", path: '/dashboardmenu/access/class-section', show: can("allowclasssectionmanagement") },
+        { color: BRAND.purple.main, icon: ArticleIcon, text: "Exam Management", desc: "Define the exams each class sits through the year.", path: '/dashboardmenu/access/exam', show: can("allowexammanagement") },
+        { color: BRAND.orange.main, icon: SubjectIcon, text: "Subject Management", desc: "Maintain the subject list and map it onto each class.", path: '/dashboardmenu/access/subject', show: can("allowsubjectmanagement") },
     ].filter((item) => item.show);
 
 
     return (
-        <Box sx={{ width: "100%", }}>
-            {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", p: 1.5, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-                <Grid container>
-                    <Grid
-                        sx={{ display: "flex", alignItems: "center", }}
-                        size={{
-                            xs: 12,
-                            sm: 12,
-                            md: 12,
-                            lg: 12
-                        }}>
-                        <Link style={{ textDecoration: "none" }} to="/dashboardmenu/access">
-                            <IconButton sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                                <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                            </IconButton>
-                        </Link>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px", }} >Academics</Typography>
-                    </Grid>
-                </Grid>
-            </Box>
-            <Box>
-                <Box sx={{ p: 2, }}>
-                <Box sx={{ display: "flex", justifyContent: "center", height: "70vh", overflowY: "auto" }}>
-                        <Grid container spacing={2} sx={{ width: "100%", alignContent: "flex-start" }}>
-                            {items.length === 0 && (
-                                <Grid size={{ xs: 12 }}>
-                                    <Typography sx={{ fontSize: "13px", color: "#6B7280", textAlign: "center", py: 4 }}>
-                                        You do not have access to any academics setup screen.
-                                    </Typography>
-                                </Grid>
-                            )}
-                            {items.map((item, index) => {
-                                const IconComponent = item.icon;
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: 4,
+                bgcolor: DASH.canvas,
+                minHeight: "100%",
+                boxSizing: "border-box",
+            }}
+        >
+            <PageHeader
+                title="Academics"
+                subtitle="Academic year, classes, exams and subjects for the school"
+                onBack={() => navigate("/dashboardmenu/access")}
+            />
 
-                                return (
-                                    <Grid
-                                        sx={{ display: "flex", justifyContent: "center" }}
-                                        key={index}
-                                        size={{
-                                            xs: 12,
-                                            sm: 6,
-                                            md: 3
-                                        }}>
-                                        <Link
-                                            to={item.path}
-                                            state={{ value: 'N' }}
-                                            style={{
-                                                textDecoration: 'none',
-                                                height: "60px",
-                                                width: "100%",
+            <SectionTitle icon={AppsIcon}>Screens</SectionTitle>
+
+            {items.length === 0 && (
+                <Box sx={{ bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS, p: 3 }}>
+                    <EmptyNote text="You do not have access to any academic screens." />
+                </Box>
+            )}
+
+            <Grid container spacing={2} alignItems="stretch" sx={{ pb: 1 }}>
+                {items.map((item) => {
+                    const IconComponent = item.icon;
+                    return (
+                        <Grid key={item.path} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                            <Link
+                                to={item.path}
+                                state={{ value: "N" }}
+                                style={{ textDecoration: "none", display: "block", height: "100%" }}
+                            >
+                                <Box
+                                    sx={{
+                                        bgcolor: `${item.color}0A`,
+                                        borderTop: `1px solid ${item.color}38`,
+                                        borderLeft: `1px solid ${item.color}38`,
+                                        borderBottom: "1px solid transparent",
+                                        borderRight: "1px solid transparent",
+                                        borderRadius: RADIUS,
+                                        boxShadow: "1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)",
+                                        p: 1.4,
+                                        height: "100%",
+                                        boxSizing: "border-box",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        transition: "box-shadow 0.2s ease, border-color 0.2s ease",
+                                        "&:hover": {
+                                            boxShadow: "0 4px 16px rgba(17,24,39,0.10)",
+                                            borderBottomColor: `${item.color}38`,
+                                            borderRightColor: `${item.color}38`,
+                                            ".acArrow": { transform: "translateX(3px)", opacity: 1 },
+                                        },
+                                    }}
+                                >
+                                    <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.2 }}>
+                                        <Box
+                                            sx={{
+                                                width: 34,
+                                                height: 34,
+                                                borderRadius: "50%",
+                                                bgcolor: `${item.color}14`,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                flexShrink: 0,
                                             }}
                                         >
-                                            {/* <Box sx={{ width: "20px", height: "20px", backgroundColor: "black", position: "absolute" }} /> */}
-                                            <Box
+                                            <IconComponent sx={{ color: item.color, fontSize: 19 }} />
+                                        </Box>
+
+                                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: "13.5px",
+                                                        fontWeight: 700,
+                                                        color: DASH.ink,
+                                                        minWidth: 0,
+                                                        whiteSpace: "nowrap",
+                                                        overflow: "hidden",
+                                                        textOverflow: "ellipsis",
+                                                    }}
+                                                >
+                                                    {item.text}
+                                                </Typography>
+                                                <ArrowForwardIcon
+                                                    className="acArrow"
+                                                    sx={{
+                                                        fontSize: 16,
+                                                        color: item.color,
+                                                        opacity: 0.45,
+                                                        transition: "transform 0.2s ease, opacity 0.2s ease",
+                                                        ml: "auto",
+                                                    }}
+                                                />
+                                            </Box>
+                                            <Typography
                                                 sx={{
-                                                    position: "relative",
-                                                    backgroundColor: item.bgColor,
-                                                    boxShadow: "1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)",
-                                                    borderTop: "1px solid rgba(0, 0, 0, 0.08)",
-                                                    width: "100%",
-                                                    height: "105px",
-                                                    borderRadius: "7px",
-                                                    cursor: "pointer",
-                                                    '&:hover': {
-                                                        '.arrowIcon': {
-                                                            opacity: 1,
-                                                        },
-                                                    },
+                                                    fontSize: "11.5px",
+                                                    color: DASH.muted,
+                                                    mt: 0.3,
+                                                    lineHeight: 1.45,
+                                                    height: CARD_DESC_H,
+                                                    display: "-webkit-box",
+                                                    WebkitBoxOrient: "vertical",
+                                                    WebkitLineClamp: 2,
+                                                    overflow: "hidden",
                                                 }}
                                             >
-
-                                                <Grid container spacing={1} sx={{ height: '100%', px: 2, }}>
-                                                    <Grid
-                                                        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                                                        size={{
-                                                            md: 0.5
-                                                        }}>
-                                                        <Box
-                                                            sx={{
-                                                                width: '7px',
-                                                                backgroundColor: item.color,
-                                                                height: '100%',
-                                                                position: 'absolute',
-                                                                left: 0,
-                                                                top: 0,
-                                                                borderTopLeftRadius: '5px',
-                                                                borderBottomLeftRadius: '5px',
-                                                            }}
-                                                        />
-                                                    </Grid>
-                                                    <Grid
-                                                        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                                                        size={{
-                                                            md: 2
-                                                        }}>
-                                                        <Box sx={{
-                                                            backgroundColor: item.iconBgColor,
-                                                            borderRadius: "50px",
-                                                            width: "25px",
-                                                            height: "25px",
-                                                            p: 1.3,
-                                                            display: "flex",
-                                                            justifyContent: "center",
-                                                            alignItems: "center"
-                                                        }}>
-                                                            {/* <img src={item.icon} width={25} height={25} /> */}
-                                                            <IconComponent sx={{ color: item.color, fontSize: "23px" }} />
-                                                        </Box>
-                                                    </Grid>
-                                                    <Grid
-                                                        sx={{
-                                                            display: 'flex',
-                                                            justifyContent: 'center',
-                                                            alignItems: 'center',
-                                                        }}
-                                                        size={{
-                                                            md: 7
-                                                        }}>
-                                                        <Typography sx={{ fontWeight: "600", color: "#000" }}>
-                                                            {item.text}
-                                                        </Typography>
-                                                    </Grid>
-                                                    <Grid
-                                                        sx={{
-                                                            display: 'flex',
-                                                            justifyContent: "center",
-                                                            alignItems: 'center',
-                                                            height: '100%'
-                                                        }}
-                                                        size={{
-                                                            md: 2
-                                                        }}>
-                                                        <ArrowForwardIcon className="arrowIcon" sx={{
-                                                            opacity: 0,
-                                                            transition: 'opacity 0.3s ease',
-                                                            color: item.color,
-                                                        }} />
-                                                    </Grid>
-                                                </Grid>
-                                            </Box>
-                                        </Link>
-                                    </Grid>
-                                );
-                            })}
+                                                {item.desc}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                            </Link>
                         </Grid>
-                    </Box>
-                </Box>
-            </Box> 
+                    );
+                })}
+            </Grid>
         </Box>
     );
 }

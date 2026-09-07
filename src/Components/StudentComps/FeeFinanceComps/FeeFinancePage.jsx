@@ -160,11 +160,8 @@ export default function FeeFinancePage() {
     cardAccess["Fee Student Mapping"] =
         cardAccess["ECA Management"] || cardAccess["Additional Fee Management"] || cardAccess["Transport Student Mapping"];
 
-    // Payment Approval and Finance Teams have no permission sub menu of their
-    // own yet, so they follow the page itself until Access Control gains keys
-    // for them.
-    cardAccess["Payment Approval"] = true;
-    cardAccess["Finance Teams"] = true;
+    cardAccess["Payment Approval"] = allow(() => findSubMenuPermissions(perms, "feeandfinance", "paymentapproval")?.allowaccess === "Y");
+    cardAccess["Finance Teams"] = allow(() => findSubMenuPermissions(perms, "feeandfinance", "financeteam")?.allowaccess === "Y");
 
     const canCreateFeeStructure = allow(() => findSubMenuPermissions(perms, "feeandfinance", "createfeesstructure")?.create === "Y");
 

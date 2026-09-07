@@ -5,6 +5,7 @@ import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlic
 import { useSelector } from 'react-redux';
 import Loader from '../../Loader';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { DASH, RADIUS } from '../../DashBoardComps/dashboardTheme';
 import CloseIcon from '@mui/icons-material/Close';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import axios from 'axios';
@@ -179,13 +180,16 @@ export default function SubjectCreatePage() {
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
 
             {/* Header */}
-            <Box sx={{ backgroundColor: '#f2f2f2', p: 1.5, borderRadius: '10px 10px 10px 0px', borderBottom: '1px solid #ddd' }}>
+            <Box sx={{ backgroundColor: DASH.canvas, px: 2, py: 1.2, borderBottom: `1px solid ${DASH.line}` }}>
                 <Grid container alignItems="center">
                     <Grid size={{ xs: 12 }} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <IconButton sx={{ width: 27, height: 27 }} onClick={() => navigate(-1)}>
-                            <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
+                            <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                         </IconButton>
-                        <Typography sx={{ fontWeight: 600, fontSize: '20px' }}>Create Subject</Typography>
+                        <Box>
+                            <Typography sx={{ fontWeight: 700, fontSize: '20px', color: DASH.ink, lineHeight: 1.2 }}>Create Subject</Typography>
+                            <Typography sx={{ fontSize: '11.5px', color: DASH.muted, whiteSpace: 'nowrap' }}>Add a subject and choose the classes that study it</Typography>
+                        </Box>
                     </Grid>
                 </Grid>
             </Box>
@@ -493,7 +497,7 @@ export default function SubjectCreatePage() {
 
             {/* Confirm Save Dialog */}
             <Dialog open={openConfirm} onClose={handleCloseConfirm} maxWidth="xs" fullWidth>
-                <Box sx={{ bgcolor: '#f2f2f2', px: 2.5, py: 1.5, borderBottom: '1px solid #ddd', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ bgcolor: DASH.surface, px: 2.5, py: 1.5, borderBottom: `1px solid ${DASH.line}`, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <ReportProblemOutlinedIcon sx={{ color: '#FF9800', fontSize: 20 }} />
                     <Typography sx={{ fontWeight: 600, fontSize: '16px' }}>Confirm Save</Typography>
                 </Box>

@@ -105,7 +105,7 @@ export const defaultPageConfig = () => ({
     allowSameLevel: false, // peer approval within the same level (Level 2+)
 });
 
-export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, pageRequires = {}, approvalText = {}, approvalNoun = "post", preserveSubMenus = [], onSave }) {
+export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, pageRequires = {}, approvalText = {}, approvalNoun = "post", preserveSubMenus = [], topSlot = null, externalDirty = false, onSave }) {
     const nounS = approvalNoun;
     const nounP = `${approvalNoun}s`;
     const navigate = useNavigate();
@@ -171,8 +171,10 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
        flag rather than a snapshot diff: toggling something on and back off still
        counts as touched, which is the safer side to err on when the question is
        "are you sure you want to throw this away". */
-    const [dirty, setDirty] = useState(false);
+    const [pageDirty, setPageDirty] = useState(false);
     const [leaveOpen, setLeaveOpen] = useState(false);
+    const setDirty = setPageDirty;
+    const dirty = pageDirty || externalDirty;
 
     const [snack, setSnack] = useState({ open: false, ok: true, msg: "" });
     const showSnack = (msg, ok = true) => setSnack({ open: true, ok, msg });
@@ -594,6 +596,7 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
     };
 
     const { granted: grantedCount, total: grantTotal } = grantTotals();
+    const hasPages = pages.length > 0;
 
     return (
         <Box sx={{ px: { xs: 1.5, md: 3 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100vh", boxSizing: "border-box" }}>
@@ -664,34 +667,39 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                                 What the {role.name} role can do in {moduleMeta.name}
                             </Typography>
                             <Typography sx={{ fontSize: 11.5, color: DASH.muted, mt: 0.2, lineHeight: 1.5 }}>
-                                Each operation includes the ones below it — granting Edit also grants Create and View
-                                {approval ? ", and the approval flow is set per page." : "."}
+                                {hasPages
+                                    ? `Each operation includes the ones below it — granting Edit also grants Create and View${approval ? ", and the approval flow is set per page." : "."}`
+                                    : "Pick the option below, then save."}
                             </Typography>
                         </Box>
                     </Box>
 
-                    <Box
-                        sx={{
-                            display: "flex", alignItems: "center", gap: 0.8, flexShrink: 0,
-                            px: 1.4, py: 0.4, borderRadius: RADIUS,
-                            border: `1px solid ${isGlobalAllOn() ? color : DASH.line}`,
-                            bgcolor: isGlobalAllOn() ? `${color}0A` : "#fff",
-                            transition: "background-color .15s, border-color .15s",
-                        }}
-                    >
-                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: isGlobalAllOn() ? color : DASH.text }}>
-                            Allow all features
-                        </Typography>
-                        <Switch
-                            checked={isGlobalAllOn()}
-                            onChange={() => setAllPages(!isGlobalAllOn())}
+                    {hasPages && (
+                        <Box
                             sx={{
-                                "& .MuiSwitch-switchBase.Mui-checked": { color },
-                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: color },
+                                display: "flex", alignItems: "center", gap: 0.8, flexShrink: 0,
+                                px: 1.4, py: 0.4, borderRadius: RADIUS,
+                                border: `1px solid ${isGlobalAllOn() ? color : DASH.line}`,
+                                bgcolor: isGlobalAllOn() ? `${color}0A` : "#fff",
+                                transition: "background-color .15s, border-color .15s",
                             }}
-                        />
-                    </Box>
+                        >
+                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: isGlobalAllOn() ? color : DASH.text }}>
+                                Allow all features
+                            </Typography>
+                            <Switch
+                                checked={isGlobalAllOn()}
+                                onChange={() => setAllPages(!isGlobalAllOn())}
+                                sx={{
+                                    "& .MuiSwitch-switchBase.Mui-checked": { color },
+                                    "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: color },
+                                }}
+                            />
+                        </Box>
+                    )}
                 </Box>
+
+                {topSlot}
 
                 <Grid container spacing={2} alignItems="flex-start">
                     {pages.map((page) => {

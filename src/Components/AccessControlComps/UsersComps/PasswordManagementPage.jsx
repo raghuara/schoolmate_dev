@@ -3,7 +3,7 @@ import {
     Box, IconButton, Typography, Button, TextField, InputAdornment,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     TablePagination, Dialog, DialogContent, DialogActions, Chip, Avatar,
-    MenuItem, Select, Tooltip,
+    MenuItem, Select, Tooltip, Skeleton,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
@@ -18,16 +18,15 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import { hasPermission } from "../../../Redux/Slices/AuthSlice";
-import Loader from "../../Loader";
 import SnackBar from "../../SnackBar";
 import axios from "axios";
 import { UsersPassword, updateLoginPassword } from "../../../Api/Api";
 import avatarImage from "../../../Images/PagesImage/avatar.png";
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
-import { DASH, RADIUS, Panel, EmptyNote } from "../../DashBoardComps/dashboardTheme";
+import { DASH, RADIUS, BRAND, Panel, EmptyNote } from "../../DashBoardComps/dashboardTheme";
 
-const ACCENT = DASH.violet;
+const ACCENT = BRAND.orange.main;
 
 const USER_TYPE_COLORS = {
     Student: { color: DASH.blue, bg: DASH.blueLight },
@@ -251,6 +250,47 @@ const PasswordTable = React.memo(({ pageData, allData, page, rowsPerPage, onPage
 ));
 
 // ─── Main component ───────────────────────────────────────────────────────────
+
+const PasswordTableSkeleton = ({ rows = 8 }) => (
+    <Box>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, mb: 1.5, flexWrap: "wrap" }}>
+            <Skeleton variant="rounded" width={260} height={34} sx={{ bgcolor: DASH.lineSoft, borderRadius: RADIUS }} />
+            <Skeleton variant="rounded" width={140} height={34} sx={{ bgcolor: DASH.lineSoft, borderRadius: RADIUS }} />
+        </Box>
+
+        <TableContainer sx={{ border: `1px solid ${DASH.line}`, borderRadius: RADIUS, bgcolor: "#fff" }}>
+            <Table size="small">
+                <TableHead>
+                    <TableRow>
+                        {[...Array(9)].map((_, i) => (
+                            <TableCell key={i} sx={{ bgcolor: DASH.surface, borderBottom: `1px solid ${DASH.line}`, py: 1.1 }}>
+                                <Skeleton variant="rounded" height={9} width="65%" sx={{ bgcolor: DASH.lineSoft, mx: "auto" }} />
+                            </TableCell>
+                        ))}
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {[...Array(rows)].map((_, r) => (
+                        <TableRow key={r}>
+                            {[...Array(9)].map((_, c) => (
+                                <TableCell key={c} sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, py: 1.3 }}>
+                                    {c === 6 ? (
+                                        <Skeleton variant="circular" width={26} height={26} sx={{ bgcolor: DASH.lineSoft, mx: "auto" }} />
+                                    ) : c === 8 ? (
+                                        <Skeleton variant="rounded" height={26} width={68} sx={{ bgcolor: DASH.lineSoft, ml: "auto", borderRadius: RADIUS }} />
+                                    ) : (
+                                        <Skeleton variant="rounded" height={11} width={c === 2 ? "80%" : "55%"} sx={{ bgcolor: DASH.lineSoft, mx: "auto" }} />
+                                    )}
+                                </TableCell>
+                            ))}
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </TableContainer>
+    </Box>
+);
+
 export default function PasswordManagementPage() {
     const navigate = useNavigate();
     const token = "123";
@@ -415,7 +455,7 @@ export default function PasswordManagementPage() {
             bgcolor: "#fff",
             "& fieldset": { borderColor: DASH.line },
             "&:hover fieldset": { borderColor: DASH.faint },
-            "&.Mui-focused fieldset": { borderColor: mainColor, borderWidth: "1px" },
+            "&.Mui-focused fieldset": { borderColor: ACCENT, borderWidth: "1px" },
         },
     };
 
@@ -430,7 +470,6 @@ export default function PasswordManagementPage() {
 
     return (
         <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%", boxSizing: "border-box" }}>
-            {isLoading && <Loader />}
             <SnackBar
                 open={snack.open}
                 color={snack.color}
@@ -447,15 +486,15 @@ export default function PasswordManagementPage() {
                     gap: 1.5, mb: 2,
                 }}
             >
-                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, minWidth: 0 }}>
-                    <IconButton onClick={() => navigate(-1)} sx={{ mt: -0.5 }}>
-                        <ArrowBackIcon sx={{ fontSize: 20, color: DASH.text }} />
+                <Box sx={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+                    <IconButton onClick={() => navigate(-1)} sx={{ width: 28, height: 28 }}>
+                        <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                     </IconButton>
-                    <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontSize: "21px", fontWeight: 700, color: DASH.ink }}>
+                    <Box sx={{ ml: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
                             Password Management
                         </Typography>
-                        <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.2 }}>
+                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, whiteSpace: "nowrap" }}>
                             Look up a member's login and reset it when they are locked out
                         </Typography>
                     </Box>
@@ -472,7 +511,7 @@ export default function PasswordManagementPage() {
                                 borderRadius: RADIUS, bgcolor: "#fff",
                                 "& fieldset": { borderColor: DASH.line },
                                 "&:hover fieldset": { borderColor: DASH.faint },
-                                "&.Mui-focused fieldset": { borderColor: mainColor, borderWidth: "1px" },
+                                "&.Mui-focused fieldset": { borderColor: ACCENT, borderWidth: "1px" },
                             }}
                         >
                             <MenuItem value="all" sx={{ fontSize: "12.5px" }}>Students &amp; Staff</MenuItem>
@@ -517,7 +556,7 @@ export default function PasswordManagementPage() {
                                 bgcolor: "#fff",
                                 "& fieldset": { borderColor: DASH.line },
                                 "&:hover fieldset": { borderColor: DASH.faint },
-                                "&.Mui-focused fieldset": { borderColor: mainColor, borderWidth: "1px" },
+                                "&.Mui-focused fieldset": { borderColor: ACCENT, borderWidth: "1px" },
                             },
                         }}
                     />
@@ -551,6 +590,9 @@ export default function PasswordManagementPage() {
                 accent={ACCENT}
                 bodySx={{ p: 0 }}
             >
+                {isLoading ? (
+                    <PasswordTableSkeleton />
+                ) : (
                 <PasswordTable
                     pageData={pageData}
                     allData={filteredData}
@@ -562,6 +604,7 @@ export default function PasswordManagementPage() {
                     onViewImage={handleViewImage}
                     searchQuery={searchQuery}
                 />
+                )}
             </Panel>
 
             {/* ── Change Password Dialog ── */}
@@ -692,9 +735,9 @@ export default function PasswordManagementPage() {
                             px: 2.4,
                             height: 34,
                             color: websiteSettings.textColor || "#fff",
-                            bgcolor: mainColor,
+                            bgcolor: ACCENT,
                             boxShadow: "none",
-                            "&:hover": { bgcolor: mainColor, filter: "brightness(0.92)", boxShadow: "none" },
+                            "&:hover": { bgcolor: ACCENT, filter: "brightness(0.92)", boxShadow: "none" },
                             "&.Mui-disabled": { bgcolor: DASH.line, color: DASH.faint },
                         }}
                     >

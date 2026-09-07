@@ -27,6 +27,8 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { DASH, RADIUS } from "../../../DashBoardComps/dashboardTheme";
+import { TransactionListSkeleton } from "./BillingSkeletons";
 import { schoolFeesRecordGet, ecaFeesRecordGet, additionalFeesRecordGet, transportFeesRecordGet } from '../../../../Api/Api';
 import SnackBar from '../../../SnackBar';
 import avatarImage from '../../../../Images/PagesImage/avatar.png';
@@ -332,15 +334,15 @@ const TransactionHistory = () => {
       />
 
       {/* ── Header ── */}
-      <Box sx={{ backgroundColor: '#f2f2f2', p: 1.5, borderRadius: '10px 10px 10px 0px', borderBottom: '1px solid #ddd' }}>
+      <Box sx={{ backgroundColor: DASH.canvas, p: 1.5, borderBottom: `1px solid ${DASH.line}` }}>
         <Grid container alignItems="center">
           <Grid size={{ xs: 12, sm: 7, lg: 3 }} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <IconButton sx={{ width: 27, height: 27 }} onClick={goBack}>
-              <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
+              <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
             </IconButton>
             <Box>
-              <Typography sx={{ fontWeight: 700, fontSize: '20px', lineHeight: 1.2 }}>Transaction History</Typography>
-              <Typography sx={{ fontSize: '11px', color: '#888' }}>Complete payment history and transaction details</Typography>
+              <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>Transaction History</Typography>
+              <Typography sx={{ fontSize: "11.5px", color: DASH.muted }}>Complete payment history and transaction details</Typography>
             </Box>
           </Grid>
 
@@ -361,10 +363,11 @@ const TransactionHistory = () => {
                 },
               }}
               sx={{
-                backgroundColor: "#fff",
-                minHeight: "10px",
-                borderRadius: "50px",
-                border: "1px solid rgba(0,0,0,0.1)",
+                backgroundColor: DASH.lineSoft,
+                minHeight: 0,
+                borderRadius: "999px",
+                border: `1px solid ${DASH.line}`,
+                p: 0.5,
 
                 "& .MuiTabs-flexContainer": {
                   justifyContent: "center",
@@ -372,22 +375,25 @@ const TransactionHistory = () => {
 
                 "& .MuiTab-root": {
                   textTransform: "none",
-                  fontSize: "13px",
-                  color: "#555",
-                  fontWeight: "bold",
+                  fontSize: "12.5px",
+                  color: DASH.muted,
+                  fontWeight: 600,
                   minWidth: 0,
-                  minHeight: "30px",
-                  height: "30px",
-                  px: 2,
-                  m: 0.8,
-                },
+                  minHeight: 28,
+                  height: 28,
+                  px: 1.8,
+                  borderRadius: "999px",
+                  transition: "color .18s ease, background-color .18s ease",
+                  "&:hover": { color: DASH.text },
+                  },
 
                 "& .Mui-selected": {
-                  color: `${websiteSettings.textColor} !important`,
-                  bgcolor: websiteSettings.mainColor,
-                  borderRadius: "50px",
-                  boxShadow: "1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)",
-                  border: "1px solid rgba(0,0,0,0.1)",
+                  color: "#fff !important",
+                  bgcolor: "#E30053",
+                  fontWeight: 700,
+                  borderRadius: "999px",
+                  boxShadow: "0 1px 3px rgba(227,0,83,0.30)",
+                  "&:hover": { bgcolor: "#C40047" },
                 },
               }}
             >
@@ -427,10 +433,7 @@ const TransactionHistory = () => {
 
       <Box sx={{ p: 2, flex: 1, overflowY: 'auto' }}>
         {isLoading ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '50vh', gap: 2 }}>
-            <CircularProgress size={36} sx={{ color: ftConfig.color }} />
-            <Typography sx={{ fontSize: '13px', color: '#888' }}>Loading transaction history...</Typography>
-          </Box>
+          <TransactionListSkeleton rows={5} />
         ) : !transactionData ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '50vh', color: '#ccc', gap: 1 }}>
             <ReceiptLongIcon sx={{ fontSize: 48 }} />
@@ -952,7 +955,7 @@ const TransactionHistory = () => {
             <Button
               onClick={() => setPrintDialogOpen(false)}
               variant="outlined"
-              sx={{ borderColor: '#000', color: '#000', textTransform: 'none', borderRadius: '30px', width: '100px', height: '33px', fontWeight: 600, '&:hover': { borderColor: '#333', bgcolor: '#f5f5f5' } }}
+              sx={{ borderColor: DASH.line, color: DASH.text, bgcolor: '#fff', textTransform: 'none', borderRadius: RADIUS, width: '100px', height: 34, fontWeight: 600, '&:hover': { borderColor: '#333', bgcolor: '#f5f5f5' } }}
             >
               Close
             </Button>
@@ -960,7 +963,7 @@ const TransactionHistory = () => {
               onClick={handlePrint}
               variant="contained"
               startIcon={<PrintIcon />}
-              sx={{ backgroundColor: websiteSettings?.mainColor || '#1976D2', textTransform: 'none', color: websiteSettings?.textColor || '#fff', width: '120px', height: '33px', borderRadius: '30px', '&:hover': { backgroundColor: websiteSettings?.darkColor || '#1565C0' } }}
+              sx={{ backgroundColor: websiteSettings?.mainColor || '#1976D2', textTransform: 'none', color: websiteSettings?.textColor || '#fff', width: '120px', height: 34, borderRadius: RADIUS, '&:hover': { backgroundColor: websiteSettings?.darkColor || '#1565C0' } }}
             >
               Print
             </Button>
@@ -968,7 +971,7 @@ const TransactionHistory = () => {
               onClick={handleDownload}
               variant="contained"
               startIcon={<FileDownloadIcon />}
-              sx={{ backgroundColor: websiteSettings?.mainColor || '#1976D2', textTransform: 'none', color: websiteSettings?.textColor || '#fff', width: '140px', height: '33px', borderRadius: '30px', '&:hover': { backgroundColor: websiteSettings?.darkColor || '#1565C0' } }}
+              sx={{ backgroundColor: websiteSettings?.mainColor || '#1976D2', textTransform: 'none', color: websiteSettings?.textColor || '#fff', width: '140px', height: 34, borderRadius: RADIUS, '&:hover': { backgroundColor: websiteSettings?.darkColor || '#1565C0' } }}
             >
               Download
             </Button>
@@ -1128,9 +1131,9 @@ const TransactionHistory = () => {
                 borderColor: '#000',
                 color: '#000',
                 textTransform: 'none',
-                borderRadius: '30px',
+                borderRadius: RADIUS,
                 width: '100px',
-                height: '33px',
+                height: 34,
               }}
             >
               Close
@@ -1143,8 +1146,8 @@ const TransactionHistory = () => {
                 textTransform: 'none',
                 color: websiteSettings?.textColor || '#fff',
                 width: '100px',
-                height: '33px',
-                borderRadius: '30px',
+                height: 34,
+                borderRadius: RADIUS,
               }}
             >
               Print
@@ -1157,8 +1160,8 @@ const TransactionHistory = () => {
                 textTransform: 'none',
                 color: websiteSettings?.textColor || '#fff',
                 width: '110px',
-                height: '33px',
-                borderRadius: '30px',
+                height: 34,
+                borderRadius: RADIUS,
               }}
             >
               Download
@@ -1174,7 +1177,7 @@ const TransactionHistory = () => {
         maxWidth="md"
         fullWidth
       >
-        <Box sx={{ bgcolor: '#f2f2f2', px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #ddd' }}>
+        <Box sx={{ bgcolor: DASH.surface, px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${DASH.line}` }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <LocalAtmIcon sx={{ fontSize: 18, color: '#388E3C' }} />
             <Typography sx={{ fontWeight: 700, fontSize: '16px' }}>Cash Denomination Breakdown</Typography>
