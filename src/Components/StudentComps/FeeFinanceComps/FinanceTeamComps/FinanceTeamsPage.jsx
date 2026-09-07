@@ -20,6 +20,29 @@ const TEAM_TONES = {
     accounts: { label: 'Accounts', color: BRAND.cyan.main, bg: BRAND.cyan.icon, border: '#C7EDF3', soft: SOFT.cyan },
 };
 
+const TeamStatCardsSkeleton = () => (
+    <Grid container spacing={2} sx={{ mb: 2 }} alignItems="stretch">
+        {[0, 1, 2].map((i) => (
+            <Grid key={i} size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                <Box
+                    sx={{
+                        height: 100,
+                        boxSizing: 'border-box',
+                        borderRadius: '7px',
+                        bgcolor: '#fff',
+                        border: `1px solid ${DASH.line}`,
+                        p: '11px 14px',
+                    }}
+                >
+                    <Skeleton variant="rounded" width="42%" height={8} sx={{ bgcolor: DASH.lineSoft }} />
+                    <Skeleton variant="rounded" width={62} height={24} sx={{ bgcolor: DASH.lineSoft, mt: 1 }} />
+                    <Skeleton variant="rounded" width="66%" height={8} sx={{ bgcolor: DASH.lineSoft, mt: 1.2 }} />
+                </Box>
+            </Grid>
+        ))}
+    </Grid>
+);
+
 const FilterStatCard = ({ active, tone, ...cardProps }) => (
     <Box
         sx={{
@@ -133,6 +156,7 @@ export default function FinanceTeamsPage() {
 
             <SectionTitle icon={GroupsIcon}>Team Split</SectionTitle>
 
+            {teamLoading && staff.length === 0 ? <TeamStatCardsSkeleton /> : (
             <Grid container spacing={2} sx={{ mb: 2 }} alignItems="stretch">
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                     <FilterStatCard
@@ -140,7 +164,7 @@ export default function FinanceTeamsPage() {
                         tone={KPI_TONES.pink}
                         icon={PaymentIcon}
                         label="Billing Team"
-                        value={teamLoading ? "—" : billingCount}
+                        value={billingCount}
                         note={staffRoleFilter === "billing" ? "Showing this team" : "Collects fees at the counter"}
                         onClick={() => setStaffRoleFilter("billing")}
                     />
@@ -151,7 +175,7 @@ export default function FinanceTeamsPage() {
                         tone={KPI_TONES.cyan}
                         icon={AccountBalanceIcon}
                         label="Accounts Team"
-                        value={teamLoading ? "—" : accountsCount}
+                        value={accountsCount}
                         note={staffRoleFilter === "accounts" ? "Showing this team" : "Approves what billing collects"}
                         onClick={() => setStaffRoleFilter("accounts")}
                     />
@@ -162,12 +186,13 @@ export default function FinanceTeamsPage() {
                         tone={KPI_TONES.blue}
                         icon={GroupsIcon}
                         label="Total Admin Staff"
-                        value={teamLoading ? "—" : teamCounts.total}
+                        value={teamCounts.total}
                         note={staffRoleFilter === "all" ? "Showing everyone" : "Show everyone"}
                         onClick={() => setStaffRoleFilter("all")}
                     />
                 </Grid>
             </Grid>
+            )}
 
             <Panel
                 title="Team Members"

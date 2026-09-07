@@ -1,4 +1,4 @@
-import { Avatar, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, IconButton, InputAdornment, TextField, Tooltip, Typography } from '@mui/material';
+import { Avatar, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, IconButton, InputAdornment, Skeleton, TextField, Tooltip, Typography } from '@mui/material';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -52,6 +52,85 @@ const methodDisplay = (opt) => {
         default: return opt || '—';
     }
 };
+
+const PaymentStatCardsSkeleton = () => (
+    <Grid container spacing={2} sx={{ mb: 2, alignItems: 'stretch' }}>
+        {[0, 1, 2, 3].map((i) => (
+            <Grid key={i} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                <Box
+                    sx={{
+                        height: 100,
+                        boxSizing: 'border-box',
+                        borderRadius: '7px',
+                        bgcolor: '#fff',
+                        border: `1px solid ${DASH.line}`,
+                        p: '11px 14px',
+                    }}
+                >
+                    <Skeleton variant="rounded" width="46%" height={8} sx={{ bgcolor: DASH.lineSoft }} />
+                    <Skeleton variant="rounded" width={72} height={24} sx={{ bgcolor: DASH.lineSoft, mt: 1 }} />
+                    <Skeleton variant="rounded" width="62%" height={8} sx={{ bgcolor: DASH.lineSoft, mt: 1.2 }} />
+                </Box>
+            </Grid>
+        ))}
+    </Grid>
+);
+
+const ApprovalCardsSkeleton = ({ count = 4 }) => (
+    <>
+        {[...Array(count)].map((_, i) => (
+            <Grid key={i} size={{ xs: 12, md: 6 }}>
+                <Box
+                    sx={{
+                        p: 2,
+                        height: '100%',
+                        boxSizing: 'border-box',
+                        borderRadius: '10px',
+                        border: `1px solid ${DASH.line}`,
+                        borderLeft: `3px solid ${DASH.lineSoft}`,
+                        bgcolor: '#fff',
+                    }}
+                >
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0, flex: 1 }}>
+                            <Skeleton variant="circular" width={38} height={38} sx={{ bgcolor: DASH.lineSoft, flexShrink: 0 }} />
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Skeleton variant="rounded" width="58%" height={12} sx={{ bgcolor: DASH.lineSoft }} />
+                                <Skeleton variant="rounded" width="42%" height={9} sx={{ bgcolor: DASH.lineSoft, mt: 0.6 }} />
+                            </Box>
+                        </Box>
+                        <Box sx={{ flexShrink: 0 }}>
+                            <Skeleton variant="rounded" width={74} height={14} sx={{ bgcolor: DASH.lineSoft, ml: 'auto' }} />
+                            <Skeleton variant="rounded" width={54} height={18} sx={{ bgcolor: DASH.lineSoft, mt: 0.5, ml: 'auto', borderRadius: '999px' }} />
+                        </Box>
+                    </Box>
+
+                    <Box sx={{ p: 1.2, borderRadius: RADIUS, bgcolor: DASH.surface, border: `1px solid ${DASH.lineSoft}`, mb: 1 }}>
+                        <Grid container spacing={1}>
+                            <Grid size={{ xs: 6 }}>
+                                <Skeleton variant="rounded" width="52%" height={7} sx={{ bgcolor: DASH.lineSoft }} />
+                                <Skeleton variant="rounded" width="78%" height={10} sx={{ bgcolor: DASH.lineSoft, mt: 0.5 }} />
+                            </Grid>
+                            <Grid size={{ xs: 6 }}>
+                                <Skeleton variant="rounded" width="46%" height={7} sx={{ bgcolor: DASH.lineSoft }} />
+                                <Skeleton variant="rounded" width="66%" height={10} sx={{ bgcolor: DASH.lineSoft, mt: 0.5 }} />
+                            </Grid>
+                            <Grid size={{ xs: 12 }}>
+                                <Skeleton variant="rounded" width="38%" height={7} sx={{ bgcolor: DASH.lineSoft }} />
+                                <Skeleton variant="rounded" width="70%" height={10} sx={{ bgcolor: DASH.lineSoft, mt: 0.5 }} />
+                            </Grid>
+                        </Grid>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Skeleton variant="rounded" height={34} sx={{ bgcolor: DASH.lineSoft, flex: 1, borderRadius: RADIUS }} />
+                        <Skeleton variant="rounded" height={34} sx={{ bgcolor: DASH.lineSoft, flex: 1, borderRadius: RADIUS }} />
+                    </Box>
+                </Box>
+            </Grid>
+        ))}
+    </>
+);
 
 const getInitials = (name) =>
     String(name || '').split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
@@ -239,6 +318,7 @@ export default function PaymentApprovalsPage() {
             </Box>
 
             <Box sx={{ p: 2, height: "70vh", overflowY: "auto", overflowX: "hidden" }}>
+                {payLoading && approvals.length === 0 ? <PaymentStatCardsSkeleton /> : (
                 <Grid container spacing={2} sx={{ mb: 2, alignItems: "stretch" }}>
                     <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                         <SolidStatCard
@@ -277,6 +357,7 @@ export default function PaymentApprovalsPage() {
                         />
                     </Grid>
                 </Grid>
+                )}
 
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 2, flexWrap: 'wrap' }}>
                     <Box
@@ -352,7 +433,9 @@ export default function PaymentApprovalsPage() {
                 </Box>
 
                 <Grid container spacing={1.5}>
-                    {filteredApprovals.length === 0 && (
+                    {payLoading && filteredApprovals.length === 0 && <ApprovalCardsSkeleton count={4} />}
+
+                    {!payLoading && filteredApprovals.length === 0 && (
                         <Grid size={{ xs: 12 }}>
                             <Box sx={{ p: 5, textAlign: 'center', borderRadius: RADIUS, border: `1px dashed ${DASH.line}`, bgcolor: '#fff' }}>
                                 <Box sx={{
@@ -362,15 +445,13 @@ export default function PaymentApprovalsPage() {
                                     <VerifiedOutlinedIcon sx={{ fontSize: 24, color: DASH.faint }} />
                                 </Box>
                                 <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: DASH.ink }}>
-                                    {payLoading ? 'Loading payment approvals…' : 'Nothing waiting for approval'}
+                                    Nothing waiting for approval
                                 </Typography>
-                                {!payLoading && (
-                                    <Typography sx={{ fontSize: 11.5, color: DASH.muted, mt: 0.3 }}>
-                                        {approvalSearch || approvalMethodFilter !== 'all'
-                                            ? 'No pending payment matches the current filters.'
-                                            : 'Online and cheque payments will appear here as the billing counter records them.'}
-                                    </Typography>
-                                )}
+                                <Typography sx={{ fontSize: 11.5, color: DASH.muted, mt: 0.3 }}>
+                                    {approvalSearch || approvalMethodFilter !== 'all'
+                                        ? 'No pending payment matches the current filters.'
+                                        : 'Online and cheque payments will appear here as the billing counter records them.'}
+                                </Typography>
                             </Box>
                         </Grid>
                     )}
