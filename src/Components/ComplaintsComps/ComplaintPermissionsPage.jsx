@@ -300,7 +300,28 @@ export default function ComplaintPermissionsPage({ embedded = false }) {
                         </Typography>
                     </Box>
 
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {/* The list scrolls inside the panel. A role can hold a hundred-odd people
+                        — Teacher is 109 — and letting that run down the page pushed the
+                        permissions panel beside it out of reach and left the search box, which
+                        is the way through a list that long, scrolled off the top. */}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "10px",
+                            maxHeight: 420,
+                            overflowY: "auto",
+                            /* Room for the scrollbar so it never sits over a checkbox. */
+                            pr: 0.5,
+                            /* A thin, muted bar — the default is heavy against these panels. */
+                            "&::-webkit-scrollbar": { width: 6 },
+                            "&::-webkit-scrollbar-thumb": {
+                                bgcolor: C.inputBorder,
+                                borderRadius: 3,
+                            },
+                            scrollbarWidth: "thin",
+                        }}
+                    >
                         {visibleUsers.map((u) => (
                             <Box key={u.id} sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                                 <CheckBox

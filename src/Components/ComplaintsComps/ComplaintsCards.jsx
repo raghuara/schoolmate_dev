@@ -1,11 +1,14 @@
 import React from "react";
-import { Box, IconButton, Typography } from "@mui/material";
+import { Box, IconButton, Skeleton, Typography } from "@mui/material";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 import { C, cardSx, statCardSx } from "./complaintsTokens";
 
-/* Compact KPI tile — icon chip + period label on one line, big number below. */
-export function StatCard({ label, value, icon: Icon, iconColor, iconBg, valueColor }) {
+/* Compact KPI tile — icon chip + period label on one line, big number below.
+   While `loading`, the number is a skeleton bar rather than a dash: a dash reads as a
+   real answer ("none", "not applicable"), which is a claim the screen cannot make until
+   the dashboard responds. */
+export function StatCard({ label, value, icon: Icon, iconColor, iconBg, valueColor, loading }) {
     return (
         <Box sx={statCardSx}>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -27,9 +30,15 @@ export function StatCard({ label, value, icon: Icon, iconColor, iconBg, valueCol
                     {label}
                 </Typography>
             </Box>
-            <Typography sx={{ fontSize: "24px", fontWeight: 700, color: valueColor || C.text, lineHeight: 1.2 }}>
-                {value}
-            </Typography>
+            {loading ? (
+                <Skeleton variant="rounded" width={48} height={29} sx={{ bgcolor: C.inputBorder }} />
+            ) : (
+                <Typography
+                    sx={{ fontSize: "24px", fontWeight: 700, color: valueColor || C.text, lineHeight: 1.2 }}
+                >
+                    {value}
+                </Typography>
+            )}
         </Box>
     );
 }
@@ -358,5 +367,40 @@ export function DonutGauge({ pct, color, size = 72 }) {
                 </Typography>
             </Box>
         </Box>
+    );
+}
+
+/**
+ * Placeholder rows for a SectionCard whose data has not arrived.
+ *
+ * Sized to the rows it stands in for — a label on the left, a figure on the right — so the
+ * card does not resize when the real rows replace it.
+ */
+export function RowSkeleton({ rows = 4 }) {
+    return (
+        <>
+            {Array.from({ length: rows }, (_, i) => (
+                <Box
+                    key={i}
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 2,
+                        py: "6px",
+                    }}
+                >
+                    {/* Varied widths, so it reads as a list of different labels rather than
+                        a block of identical bars. */}
+                    <Skeleton
+                        variant="text"
+                        width={`${55 - (i % 3) * 12}%`}
+                        height={16}
+                        sx={{ bgcolor: C.inputBorder }}
+                    />
+                    <Skeleton variant="text" width={28} height={16} sx={{ bgcolor: C.inputBorder }} />
+                </Box>
+            ))}
+        </>
     );
 }

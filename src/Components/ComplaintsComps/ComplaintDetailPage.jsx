@@ -26,7 +26,7 @@ import ComplaintActionDialog from "./ComplaintActionDialog";
 import { updateComplaintStatus } from "./complaintsActionsApi";
 import { toneFor } from "./complaintsManagementData";
 import {
-    attachmentDownloadUrl,
+    downloadAttachment,
     detailForScreen,
     fetchComplaintDetail,
     fetchComplaintTimeline,
@@ -241,7 +241,15 @@ export default function ComplaintDetailPage() {
     /* What the SERVER says this user may do to this complaint. The comps' CONTROL_ACTIONS
        list is what the design drew; allowedActions is what is actually permitted, so a
        button is offered only when it appears in both. */
+    /* The server decides what may be done to a complaint IN ITS CURRENT STATE, and says so
+       in `allowedActions`. A withdrawn complaint, for instance, allows Escalate and Assign
+       but NOT UpdateStatus or AddInternalNote — posting one anyway comes back
+       "Transition Withdrawn -> ActionInProgress is not allowed". Every control that maps to
+       an action is gated on this, so the screen offers only what would actually succeed. */
     const API_ACTION = {
+        next: "UpdateStatus",
+        updateStatus: "UpdateStatus",
+        addNote: "AddInternalNote",
         escalate: "Escalate",
         requestInfo: "RequestParentInformation",
         assign: "Assign",
@@ -439,23 +447,31 @@ export default function ComplaintDetailPage() {
                                                     and re-wrapped into a blob. Opened in a new tab so a
                                                     failed download cannot replace the detail screen. */}
                                                 <Typography
-                                                    component="a"
-                                                    href={attachmentDownloadUrl({
+                                                component="button"
+                                                type="button"
+                                                onClick={() =>
+                                                    downloadAttachment({
                                                         complaintToken: detail.ref,
                                                         attachmentId: a.id,
-                                                    })}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    sx={{
-                                                        fontSize: "12px",
-                                                        fontWeight: 700,
-                                                        color: C.blue,
-                                                        textDecoration: "underline",
-                                                        cursor: "pointer",
-                                                    }}
-                                                >
-                                                    Download
-                                                </Typography>
+                                                        fileName: a.name,
+                                                    }).then((r) => {
+                                                        if (!r.ok) setToast(r.message);
+                                                    })
+                                                }
+                                                sx={{
+                                                    fontSize: "12px",
+                                                    fontWeight: 700,
+                                                    color: C.blue,
+                                                    textDecoration: "underline",
+                                                    cursor: "pointer",
+                                                    background: "none",
+                                                    border: "none",
+                                                    p: 0,
+                                                    font: "inherit",
+                                                }}
+                                            >
+                                                Download
+                                            </Typography>
                                             </Box>
                                         </Box>
                                     ))}

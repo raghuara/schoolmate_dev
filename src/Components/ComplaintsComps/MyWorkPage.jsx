@@ -19,7 +19,7 @@ import {
     ALL_STATUSES,
 } from "./myWorkData";
 import { MODULE } from "./complaintsConfigApi";
-import { fetchStaffMyWork } from "./complaintsWorkApi";
+import { fetchStaffMyWorkAll } from "./complaintsWorkApi";
 
 // The staff-facing queue: only what is assigned to the signed-in user.
 //
@@ -106,9 +106,14 @@ export default function MyWorkPage({ embedded = false }) {
        whole filter, so there is nothing to narrow here. */
     const moduleTypeForTab = tab === MY_WORK_TABS[1] ? MODULE.staff : MODULE.parent;
 
+    const [truncated, setTruncated] = useState(false);
+
+    /* The whole queue, not one page — the filters below run in the browser, so a partial
+       list would make a search report "nothing matches" while the match sat unfetched. */
     const load = useCallback(async () => {
         setLoading(true);
-        const result = await fetchStaffMyWork({ moduleType: moduleTypeForTab, pageSize: 100 });
+        const result = await fetchStaffMyWorkAll({ moduleType: moduleTypeForTab });
+        setTruncated(result.ok ? result.truncated === true : false);
         if (!result.ok) {
             setError(
                 result.routeMissing
@@ -136,7 +141,7 @@ export default function MyWorkPage({ embedded = false }) {
         return tabRows.filter(
             (r) =>
                 (priority === ALL_PRIORITIES || r.priority === priority) &&
-                (status === ALL_STATUSES || r.status === status) &&
+                (status === ALL_STATUSES || (r.displayStatus || r.status) === status) &&
                 (!q ||
                     [r.ref, r.title, r.category, r.student]
                         .filter(Boolean)
@@ -358,7 +363,10 @@ export default function MyWorkPage({ embedded = false }) {
                             const priorityTone =
                                 MY_WORK_PRIORITY_TONES[row.priority] || MY_WORK_PRIORITY_TONES.NORMAL;
                             const statusTone =
-                                toneFor(MY_WORK_STATUS_TONES, row.status) || { bg: C.divider, color: C.textMuted };
+                                toneFor(MY_WORK_STATUS_TONES, row.displayStatus || row.status) || {
+                                    bg: C.divider,
+                                    color: C.textMuted,
+                                };
                             const dueColor = row.dueUrgent ? C.red : C.textMuted;
                             return (
                                 <Box
@@ -470,7 +478,7 @@ export default function MyWorkPage({ embedded = false }) {
                                                     whiteSpace: "nowrap",
                                                 }}
                                             >
-                                                {row.status}
+                                                {row.displayStatus || row.status}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -495,6 +503,24 @@ export default function MyWorkPage({ embedded = false }) {
                                 </Box>
                             );
                         })}
+
+                        {truncated && (
+                            <Box
+                                sx={{
+                                    m: 3,
+                                    px: 2,
+                                    py: 1.25,
+                                    bgcolor: "#FFFBEB",
+                                    border: "1px solid #FDE68A",
+                                    borderRadius: "8px",
+                                }}
+                            >
+                                <Typography sx={{ fontSize: "12.5px", color: "#92400E" }}>
+                                    This queue is unusually long, so only the first 2,000 items are
+                                    shown. Filters and search apply to those only.
+                                </Typography>
+                            </Box>
+                        )}
 
                         {rows.length === 0 && (
                             <Box sx={{ p: 5, textAlign: "center" }}>

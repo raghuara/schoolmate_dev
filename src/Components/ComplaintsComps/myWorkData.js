@@ -42,5 +42,7 @@ export const ALL_STATUSES = "All Statuses";
 // Filter options are derived from the rows so they stay right when real data lands.
 export const myWorkFilterOptions = (rows = []) => ({
     priority: [ALL_PRIORITIES, ...new Set(rows.map((r) => r.priority))],
-    status: [ALL_STATUSES, ...new Set(rows.map((r) => r.status))],
+    /* The readable status, matching what the table prints — the raw one is camel-case
+       ("AwaitingParentInformation") and leaked into the dropdown. */
+    status: [ALL_STATUSES, ...new Set(rows.map((r) => r.displayStatus || r.status))],
 });

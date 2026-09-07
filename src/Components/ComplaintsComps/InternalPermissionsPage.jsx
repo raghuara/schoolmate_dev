@@ -282,7 +282,23 @@ export default function InternalPermissionsPage({ embedded = false }) {
                         </Typography>
                     </Box>
 
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                    {/* Scrolls inside the panel — see the note on the parent permissions
+                        screen. This one also caps the list with "view N more", so the two
+                        work together: the preview is short, and expanding it scrolls rather
+                        than growing the page. */}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 1.5,
+                            maxHeight: 420,
+                            overflowY: "auto",
+                            pr: 0.5,
+                            "&::-webkit-scrollbar": { width: 6 },
+                            "&::-webkit-scrollbar-thumb": { bgcolor: C.inputBorder, borderRadius: 3 },
+                            scrollbarWidth: "thin",
+                        }}
+                    >
                         {visibleUsers.map((u) => (
                             <Box key={u.id} sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                                 <CheckBox

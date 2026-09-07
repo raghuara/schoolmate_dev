@@ -13,6 +13,7 @@ import {
     MetricCard,
     ComplianceRow,
     DonutGauge,
+    RowSkeleton,
 } from "./ComplaintsCards";
 import {
     INTERNAL_STAT_DEFS,
@@ -123,7 +124,7 @@ export default function InternalComplaintsDashboard() {
             <Grid container spacing={1.5}>
                 {statsFrom(INTERNAL_STAT_DEFS, counts).map((s) => (
                     <Grid key={s.label} size={STAT_SIZE} sx={{ display: "flex" }}>
-                        <StatCard {...s} />
+                        <StatCard {...s} loading={loading} />
                     </Grid>
                 ))}
             </Grid>
@@ -132,16 +133,20 @@ export default function InternalComplaintsDashboard() {
             <Grid container spacing={2}>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Actions by Category" subtitle="Internal audit and maintenance">
-                        {(data?.byCategory || empty).map((r, i) => (
-                            <StatRow key={r.label} {...r} isLast={i === (data?.byCategory || empty).length - 1} />
-                        ))}
+                        {loading && <RowSkeleton rows={5} />}
+                        {!loading &&
+                            (data?.byCategory || empty).map((r, i) => (
+                                <StatRow key={r.label} {...r} isLast={i === (data?.byCategory || empty).length - 1} />
+                            ))}
                         {!loading && !(data?.byCategory || empty).length && missing}
                     </SectionCard>
                 </Grid>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Actions by Priority" subtitle="Urgency distribution" hideChevron>
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                            {byPriority.map((r) => (
+                            {loading && <RowSkeleton rows={3} />}
+                            {!loading &&
+                                byPriority.map((r) => (
                                 <MetricBarRow key={r.label} {...r} pct={(r.value / priorityMax) * 100} />
                             ))}
                         </Box>
@@ -170,9 +175,11 @@ export default function InternalComplaintsDashboard() {
                         subtitle="Active workloads assigned to coordinators & leads"
                         hideChevron
                     >
-                        {(data?.byOwner || empty).map((r, i) => (
-                            <ChipRow key={r.label} {...r} divided isLast={i === (data?.byOwner || empty).length - 1} />
-                        ))}
+                        {loading && <RowSkeleton rows={4} />}
+                        {!loading &&
+                            (data?.byOwner || empty).map((r, i) => (
+                                <ChipRow key={r.label} {...r} divided isLast={i === (data?.byOwner || empty).length - 1} />
+                            ))}
                         {!loading && !(data?.byOwner || empty).length && missing}
                     </SectionCard>
                 </Grid>
@@ -192,8 +199,10 @@ export default function InternalComplaintsDashboard() {
             <Grid container spacing={2}>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Repeated Issues" subtitle="Chronic operational bottlenecks" hideChevron>
+                        {loading && <RowSkeleton rows={3} />}
                         {!loading && !(data?.repeatedIssues || empty).length && missing}
-                        {(data?.repeatedIssues || empty).map((r) => (
+                        {!loading &&
+                            (data?.repeatedIssues || empty).map((r) => (
                             <ChipRow key={r.label} {...r} />
                         ))}
                     </SectionCard>
@@ -207,7 +216,9 @@ export default function InternalComplaintsDashboard() {
                         hideChevron
                     >
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                            {slaMetricsFrom(data?.averages).map((r) => (
+                            {loading && <RowSkeleton rows={3} />}
+                            {!loading &&
+                                slaMetricsFrom(data?.averages).map((r) => (
                                 <SlaRow key={r.label} {...r} />
                             ))}
                         </Box>
