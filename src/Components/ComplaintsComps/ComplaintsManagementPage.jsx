@@ -168,8 +168,15 @@ export default function ComplaintsManagementPage() {
     const firstItem = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
     const lastItem = Math.min(page * pageSize, totalItems);
 
-    // The comp shows 1, 2, 3 … 9 — first three plus the last, with an ellipsis.
-    const pageNumbers = pageCount <= 4 ? Array.from({ length: pageCount }, (_, i) => i + 1) : [1, 2, 3, "…", pageCount];
+    /* First, last, and a window around wherever the reader is. The comp's fixed
+       1-2-3-…-last dropped the current page from the list entirely once past page three,
+       so there was no way to see which page you were on or step back a single page. */
+    const pageNumbers = (() => {
+        if (pageCount <= 5) return Array.from({ length: pageCount }, (_, i) => i + 1);
+        const around = [page - 1, page, page + 1].filter((n) => n > 1 && n < pageCount);
+        const shown = [...new Set([1, ...around, pageCount])].sort((a, b) => a - b);
+        return shown.flatMap((n, i) => (i > 0 && n - shown[i - 1] > 1 ? ["…", n] : [n]));
+    })();
 
     const pageBtnSx = (active) => ({
         minWidth: 0,
@@ -523,7 +530,10 @@ export default function ComplaintsManagementPage() {
                         </Box>
                     ))}
 
-                    {(loading || items.length === 0) && (
+                    {/* Only when there is nothing to show. While a refetch runs over rows
+                        already on screen, the previous page stays visible rather than being
+                        joined by a "Loading…" panel underneath it. */}
+                    {items.length === 0 && (
                         <Box sx={{ ...panelSx, py: 5, textAlign: "center" }}>
                             <Typography sx={{ fontSize: "13px", color: C.textFaint }}>
                                 {loading

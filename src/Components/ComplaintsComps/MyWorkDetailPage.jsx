@@ -442,6 +442,10 @@ export default function MyWorkDetailPage() {
                         </Box>
                     </Box>
 
+                    {/* Offered only while the server allows it. A closed or withdrawn
+                        complaint permits no transition, and showing the picker anyway
+                        invites a rejection the reader cannot act on. */}
+                    {(item.allowedActions || []).includes("UpdateStatus") ? (
                     <Box sx={{ ...railCardSx, gap: 2.5 }}>
                         <Typography sx={{ fontSize: "16px", fontWeight: 700, color: C.text }}>
                             Update Action Status
@@ -609,6 +613,17 @@ export default function MyWorkDetailPage() {
                         )}
                         </Box>
                     </Box>
+                    ) : (
+                        <Box sx={{ ...railCardSx, gap: 1 }}>
+                            <Typography sx={{ fontSize: "16px", fontWeight: 700, color: C.text }}>
+                                Update Action Status
+                            </Typography>
+                            <Typography sx={{ fontSize: "13px", color: C.textMuted }}>
+                                {`This complaint is ${item.status || "closed"} — no status change is
+                                available.`}
+                            </Typography>
+                        </Box>
+                    )}
                 </Box>
             </Box>
         <Snackbar

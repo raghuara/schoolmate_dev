@@ -29,7 +29,7 @@ import { updateComplaintStatus } from "./complaintsActionsApi";
 import { toneFor } from "./complaintsManagementData";
 import {
     actionDetailForScreen,
-    attachmentDownloadUrl,
+    downloadAttachment,
     fetchComplaintDetail,
     fetchComplaintTimeline,
 } from "./complaintsDetailApi";
@@ -240,6 +240,21 @@ export default function ActionDetailPage() {
         loadDetail();
     };
 
+    /* The server decides what may be done to a complaint IN ITS CURRENT STATE, and says so
+       in `allowedActions`. A withdrawn complaint, for instance, allows Escalate and Assign
+       but NOT UpdateStatus or AddInternalNote — posting one anyway comes back
+       "Transition Withdrawn -> ActionInProgress is not allowed". Every control that maps to
+       an action is gated on this, so the screen offers only what would actually succeed. */
+    const API_ACTION = {
+        updateStatus: "UpdateStatus",
+        addNote: "AddInternalNote",
+        escalate: "Escalate",
+        requestClarification: "RequestParentInformation",
+        reassign: "Assign",
+    };
+    const permitted = (key) =>
+        !API_ACTION[key] || (detail.allowedActions || []).includes(API_ACTION[key]);
+
     const CONTROL_HANDLER = {
         updateStatus: () => setStatusOpen(true),
         reassign: () => setActionKind("assign"),
@@ -438,19 +453,27 @@ export default function ActionDetailPage() {
                                                 handed the URL. New tab, so a failed download
                                                 cannot replace the detail screen. */}
                                             <Typography
-                                                component="a"
-                                                href={attachmentDownloadUrl({
-                                                    complaintToken: detail.ref,
-                                                    attachmentId: a.id,
-                                                })}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
+                                                component="button"
+                                                type="button"
+                                                onClick={() =>
+                                                    downloadAttachment({
+                                                        complaintToken: detail.ref,
+                                                        attachmentId: a.id,
+                                                        fileName: a.name,
+                                                    }).then((r) => {
+                                                        if (!r.ok) setToast(r.message);
+                                                    })
+                                                }
                                                 sx={{
                                                     fontSize: "12px",
                                                     fontWeight: 700,
                                                     color: ACTION_LINK_COLOR,
                                                     textDecoration: "underline",
                                                     cursor: "pointer",
+                                                    background: "none",
+                                                    border: "none",
+                                                    p: 0,
+                                                    font: "inherit",
                                                 }}
                                             >
                                                 Download
@@ -682,9 +705,11 @@ export default function ActionDetailPage() {
                                 // The comp gives Reassign a darker, heavier label than
                                 // the three actions below it.
                                 const strong = primary || a.strong;
+                                const disabled = !permitted(a.key);
                                 return (
                                     <Button
                                         key={a.key}
+                                        disabled={disabled}
                                         onClick={CONTROL_HANDLER[a.key] || runAction}
                                         startIcon={
                                             Icon ? (

@@ -1,18 +1,17 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Button, IconButton, MenuItem, Select, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { selectGrades } from "../../Redux/Slices/DropdownController";
 import { C, CARD_SHADOW } from "./complaintsTokens";
 import { tableHeaderCellSx, tableHeaderRowSx } from "./ComplaintsTableParts";
 import { searchStudents } from "./complaintsDetailApi";
 import {
     STUDENT_COLS,
     STUDENT_PAGE_SIZE,
-    CLASS_OPTIONS,
-    SECTION_OPTIONS,
 } from "./registerComplaintData";
 
 // Step one of the parent-complaint intake, reached from "Add New > Parent
@@ -94,8 +93,29 @@ export default function RegisterComplaintPage() {
 
     // What the user is typing, and what the last Search actually applied — the
     // comp gives this screen an explicit Search button rather than live filtering.
+    /* Class and section come from the grades store, which Router.js populates on load.
+       They used to be a hardcoded ["Grade 5", "Grade 6", "Grade 7"] / ["Section A", ...],
+       and the API keys on neither — its students are grade "IV", section "A1" — so every
+       filtered search returned nothing. `sign` is the field that matches; `grade` on the
+       same record is an internal name ("Extent2"). */
+    const grades = useSelector(selectGrades);
+
+    const classOptions = useMemo(
+        () => [...new Set((grades || []).map((g) => g.sign).filter(Boolean))],
+        [grades],
+    );
+
     const [draft, setDraft] = useState({ query: "", grade: "", section: "" });
     const [criteria, setCriteria] = useState({ query: "", grade: "", section: "" });
+
+    /* Sections are per-grade on the server, so the list follows the chosen class and
+       falls back to every section when none is picked. Nulls appear in the data. */
+    const sectionOptions = useMemo(() => {
+        const source = draft.grade
+            ? (grades || []).filter((g) => g.sign === draft.grade)
+            : grades || [];
+        return [...new Set(source.flatMap((g) => g.sections || []).filter(Boolean))].sort();
+    }, [grades, draft.grade]);
     const [page, setPage] = useState(1);
 
     const setDraftField = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
@@ -236,7 +256,7 @@ export default function RegisterComplaintPage() {
                             <MenuItem value="" sx={{ fontSize: "14px" }}>
                                 All Classes
                             </MenuItem>
-                            {CLASS_OPTIONS.map((o) => (
+                            {classOptions.map((o) => (
                                 <MenuItem key={o} value={o} sx={{ fontSize: "14px" }}>
                                     {o}
                                 </MenuItem>
@@ -256,7 +276,7 @@ export default function RegisterComplaintPage() {
                             <MenuItem value="" sx={{ fontSize: "14px" }}>
                                 All Sections
                             </MenuItem>
-                            {SECTION_OPTIONS.map((o) => (
+                            {sectionOptions.map((o) => (
                                 <MenuItem key={o} value={o} sx={{ fontSize: "14px" }}>
                                     {o}
                                 </MenuItem>
@@ -345,8 +365,20 @@ export default function RegisterComplaintPage() {
                                     alignItems: "center",
                                 }}
                             >
+                                {/* The directory returns no admission number, parent name or
+                                    mobile — every one of those columns comes back null — so the
+                                    roll number is the only thing that separates two students who
+                                    share a name, and this list has them. It is also what the
+                                    complaint API keys on. */}
                                 <Cell fontSize="14px" fontWeight={600}>
-                                    {student.name}
+                                    <Box>
+                                        <Typography sx={{ fontSize: "14px", fontWeight: 600, color: C.text }}>
+                                            {student.name}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "11px", color: C.textFaint }}>
+                                            Roll no. {student.rollNumber}
+                                        </Typography>
+                                    </Box>
                                 </Cell>
                                 <Cell width={COL.admission} muted>
                                     {student.admissionNo}

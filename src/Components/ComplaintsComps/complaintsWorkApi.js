@@ -212,12 +212,58 @@ export const fetchManagementList = async (options = {}) => {
     return listResult(result.body, params.page, params.pageSize);
 };
 
-/** The signed-in staff member's own queue. Requires a moduleType. */
+/** One page of the signed-in staff member's own queue. Requires a moduleType. */
 export const fetchStaffMyWork = async (options = {}) => {
     const params = listParams({ moduleType: MODULE.parent, ...options });
     const result = await get(GetStaffMyWork, params, "Could not load your work queue");
     if (!result.ok) return result;
     return listResult(result.body, params.page, params.pageSize);
+};
+
+/* A ceiling on the page walk below. A queue this long is not a real workload — it means
+   something is wrong with assignment — so it stops and says so rather than issuing
+   requests indefinitely. */
+const MY_WORK_PAGE_SIZE = 100;
+const MY_WORK_MAX_PAGES = 20;
+
+/**
+ * The WHOLE queue, walked page by page.
+ *
+ * My Work filters and searches in the browser, over the rows it holds. Fetching a single
+ * page and filtering that would silently hide everything past it — a search would report
+ * "nothing matches" while the match sat on page two. So every page is pulled before the
+ * screen filters.
+ *
+ * → { ok, rows, totalCount, truncated } — `truncated` is true only if the queue exceeded
+ * the ceiling, so the screen can say the list is incomplete instead of quietly lying.
+ */
+export const fetchStaffMyWorkAll = async ({ moduleType } = {}) => {
+    const first = await fetchStaffMyWork({ moduleType, page: 1, pageSize: MY_WORK_PAGE_SIZE });
+    if (!first.ok) return first;
+
+    const totalPages = Math.min(first.totalPages || 1, MY_WORK_MAX_PAGES);
+    if (totalPages <= 1) {
+        return { ok: true, rows: first.rows, totalCount: first.totalCount, truncated: false };
+    }
+
+    /* Pages 2..n in parallel — they are independent reads and the queue is small. */
+    const rest = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, i) =>
+            fetchStaffMyWork({ moduleType, page: i + 2, pageSize: MY_WORK_PAGE_SIZE }),
+        ),
+    );
+
+    /* One failed page would otherwise drop silently out of the middle of the list. */
+    const failed = rest.find((r) => !r.ok);
+    if (failed) return failed;
+
+    const rows = [...first.rows, ...rest.flatMap((r) => r.rows)];
+    return {
+        ok: true,
+        rows,
+        totalCount: first.totalCount,
+        truncated: (first.totalPages || 1) > MY_WORK_MAX_PAGES,
+    };
 };
 
 /* ─────────────── Status pill counts ─────────────── */

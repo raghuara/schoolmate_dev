@@ -141,7 +141,16 @@ export default function AddIssuePage() {
         form.location.trim() !== "";
 
     const addFiles = (incoming) => {
-        const accepted = [...incoming].filter((f) => f.size <= ISSUE_ATTACHMENT_MAX_MB * 1024 * 1024);
+        const all = [...incoming];
+        const accepted = all.filter((f) => f.size <= ISSUE_ATTACHMENT_MAX_MB * 1024 * 1024);
+        /* Say which files were dropped and why — silently discarding them let someone
+           submit believing an attachment went with it. */
+        const rejected = all.filter((f) => !accepted.includes(f));
+        if (rejected.length) {
+            toast.error(
+                `${rejected.map((f) => f.name).join(", ")} — over the ${ISSUE_ATTACHMENT_MAX_MB} MB limit`,
+            );
+        }
         setFiles((prev) => [...prev, ...accepted]);
     };
 

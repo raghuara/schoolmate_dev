@@ -293,11 +293,18 @@ export const detailForScreen = (d) => {
         isEscalated: s.isEscalated === true,
         isConfidential: s.isConfidential === true,
 
-        student: pairs(d.student, [
-            ["Student Name", "studentName"],
-            ["Class & Section", "grade"],
-            ["Admission No", "admissionNumber"],
-        ]),
+        student: [
+            ...pairs(d.student, [["Student Name", "studentName"]]),
+            /* The label promises both, and the record carries them separately — reading
+               only `grade` printed "IV" under "Class & Section". */
+            ...(d.student?.grade || d.student?.section
+                ? [{
+                      label: "Class & Section",
+                      value: [d.student?.grade, d.student?.section].filter(Boolean).join(" - "),
+                  }]
+                : []),
+            ...pairs(d.student, [["Admission No", "admissionNumber"]]),
+        ],
         parent: pairs(d.parent, [
             ["Parent Name", "parentName"],
             ["Contact Number", "parentMobile"],
@@ -411,12 +418,57 @@ export const fetchComplaintTimeline = async ({ complaintToken }) => {
     return { ok: true, events: (Array.isArray(rows) ? rows : []).map(timelineEventFromApi) };
 };
 
-/* The download answers with the file itself, so the browser is handed the URL rather than
-   the bytes being pulled through axios and re-wrapped. */
-export const attachmentDownloadUrl = ({ complaintToken, attachmentId }) =>
-    `${DownloadComplaintAttachment}?actorRollNumber=${encodeURIComponent(
-        actorRollNumber(),
-    )}&complaintToken=${encodeURIComponent(complaintToken)}&attachmentId=${encodeURIComponent(attachmentId)}`;
+/**
+ * Download one attachment.
+ *
+ * WHY NOT JUST A LINK
+ * The endpoint answers with the file and a Content-Disposition filename, so an <a href>
+ * looks like the obvious thing — but it 401s: a plain navigation cannot carry the
+ * Authorization header, and this API requires it. The bytes are therefore fetched here,
+ * where the header rides along, and handed to the browser as a blob.
+ *
+ * The object URL is revoked afterwards; without that each download leaks the whole file
+ * for the lifetime of the tab.
+ */
+export const downloadAttachment = async ({ complaintToken, attachmentId, fileName }) => {
+    try {
+        const res = await client.get(DownloadComplaintAttachment, {
+            params: { actorRollNumber: actorRollNumber(), complaintToken, attachmentId },
+            responseType: "blob",
+        });
+        const href = URL.createObjectURL(res.data);
+        const link = document.createElement("a");
+        link.href = href;
+        link.download = fileName || "attachment";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        /* Revoked on the next tick, not inline: some browsers abort a download whose object
+           URL is released in the same task as the click. */
+        setTimeout(() => URL.revokeObjectURL(href), 0);
+        return { ok: true };
+    } catch (error) {
+        /* An error body arrives as a Blob too, because responseType asked for one — so the
+           server's message has to be read back out before it can be shown. */
+        let message = "Could not download the attachment";
+        const data = error?.response?.data;
+        if (data instanceof Blob) {
+            try {
+                const text = await data.text();
+                const parsed = JSON.parse(text);
+                if (parsed?.message) message = parsed.message;
+            } catch {
+                /* not JSON — keep the fallback */
+            }
+        } else if (data?.message) {
+            message = data.message;
+        }
+        if (error?.response?.status === 401) {
+            message = "Not authorised to download this attachment.";
+        }
+        return { ok: false, message };
+    }
+};
 
 /* ─────────────── Notifications ─────────────── */
 
@@ -435,7 +487,9 @@ export const notificationFromApi = (row = {}, index = 0) => {
         body: pick("message", "body", "messageBody", "description") || "",
         complaintToken: pick("complaintToken", "token") || null,
         at: pick("createdOnUtc", "sentOnUtc", "createdOn") || null,
-        unread: row.isRead === false || row.isRead === undefined ? row.isRead !== true : false,
+        /* Anything that is not explicitly read counts as unread — including a null, which
+           the previous expression treated as read. */
+        unread: row.isRead !== true,
         raw: row,
     };
 };

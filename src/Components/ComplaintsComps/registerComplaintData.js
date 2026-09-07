@@ -15,11 +15,10 @@ export const STUDENT_COLS = {
 
 // Filter dropdowns. These come from the grades/sections the school has defined
 // once this screen is wired to the API — the comp shows Grade 5 only.
-export const CLASS_OPTIONS = ["Grade 5", "Grade 6", "Grade 7"];
-export const SECTION_OPTIONS = ["Section A", "Section B", "Section C"];
 
-// The comp's rows are 4 of 4, one page.
-export const STUDENT_PAGE_SIZE = 4;
+/* The comp drew four rows because its mock had exactly four students. Against the real
+   directory that turns 40 matches into 10 pages, so it follows the other lists here. */
+export const STUDENT_PAGE_SIZE = 10;
 
 // ── Intake form ──────────────────────────────────────────────────────────────
 

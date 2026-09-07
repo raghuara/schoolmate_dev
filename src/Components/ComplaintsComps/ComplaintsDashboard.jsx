@@ -3,7 +3,7 @@ import { Box, Grid, Typography } from "@mui/material";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
 import { C } from "./complaintsTokens";
-import { StatCard, SectionCard, StatRow, SourceRow, SlaRow } from "./ComplaintsCards";
+import { StatCard, SectionCard, StatRow, SourceRow, SlaRow, RowSkeleton } from "./ComplaintsCards";
 import {
     VOLUME_STAT_DEFS,
     ATTENTION_STAT_DEFS,
@@ -18,11 +18,11 @@ import { fetchManagementDashboard } from "./complaintsWorkApi";
 const STAT_SIZE = { xs: 12, sm: 6, md: 4, lg: 2.4 };
 const HALF_SIZE = { xs: 12, sm: 12, md: 6, lg: 6 };
 
-const StatRowGrid = ({ items }) => (
+const StatRowGrid = ({ items, loading }) => (
     <Grid container spacing={1.5}>
         {items.map((s) => (
             <Grid key={s.label} size={STAT_SIZE} sx={{ display: "flex" }}>
-                <StatCard {...s} />
+                <StatCard {...s} loading={loading} />
             </Grid>
         ))}
     </Grid>
@@ -139,15 +139,17 @@ export default function ComplaintsDashboard() {
                 </Box>
             )}
 
-            <StatRowGrid items={statsFrom(VOLUME_STAT_DEFS, counts)} />
-            <StatRowGrid items={statsFrom(ATTENTION_STAT_DEFS, counts)} />
+            <StatRowGrid items={statsFrom(VOLUME_STAT_DEFS, counts)} loading={loading} />
+            <StatRowGrid items={statsFrom(ATTENTION_STAT_DEFS, counts)} loading={loading} />
 
             <Grid container spacing={2}>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Complaints by Category" subtitle="Distribution across complaint categories">
-                        {(data?.byCategory || empty).map((r, i) => (
-                            <StatRow key={r.label} {...r} isLast={i === (data?.byCategory || empty).length - 1} />
-                        ))}
+                        {loading && <RowSkeleton rows={5} />}
+                        {!loading &&
+                            (data?.byCategory || empty).map((r, i) => (
+                                <StatRow key={r.label} {...r} isLast={i === (data?.byCategory || empty).length - 1} />
+                            ))}
                         {!loading && !(data?.byCategory || empty).length && missing}
                     </SectionCard>
                 </Grid>
@@ -166,9 +168,11 @@ export default function ComplaintsDashboard() {
                 </Grid>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Complaints by Employee" subtitle="Employee ownership">
-                        {(data?.byOwner || empty).map((r, i) => (
-                            <StatRow key={r.label} {...r} isLast={i === (data?.byOwner || empty).length - 1} />
-                        ))}
+                        {loading && <RowSkeleton rows={4} />}
+                        {!loading &&
+                            (data?.byOwner || empty).map((r, i) => (
+                                <StatRow key={r.label} {...r} isLast={i === (data?.byOwner || empty).length - 1} />
+                            ))}
                         {!loading && !(data?.byOwner || empty).length && missing}
                     </SectionCard>
                 </Grid>
@@ -183,9 +187,9 @@ export default function ComplaintsDashboard() {
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="SLA Performance" subtitle="Response & resolution metrics">
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                            {slaMetricsFrom(data?.averages).map((r) => (
-                                <SlaRow key={r.label} {...r} />
-                            ))}
+                            {loading && <RowSkeleton rows={3} />}
+                            {!loading &&
+                                slaMetricsFrom(data?.averages).map((r) => <SlaRow key={r.label} {...r} />)}
                         </Box>
                     </SectionCard>
                 </Grid>
@@ -194,15 +198,17 @@ export default function ComplaintsDashboard() {
             <Grid container spacing={2}>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Frequently Requested Complaints" subtitle="Issues that recur most often">
-                        {(data?.repeatedIssues || empty).map((r, i) => (
+                        {loading && <RowSkeleton rows={4} />}
+                        {!loading &&
+                            (data?.repeatedIssues || empty).map((r, i) => (
                             <StatRow
                                 key={r.label}
                                 {...r}
                                 valueColor={C.textMuted}
                                 valueWeight={600}
                                 isLast={i === (data?.repeatedIssues || empty).length - 1}
-                            />
-                        ))}
+                                />
+                            ))}
                         {!loading && !(data?.repeatedIssues || empty).length && missing}
 
                         <Typography

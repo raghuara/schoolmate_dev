@@ -277,7 +277,16 @@ export default function RegisterComplaintFormPage() {
         form.category !== "" && form.subject.trim() !== "" && form.statement.trim() !== "";
 
     const addFiles = (incoming) => {
-        const accepted = [...incoming].filter((f) => f.size <= ATTACHMENT_MAX_MB * 1024 * 1024);
+        const all = [...incoming];
+        const accepted = all.filter((f) => f.size <= ATTACHMENT_MAX_MB * 1024 * 1024);
+        /* Say which files were dropped and why. They used to disappear silently, so a
+           staff member attaching a large photo would submit believing it was included. */
+        const rejected = all.filter((f) => !accepted.includes(f));
+        if (rejected.length) {
+            toast.error(
+                `${rejected.map((f) => f.name).join(", ")} — over the ${ATTACHMENT_MAX_MB} MB limit`,
+            );
+        }
         setFiles((prev) => [...prev, ...accepted]);
     };
 
