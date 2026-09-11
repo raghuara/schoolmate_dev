@@ -64,16 +64,6 @@ export const PAGE_OVERRIDES = {
 
 export const COMPLAINTS_FLOWS = [
     {
-        key: "management",
-        name: "Management Flow",
-        caption: "Dashboard, the full queue and every configuration screen",
-        desc: "For the people who run the module - they see every complaint, assign and resolve it, and set the categories, SLA and escalation rules.",
-        permKey: "managementflow",
-        icon: SpaceDashboardOutlinedIcon,
-        color: DASH.violet,
-        pages: MANAGEMENT_PAGES,
-    },
-    {
         key: "staff",
         name: "Staff Flow",
         caption: "My Work queue and reporting an issue",
@@ -83,9 +73,19 @@ export const COMPLAINTS_FLOWS = [
         color: DASH.cyan,
         pages: STAFF_PAGES,
     },
+    {
+        key: "management",
+        name: "Management Flow",
+        caption: "Dashboard, the full queue and every configuration screen",
+        desc: "For the people who run the module - they see every complaint, assign and resolve it, and set the categories, SLA and escalation rules.",
+        permKey: "managementflow",
+        icon: SpaceDashboardOutlinedIcon,
+        color: DASH.violet,
+        pages: MANAGEMENT_PAGES,
+    },
 ];
 
-export const DEFAULT_FLOW = "management";
+export const DEFAULT_FLOW = "staff";
 
 const subMenusFor = (pages) => pages.map((page) => PAGE_OVERRIDES[page].subMenu);
 
@@ -99,5 +99,5 @@ export const flowPermissions = (key) =>
 export const readFlow = (permissions) => {
     const menu = (permissions?.mainMenus || []).find((m) => m.mainMenu === COMPLAINTS_MAIN_MENU);
     const stored = (menu?.subMenus || []).find((s) => s.subMenu === FLOW_SUBMENU)?.permissions;
-    return COMPLAINTS_FLOWS.find((f) => stored?.[f.permKey] === "Y")?.key || DEFAULT_FLOW;
+    return COMPLAINTS_FLOWS.find((f) => stored?.[f.permKey] === "Y")?.key || null;
 };

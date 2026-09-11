@@ -35,8 +35,19 @@
  * demanding it. A call site that sets a key itself keeps its own value when it has one.
  */
 
-/* Only the school API gets the actor - anything else the app fetches is left untouched. */
-const API_HOSTS = ["schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net"];
+import { baseApiurl, chatHubBaseUrl } from "./Api";
+
+const hostOf = (url) => {
+    try {
+        return new URL(url).host;
+    } catch {
+        return "";
+    }
+};
+
+/* Only the school API gets the actor - anything else the app fetches is left untouched.
+   The hosts come from Api.jsx so switching environments there is the whole change. */
+const API_HOSTS = [...new Set([baseApiurl, chatHubBaseUrl].map(hostOf).filter(Boolean))];
 
 /* Both names the feature-permission layer accepts. */
 export const ACTOR_KEYS = ["creatorRollNumber", "requestedByRollNumber"];

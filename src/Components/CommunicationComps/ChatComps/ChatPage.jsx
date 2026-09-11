@@ -78,6 +78,7 @@ import * as signalR from '@microsoft/signalr';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { findSubMenuPermissions } from '../../../Redux/Slices/AuthSlice';
+import { USER_TYPE_IDS, isAnyOfIds } from '../../../Redux/userTypeIds';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
 import { setChatUnreadTotal } from '../../../Redux/Slices/chatSlice';
 import { creategroup, fetchgroups, fetchgroupinfo, sendmessage, fetchmessages, getchatusers, markread, pinmessage, deletemessage, updategroup, updategroupmembers, mutegroup, updatememberrole, leavegroup, deletegroup, clearchat, editmessage, reactmessage, messagereadinfo, searchmessages, fetchmedia, chathub } from '../../../Api/Api';
@@ -326,7 +327,7 @@ export default function ChatPage({ embedded = false }) {
     const chatPerms = findSubMenuPermissions(auth?.permissions, "communication", "chats");
     const canCreateGroup = chatPerms
         ? chatPerms.allowcreategroup === "Y"
-        : ['admin', 'superadmin'].includes(String(userType || '').toLowerCase().replace(/\s/g, ''));
+        : isAnyOfIds(auth?.userTypeID, [USER_TYPE_IDS.SUPER_ADMIN, USER_TYPE_IDS.ADMIN]);
     const token = '123';
 
     const ACCENT = settings?.darkColor || '#EEA200';

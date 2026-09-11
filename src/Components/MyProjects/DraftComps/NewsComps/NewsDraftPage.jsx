@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import { useSelector } from "react-redux";
+import { isSuperAdminId } from "../../../../Redux/userTypeIds";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -38,6 +39,7 @@ export default function NewsDraftPage() {
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
     const userType = user.userType
+    const isSuperAdmin = isSuperAdminId(user.userTypeID);
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
     const token = '123';
@@ -248,7 +250,7 @@ export default function NewsDraftPage() {
             setColor(true);
             setStatus(true);
 
-            if (userType === "superadmin") {
+            if (isSuperAdmin) {
                 setMessage("News Deleted Successfully");
             } else {
                 setMessage("Requested Successfully");
@@ -428,7 +430,7 @@ export default function NewsDraftPage() {
                             p: 3,
                             width: "70%",
                         }}>
-                            {userType === "superadmin" ? (
+                            {isSuperAdmin ? (
                                 <Typography sx={{ fontSize: "20px" }}>
                                     Do you really want to delete
                                     this news? </Typography>
@@ -469,7 +471,7 @@ export default function NewsDraftPage() {
                                         color: websiteSettings.textColor,
                                     }}
                                 >
-                                    {userType === "superadmin" ?
+                                    {isSuperAdmin ?
                                         "Delete" : "Send"}
                                 </Button>
                             </DialogActions>

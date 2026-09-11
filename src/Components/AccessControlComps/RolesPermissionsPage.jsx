@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import SnackBar from "../SnackBar";
 import { useDispatch } from "react-redux";
+import { isSuperAdminId, isStudentId } from "../../Redux/userTypeIds";
 import { fetchUserTypes as refreshUserTypesStore } from "../../Redux/Slices/userTypesSlice";
 import { AddUserType, GetAllUserTypes, GetNonStudentUsers, UpdateUsersUserType } from "../../Api/Api";
 import ApprovalFlowsTab from "./ApprovalFlowsTab";
@@ -36,8 +37,8 @@ const fmtDate = (s) => {
 const mapUserType = (item) => {
     const name = item.userType || "";
     const key = name.toLowerCase().replace(/\s/g, "");
-    const isSuperAdmin = item.userTypeID === 1 || key === "superadmin";
-    const isStudent = key === "student";
+    const isSuperAdmin = isSuperAdminId(item.userTypeID);
+    const isStudent = isStudentId(item.userTypeID);
     return {
         id: item.userTypeID,
         name,

@@ -1,5 +1,6 @@
 import { Box, Button, Grid, IconButton, Tab, Tabs, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
+import { USER_TYPE_IDS, isAnyOfIds } from "../../Redux/userTypeIds";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import Loader from "../Loader";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -57,7 +58,8 @@ export default function DraftPage() {
         { color: "#E10052", icon: EmojiEventsIcon, text: "Event Fee", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'homework' },
     ];
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
+    const isStaff = String(userType || "").toLowerCase().replace(/\s/g, "") === "staff";
+    if (!isAnyOfIds(user.userTypeID, [USER_TYPE_IDS.SUPER_ADMIN, USER_TYPE_IDS.ADMIN]) && !isStaff) {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
 

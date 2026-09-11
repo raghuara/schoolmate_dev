@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { isTeacherId } from "../../Redux/userTypeIds";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -299,7 +300,7 @@ export default function ConsentFormPage() {
                             md: 3,
                             lg: 2
                         }}>
-                        {userType !== "teacher" &&
+                        {!isTeacherId(user.userTypeID) &&
                             (
                                 <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
                                     <Typography sx={{ fontWeight: "600", fontSize: "12px" }} >My Projects</Typography>
@@ -477,7 +478,7 @@ export default function ConsentFormPage() {
                                 </Tooltip>
                             )}
                         </Box>
-                        {userType !== "teacher" &&
+                        {!isTeacherId(user.userTypeID) &&
                             <Button
                                 onClick={handleCreateNews}
                                 variant="contained"
@@ -747,11 +748,11 @@ export default function ConsentFormPage() {
                                     ? "Try a different heading, or clear the search to see everything."
                                     : formattedDate
                                         ? "Clear the date filter to see all forms."
-                                        : userType !== "teacher"
+                                        : !isTeacherId(user.userTypeID)
                                             ? "Create your first consent form and it will show up here."
                                             : "Nothing has been shared yet."}
                             </Typography>
-                            {!searchQuery && !formattedDate && userType !== "teacher" && (
+                            {!searchQuery && !formattedDate && !isTeacherId(user.userTypeID) && (
                                 <Button
                                     onClick={handleCreateNews}
                                     variant="contained"

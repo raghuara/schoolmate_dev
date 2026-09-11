@@ -12,7 +12,8 @@
  * Anything that is an ACCESS decision must come from the login response
  * permissions via selectSubMenuPermissions, not from here.
  */
-export const SUPER_ADMIN_USER_TYPE_ID = 1;
+import { USER_TYPE_IDS, isSuperAdminId } from "../../Redux/userTypeIds";
 
-export const isSuperAdminId = (userTypeID) =>
-    Number(userTypeID) === SUPER_ADMIN_USER_TYPE_ID;
+export const SUPER_ADMIN_USER_TYPE_ID = USER_TYPE_IDS.SUPER_ADMIN;
+
+export { isSuperAdminId };

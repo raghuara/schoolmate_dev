@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { isSuperAdminId } from "../../../../Redux/userTypeIds";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -40,6 +41,7 @@ export default function CircularsDraftPage() {
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
     const userType = user.userType
+    const isSuperAdmin = isSuperAdminId(user.userTypeID);
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
     const token = '123';
@@ -273,7 +275,7 @@ export default function CircularsDraftPage() {
             setColor(true);
             setStatus(true);
 
-            if (userType === "superadmin") {
+            if (isSuperAdmin) {
                 setMessage("Circular Deleted Successfully");
             } else {
                 setMessage("Requested Successfully");

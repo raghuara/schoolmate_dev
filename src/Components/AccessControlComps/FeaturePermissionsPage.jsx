@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
+import { isSuperAdminId } from "../../Redux/userTypeIds";
 import {
     Box, Grid, Typography, Button, TextField, InputAdornment, IconButton, Switch, Chip,
     Avatar, AvatarGroup, Menu, MenuItem, Tooltip, CircularProgress,
@@ -114,7 +115,7 @@ export default function FeaturePermissionsPage() {
     const location = useLocation();
     const role = location.state?.role || { id: 0, name: "Super Admin", userCount: 5, system: true };
     const allRoles = location.state?.roles || [];
-    const isSuperAdmin = (role.name || "").toLowerCase() === "super admin";
+    const isSuperAdmin = isSuperAdminId(role.id);
 
     const [search, setSearch] = useState("");
     const [permissions, setPermissions] = useState(null);

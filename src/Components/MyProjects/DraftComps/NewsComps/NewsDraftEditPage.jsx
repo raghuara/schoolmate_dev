@@ -10,6 +10,7 @@ import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { isSuperAdminId } from "../../../../Redux/userTypeIds";
 import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import ReactPlayer from "react-player";
@@ -29,6 +30,7 @@ export default function NewsDraftEditPage() {
     const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
+    const isSuperAdmin = isSuperAdminId(user.userTypeID);
     const userName = user.name
 
     const todayDateTime = dayjs().format('DD-MM-YYYY HH:mm');
@@ -390,7 +392,7 @@ export default function NewsDraftEditPage() {
             setOpen(true);
             setColor(true);
             setStatus(true);
-            if (userType === "superadmin") {
+            if (isSuperAdmin) {
                 if (status === "post") {
                     setMessage("News updated successfully");
                 } else {
@@ -398,7 +400,7 @@ export default function NewsDraftEditPage() {
                 }
             }
 
-            if (userType !== "superadmin") {
+            if (!isSuperAdmin) {
                 setMessage("Requested successfully");
             }
             setTimeout(() => {
@@ -785,7 +787,7 @@ export default function NewsDraftEditPage() {
 
                                     </Box>
                                 </Dialog>
-                                {userType === "superadmin" &&
+                                {isSuperAdmin &&
                                     <>
                                         {!DTValue && (
                                             <Grid
@@ -838,7 +840,7 @@ export default function NewsDraftEditPage() {
                                             </Grid>
                                         )}
                                     </>
-                                }  {userType !== "superadmin" &&
+                                }  {!isSuperAdmin &&
                                     <>
                                         <Grid
                                             sx={{ display: "flex", justifyContent: "end" }}

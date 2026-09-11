@@ -10,6 +10,7 @@ import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { isSuperAdminId } from "../../../../Redux/userTypeIds";
 import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import ReactPlayer from "react-player";
@@ -30,6 +31,7 @@ export default function CircularsDraftEditPage() {
     const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
+    const isSuperAdmin = isSuperAdminId(user.userTypeID);
     const userName = user.name
     const todayDateTime = dayjs().format('DD-MM-YYYY HH:mm');
     const [activeTab, setActiveTab] = useState(0);
@@ -1245,7 +1247,7 @@ export default function CircularsDraftEditPage() {
                                     </Box>
                                 </Dialog>
 
-                                {userType === "superadmin" &&
+                                {isSuperAdmin &&
                                     <>
 
                                         {!DTValue && (
@@ -1301,7 +1303,7 @@ export default function CircularsDraftEditPage() {
                                     </>
                                 }
 
-                                {userType !== "superadmin" &&
+                                {!isSuperAdmin &&
                                     <>
                                         <Grid
                                             sx={{ display: "flex", justifyContent: "end" }}

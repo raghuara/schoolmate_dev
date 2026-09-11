@@ -1,5 +1,5 @@
 // UAT Link
-const baseApiurl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net/api/`;
+const baseApiurl = `https://schoolcommunicationwebapilivetest-hyfxbae7h0bsarhf.canadacentral-01.azurewebsites.net/api/`;
 
 
 
@@ -9,7 +9,7 @@ const baseApiurl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.ca
 //----------------------------------- Chat Hub ----------------------------------
 //----------------------------------- xxxxxxxx ----------------------------------
 
-const chatHubBaseUrl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net`;
+const chatHubBaseUrl = `https://schoolcommunicationwebapilivetest-hyfxbae7h0bsarhf.canadacentral-01.azurewebsites.net`;
 
 const chathub = `${chatHubBaseUrl}/chathub`;
 
@@ -782,6 +782,8 @@ const GetStaffMyWork = `${baseApiurl}complaints/staff/my-work`;
 //----------------------------------- xxxxxxxx ----------------------------------
 
 export {
+    baseApiurl,
+    chatHubBaseUrl,
     getSchoolConfig,
     poststudyMaterial,
     deleteDashboardSlider,

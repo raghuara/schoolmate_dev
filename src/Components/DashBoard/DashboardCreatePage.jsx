@@ -6,6 +6,7 @@ import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { USER_TYPE_IDS, isAnyOfIds } from "../../Redux/userTypeIds";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { deleteDashboardSlider, getDashboardSliders, GettingGrades, postDashboardSliders, postMessage, postNews, postTimeTable, sectionsDropdown, TimeTableFetch } from "../../Api/Api";
 import SnackBar from "../SnackBar";
@@ -200,7 +201,7 @@ export default function CreateDashboardPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin") {
+    if (!isAnyOfIds(user.userTypeID, [USER_TYPE_IDS.SUPER_ADMIN, USER_TYPE_IDS.ADMIN])) {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
 

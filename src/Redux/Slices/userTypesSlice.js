@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { USER_TYPE_IDS } from '../userTypeIds';
 import { GetAllUserTypes } from '../../Api/Api';
 
 const token = '123';
@@ -7,8 +8,8 @@ const token = '123';
 // Frontend-owned defaults — always present, never change, never come from the backend.
 // (Backend still returns id 1 & 2 for now; it will drop them and start from id 3 later.)
 export const DEFAULT_USER_TYPES = [
-    { userTypeID: 1, userType: 'Super Admin', isDefault: true },
-    { userTypeID: 2, userType: 'Student', isDefault: true },
+    { userTypeID: USER_TYPE_IDS.SUPER_ADMIN, userType: 'Super Admin', isDefault: true },
+    { userTypeID: USER_TYPE_IDS.STUDENT, userType: 'Student', isDefault: true },
 ];
 
 const DEFAULT_IDS = new Set(DEFAULT_USER_TYPES.map((u) => u.userTypeID));

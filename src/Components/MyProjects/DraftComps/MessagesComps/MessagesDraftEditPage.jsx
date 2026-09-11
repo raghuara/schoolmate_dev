@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { isSuperAdminId } from "../../../../Redux/userTypeIds";
 import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import ReactPlayer from "react-player";
@@ -28,6 +29,7 @@ export default function MessagesDraftEditPage() {
     const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
+    const isSuperAdmin = isSuperAdminId(user.userTypeID);
     const userName = user.name
     const todayDateTime = dayjs().format('DD-MM-YYYY HH:mm');
     const [DTValue, setDTValue] = useState(null);
@@ -505,7 +507,7 @@ export default function MessagesDraftEditPage() {
             setOpen(true);
             setColor(true);
             setStatus(true);
-            if (userType === "superadmin") {
+            if (isSuperAdmin) {
                 if (status === "post") {
                     setMessage("Message updated successfully");
                 } else if (status === "schedule") {
@@ -515,7 +517,7 @@ export default function MessagesDraftEditPage() {
                 }
             }
 
-            if (userType !== "superadmin") {
+            if (!isSuperAdmin) {
                 if (status === "draft") {
                     setMessage("Draft saved successfully");
                 } else {
@@ -1099,7 +1101,7 @@ export default function MessagesDraftEditPage() {
 
                                     </Box>
                                 </Dialog>
-                                {userType === "superadmin" &&
+                                {isSuperAdmin &&
                                     <>
                                         {!DTValue && (
                                             <Grid
@@ -1153,7 +1155,7 @@ export default function MessagesDraftEditPage() {
                                         )}
                                     </>
                                 }
-                                {userType !== "superadmin" &&
+                                {!isSuperAdmin &&
                                     <>
                                         <Grid
                                             sx={{ display: "flex", justifyContent: "end" }}

@@ -3,6 +3,7 @@ import React from "react";
 import { useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { findSubMenuPermissions, hasAnyPermission, selectUserTypeID } from "../../Redux/Slices/AuthSlice";
+import { isSuperAdminId } from "../../Redux/userTypeIds";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import Groups2Icon from "@mui/icons-material/Groups2";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
@@ -81,11 +82,7 @@ export default function AccessControlPage() {
         .filter((item) => canOpen(item.subMenu))
         .map((item) => ({ ...item, links: item.links.filter((l) => holdsAny(item.subMenu, l.needs)) }));
 
-    // Roles & Permissions decides what every other screen may do, including this
-    // one, so it is not a grantable permission - it is reserved for the Super
-    // Admin user type (ID 1). userTypeID is the numeric id from the login
-    // response, not the display name, so it is safe to compare.
-    const canManageRoles = Number(userTypeID) === 1;
+    const canManageRoles = isSuperAdminId(userTypeID);
 
     return (
         <Box
