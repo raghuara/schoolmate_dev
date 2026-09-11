@@ -18,7 +18,6 @@ import DirectionsBusOutlinedIcon from "@mui/icons-material/DirectionsBusOutlined
 import WorkOutlineOutlinedIcon from "@mui/icons-material/WorkOutlineOutlined";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
-import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 import SupportAgentOutlinedIcon from "@mui/icons-material/SupportAgentOutlined";
 import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
@@ -32,6 +31,7 @@ import SnackBar from "../SnackBar";
 import { GetUserTypePermissions, UpdateUserTypePermissions, UpdateUsersUserType } from "../../Api/Api";
 import { DASH, RADIUS, BRAND, CARD_DESC_H, PageHeader, SectionTitle, EmptyNote, Panel } from "../DashBoardComps/dashboardTheme";
 import { COMMUNICATION_SUBMENUS, ACADEMICS_SUBMENUS } from "./ModuleAccessConfigure/communicationGroups";
+import { QUESTION_PAPER_SUBMENUS } from "./ModuleAccessConfigure/questionPaperGroups";
 
 const TOKEN = "123";
 
@@ -47,7 +47,6 @@ const MODULE_TO_MAINMENU = {
     // Academics is the teaching half of the same "communication" main menu -
     // the split is a display grouping, exactly as the sidebar does it.
     academics: "communication",
-    books: "questionpapergeneration",
     complaints: "complaints",
 };
 
@@ -58,6 +57,16 @@ const MODULE_SUBMENUS = {
     communication: COMMUNICATION_SUBMENUS,
     academics: ACADEMICS_SUBMENUS,
 };
+
+const MODULE_SCOPES = {
+    academics: [
+        { mainMenu: "communication", subMenus: ACADEMICS_SUBMENUS },
+        { mainMenu: "questionpapergeneration", subMenus: QUESTION_PAPER_SUBMENUS.questionpapergeneration },
+        { mainMenu: "patterndiscovery", subMenus: QUESTION_PAPER_SUBMENUS.patterndiscovery },
+    ],
+};
+
+const scopesFor = (key) => MODULE_SCOPES[key] || [{ mainMenu: MODULE_TO_MAINMENU[key], subMenus: MODULE_SUBMENUS[key] }];
 
 const ACCENT = "#4338CA";
 
@@ -91,12 +100,11 @@ const DEFAULT_DASHBOARD_VIEW = "common";
 const MODULES = [
     { key: "profile", name: "Profile Management", desc: "Manage student and staff profiles, records, and personal information.", tags: ["Student", "Staff"], color: BRAND.pink.main, icon: BadgeOutlinedIcon },
     { key: "communication", name: "Communication", desc: "School communication and parent engagement tools.", tags: ["News", "Circulars", "Messages"], color: BRAND.blue.main, icon: ForumOutlinedIcon },
-    { key: "academics", name: "Academics", desc: "Timetables, homework, study materials, marks and attendance.", tags: ["Homework", "Marks", "Attendance"], color: BRAND.purple.main, icon: AutoStoriesOutlinedIcon },
+    { key: "academics", name: "Academics", desc: "Timetables, homework, marks, attendance - and the books, patterns and question papers built on them.", tags: ["Homework", "Marks", "Question Paper"], color: BRAND.purple.main, icon: AutoStoriesOutlinedIcon },
     { key: "finance", name: "Fee & Finance", desc: "Handle fee collection, billing, expenses, concessions, and financial operations.", tags: ["Billing", "Expenses", "Concession"], color: BRAND.orange.main, icon: PaymentsOutlinedIcon },
     { key: "leave", name: "Leave & Payroll", desc: "Manage student leave, staff attendance, leave requests, and payroll processing.", tags: ["Student Leave", "Teacher Leave"], color: BRAND.purple.main, icon: ReceiptLongOutlinedIcon },
     { key: "transport", name: "Transport", desc: "Manage vehicles, routes, student transportation, and travel assignments.", tags: ["Vehicles", "Routes"], color: BRAND.green.main, icon: DirectionsBusOutlinedIcon },
     { key: "myprojects", name: "My Projects", desc: "Track staff work done — daily entries, teacher-wise, class-wise, and period settings.", tags: ["Workdone"], color: BRAND.cyan.main, icon: WorkOutlineOutlinedIcon },
-    { key: "books", name: "Books & Chapters", desc: "Upload books and manage their chapters for question paper generation.", tags: ["Books", "Chapters"], color: BRAND.cyan.main, icon: MenuBookOutlinedIcon },
     { key: "complaints", name: "Complaints", desc: "Parent complaints and internal school operations, from intake through to resolution.", tags: ["Management", "My Work", "Config"], color: "#B45309", icon: SupportAgentOutlinedIcon },
     { key: "access", name: "Access Control", desc: "Manage roles, permissions, and who can access which screen.", tags: ["Roles", "Permissions"], color: ACCENT, icon: AdminPanelSettingsOutlinedIcon },
 ];
@@ -209,18 +217,20 @@ export default function FeaturePermissionsPage() {
     const moduleGrants = useMemo(() => {
         const menus = permissions?.mainMenus || [];
         return Object.fromEntries(MODULES.map((m) => {
-            const menu = menus.find((x) => x.mainMenu === MODULE_TO_MAINMENU[m.key]);
-            const owned = MODULE_SUBMENUS[m.key];
             let granted = 0;
             let total = 0;
-            (menu?.subMenus || [])
-                .filter((sub) => !owned || owned.includes(sub?.subMenu))
-                .forEach((sub) => {
-                    Object.values(sub?.permissions || {}).forEach((value) => {
-                        total += 1;
-                        if (String(value).toUpperCase() === "Y") granted += 1;
+            scopesFor(m.key).forEach((scope) => {
+                const menu = menus.find((x) => x.mainMenu === scope.mainMenu);
+                const owned = scope.subMenus;
+                (menu?.subMenus || [])
+                    .filter((sub) => !owned || owned.includes(sub?.subMenu))
+                    .forEach((sub) => {
+                        Object.values(sub?.permissions || {}).forEach((value) => {
+                            total += 1;
+                            if (String(value).toUpperCase() === "Y") granted += 1;
+                        });
                     });
-                });
+            });
             return [m.key, { granted, total }];
         }));
     }, [permissions]);

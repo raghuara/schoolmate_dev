@@ -105,7 +105,7 @@ export const defaultPageConfig = () => ({
     allowSameLevel: false, // peer approval within the same level (Level 2+)
 });
 
-export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, pageRequires = {}, approvalText = {}, approvalNoun = "post", preserveSubMenus = [], topSlot = null, externalDirty = false, onSave }) {
+export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, pageRequires = {}, pageGroups = [], approvalText = {}, approvalNoun = "post", preserveSubMenus = [], topSlot = null, externalDirty = false, onSave }) {
     const nounS = approvalNoun;
     const nounP = `${approvalNoun}s`;
     const navigate = useNavigate();
@@ -146,16 +146,17 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
     // Some pages only exist inside another one - Events is a view of the School
     // Calendar, so granting it while the calendar is hidden gives a permission
     // the user can never reach. pageRequires names that dependency.
-    const requiredPageFor = (page) => pageRequires[page] || null;
-    const pageDependencyMet = (page) => {
-        const dep = requiredPageFor(page);
-        if (!dep) return true;
-        return !!config[dep.page]?.[dep.key];
+    const requiredPagesFor = (page) => {
+        const dep = pageRequires[page];
+        if (!dep) return [];
+        return Array.isArray(dep) ? dep : [dep];
     };
+    const missingRequirements = (page) =>
+        requiredPagesFor(page).filter((dep) => !config[dep.page]?.[dep.key]);
+    const pageDependencyMet = (page) => missingRequirements(page).length === 0;
     const dependentPagesOf = (page, key) =>
-        Object.entries(pageRequires)
-            .filter(([, dep]) => dep.page === page && dep.key === key)
-            .map(([child]) => child);
+        Object.keys(pageRequires).filter((child) =>
+            requiredPagesFor(child).some((dep) => dep.page === page && dep.key === key));
 
     const gatesOnView = (page) => pageOpsKeys(page).includes("view");
     const extrasEnabled = (page) => !gatesOnView(page) || !!config[page]?.view;
@@ -303,6 +304,7 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
 
     const yn = (v) => (v ? "Y" : "N");
     const subMenuKey = (page) => pageOverrides[page]?.subMenu || String(page).toLowerCase().replace(/[^a-z0-9]/g, "");
+    const pageMainMenu = (page) => pageOverrides[page]?.mainMenu || mainMenuKey;
     const buildPermissions = (page) => {
         const c = config[page] || {};
         const keys = [...pageOpsKeys(page), ...flatExtraOps(page).map((e) => e.key)];
@@ -320,14 +322,17 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
     // Map a fetched GetUserTypePermissions payload onto this module's checkboxes.
     // Same-key mapping: "Y" -> checked, "N" / null / missing -> unchecked.
     const applyData = (data) => {
-        const menu = (data?.mainMenus || []).find((m) => m.mainMenu === mainMenuKey);
-        setStoredMenu(menu || null);
+        const menus = data?.mainMenus || [];
+        const menuOf = (key) => menus.find((m) => m.mainMenu === key) || null;
+        // Only this screen's own main menu has a half owned by another screen.
+        setStoredMenu(menuOf(mainMenuKey));
         setDirty(false);
-        if (!menu) return; // nothing saved yet for this module — keep defaults
+        if (!menus.length) return; // nothing saved yet for this role — keep defaults
         setConfig((prev) => {
             const next = { ...prev };
             pages.forEach((page) => {
-                const sm = (menu.subMenus || []).find((s) => s.subMenu === subMenuKey(page));
+                const menu = menuOf(pageMainMenu(page));
+                const sm = (menu?.subMenus || []).find((s) => s.subMenu === subMenuKey(page));
                 if (!sm) return;
                 const perms = sm.permissions || {};
                 const patch = {};
@@ -369,22 +374,25 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
             .filter(Boolean)
             .map((sm) => ({ subMenu: sm.subMenu, permissions: { ...(sm.permissions || {}) } }));
 
+        /* Grouped by main menu, because one card can now edit more than one.
+           Every subMenu of a menu this screen touches has to travel with it -
+           the endpoint replaces a main menu's subMenus rather than merging - so
+           the preserved half rides along with its own menu only. */
+        const byMenu = {};
+        pages.forEach((page) => {
+            const key = pageMainMenu(page);
+            byMenu[key] = byMenu[key] || [];
+            byMenu[key].push({ subMenu: subMenuKey(page), permissions: buildPermissions(page) });
+        });
+        if (preserved.length) {
+            byMenu[mainMenuKey] = [...(byMenu[mainMenuKey] || []), ...preserved];
+        }
+
         const payload = {
             data: {
                 userTypeID: role.id,
                 userType: role.name,
-                mainMenus: [
-                    {
-                        mainMenu: mainMenuKey,
-                        subMenus: [
-                            ...pages.map((page) => ({
-                                subMenu: subMenuKey(page),
-                                permissions: buildPermissions(page),
-                            })),
-                            ...preserved,
-                        ],
-                    },
-                ],
+                mainMenus: Object.entries(byMenu).map(([mainMenu, subMenus]) => ({ mainMenu, subMenus })),
             },
         };
 
@@ -456,6 +464,32 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         });
         return { granted, total };
     };
+
+    const groupTotals = (groupPages) => {
+        let granted = 0;
+        let total = 0;
+        (groupPages || []).forEach((page) => {
+            const met = pageDependencyMet(page);
+            pageAllKeys(page).forEach((key) => {
+                total += 1;
+                if (met && config[page]?.[key]) granted += 1;
+            });
+        });
+        return { granted, total };
+    };
+
+    /* Pages nobody grouped come first and keep the card's original order; each
+       declared group then follows under its own band. */
+    const bandedPages = pageGroups.flatMap((g) => g.pages || []);
+    const renderGroups = [
+        { key: "__ungrouped__", title: "", pages: pages.filter((p) => !bandedPages.includes(p)) },
+        ...pageGroups.map((g) => ({
+            key: g.title,
+            title: g.title,
+            subtitle: g.subtitle,
+            pages: (g.pages || []).filter((p) => pages.includes(p)),
+        })),
+    ].filter((g) => g.pages.length > 0);
 
     const explain = (cfg) => {
         const levels = cfg.levels.filter(Boolean);
@@ -702,7 +736,42 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                 {topSlot}
 
                 <Grid container spacing={2} alignItems="flex-start">
-                    {pages.map((page) => {
+                    {renderGroups.map((group) => (
+                    <React.Fragment key={group.key}>
+                    {group.title && (
+                        <Grid size={{ xs: 12 }}>
+                            <Box
+                                sx={{
+                                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                                    gap: 1, flexWrap: "wrap",
+                                    bgcolor: `${color}0A`, border: `1px solid ${color}33`,
+                                    borderRadius: RADIUS, px: 1.6, py: 1.1, mt: 0.5,
+                                }}
+                            >
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                                    <Box sx={{ width: 3, height: 22, borderRadius: RADIUS, bgcolor: color, flexShrink: 0 }} />
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: DASH.ink }}>
+                                            {group.title}
+                                        </Typography>
+                                        {group.subtitle && (
+                                            <Typography sx={{ fontSize: 11.5, color: DASH.muted, mt: 0.2, lineHeight: 1.6 }}>
+                                                {group.subtitle}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Box>
+                                <Box sx={{
+                                    px: 1, height: 21, borderRadius: RADIUS, display: "flex", alignItems: "center",
+                                    fontSize: 10.5, fontWeight: 700, flexShrink: 0,
+                                    bgcolor: "#fff", color, border: `1px solid ${color}33`,
+                                }}>
+                                    {groupTotals(group.pages).granted}/{groupTotals(group.pages).total}
+                                </Box>
+                            </Box>
+                        </Grid>
+                    )}
+                    {group.pages.map((page) => {
                         const cfg = config[page];
                         const lines = explain(cfg);
                         const pageTotal = pageAllKeys(page).length;
@@ -740,11 +809,11 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                                             <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: DASH.ink, ...oneLine }}>{page}</Typography>
                                         </Box>
                                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, flexWrap: "wrap", flexShrink: 0 }}>
-                                            {requiredPageFor(page) && !pageDependencyMet(page) && (
+                                            {missingRequirements(page).length > 0 && (
                                                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.4, px: 0.9, height: 21, borderRadius: RADIUS, bgcolor: DASH.amberLight, border: "1px solid #FDE68A" }}>
                                                     <LockOutlinedIcon sx={{ fontSize: 12, color: "#B45309" }} />
-                                                    <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: "#B45309" }}>
-                                                        Needs {requiredPageFor(page).page}
+                                                    <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: "#B45309", ...oneLine, maxWidth: 190 }}>
+                                                        Needs {missingRequirements(page).map((d) => d.page).join(" + ")}
                                                     </Typography>
                                                 </Box>
                                             )}
@@ -778,7 +847,7 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                                         </Box>
                                     </AccordionSummary>
                                     <AccordionDetails sx={{ p: 2 }}>
-                                        {requiredPageFor(page) && !pageDependencyMet(page) && (
+                                        {missingRequirements(page).length > 0 && (
                                             <Box
                                                 sx={{
                                                     display: "flex", alignItems: "flex-start", gap: 0.8,
@@ -788,9 +857,16 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                                             >
                                                 <LockOutlinedIcon sx={{ fontSize: 14, color: "#B45309", mt: "1px" }} />
                                                 <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: "#B45309", lineHeight: 1.45 }}>
-                                                    {page} sits inside {requiredPageFor(page).page}. Turn on
-                                                    {" "}{requiredPageFor(page).key === "view" ? "View" : requiredPageFor(page).key}
-                                                    {" "}for {requiredPageFor(page).page} first - without it this page has no way to be opened.
+                                                    {page} has nothing to work with on its own. Turn on
+                                                    {missingRequirements(page).map((dep, i) => (
+                                                        <span key={dep.page}>
+                                                            {i === 0 ? " " : " and "}
+                                                            <strong>{dep.key === "view" ? "View" : dep.key}</strong>
+                                                            {" for "}
+                                                            <strong>{dep.page}</strong>
+                                                        </span>
+                                                    ))}
+                                                    {" "}first.
                                                 </Typography>
                                             </Box>
                                         )}
@@ -806,6 +882,8 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                             </Grid>
                         );
                     })}
+                    </React.Fragment>
+                    ))}
                 </Grid>
             </Box>
 

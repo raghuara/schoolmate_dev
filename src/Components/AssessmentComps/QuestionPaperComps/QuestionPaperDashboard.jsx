@@ -18,7 +18,6 @@ import PendingActionsOutlinedIcon from "@mui/icons-material/PendingActionsOutlin
 import RocketLaunchOutlinedIcon from "@mui/icons-material/RocketLaunchOutlined";
 import DashboardCustomizeOutlinedIcon from "@mui/icons-material/DashboardCustomizeOutlined";
 import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
-import InventoryOutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
@@ -29,8 +28,8 @@ import {
     DASH, RADIUS, KPI_TONES, SolidStatCard, Panel, ChartTooltip, EmptyNote, ModuleCard,
 } from "../../DashBoardComps/dashboardTheme";
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
-import { MOCK_PAPERS, MOCK_PATTERNS, MOCK_QUESTION_BANK, fmtDate, parseApiDate } from "./questionPaperApi";
-import { StatusPill, Pill, outlineBtnSx, createBtnSx, primaryBtnSx } from "./questionPaperTheme";
+import { MOCK_PAPERS, MOCK_PATTERNS, fmtDate, parseApiDate } from "./questionPaperApi";
+import { StatusPill, Pill, outlineBtnSx, createBtnSx } from "./questionPaperTheme";
 
 const SUBJECT_COLORS = [DASH.primary, DASH.blue, DASH.violet, DASH.cyan, DASH.green, DASH.pink, DASH.red];
 
@@ -45,9 +44,6 @@ const STATUS_COLORS = {
 export default function QuestionPaperDashboard() {
     const navigate = useNavigate();
     const academicYear = useSelector(selectAcademicYear);
-
-    // Mock count until qbank/getAll is live.
-    const bankSize = MOCK_QUESTION_BANK.length;
 
     const [papers, setPapers] = useState([]);
     const [patterns, setPatterns] = useState([]);
@@ -119,24 +115,12 @@ export default function QuestionPaperDashboard() {
             badge: stats.patterns,
             links: [
                 { label: "New pattern", path: "/dashboardmenu/assessment/question-paper/patterns/create" },
+                { label: "Find from past papers", path: "/dashboardmenu/assessment/question-paper/patterns/ai" },
             ],
         },
-        {
-            accent: DASH.pink,
-            icon: InventoryOutlinedIcon,
-            title: "Question Bank",
-            desc: "Approved questions, by class, subject and chapter.",
-            to: "/dashboardmenu/assessment/question-paper/bank",
-            badge: bankSize,
-            links: [
-                // Lands on the bank already filtered, so the chip earns its place.
-                {
-                    label: "Never used",
-                    path: "/dashboardmenu/assessment/question-paper/bank",
-                    state: { usage: "unused" },
-                },
-            ],
-        },
+        /* Question Bank sits behind qbank/* endpoints that do not exist yet, so
+           the card is hidden rather than leading to a screen of mock rows. Put
+           this block back when the API is live. */
         {
             accent: DASH.blue,
             icon: DescriptionOutlinedIcon,

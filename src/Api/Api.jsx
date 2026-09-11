@@ -675,6 +675,48 @@ const GetPattern = `${baseApiurl}questionpapergeneration/getPattern`;
 const ListPatterns = `${baseApiurl}questionpapergeneration/listPatterns`;
 const DeletePattern = `${baseApiurl}questionpapergeneration/deletePattern`;
 
+/* patterndiscovery > batch. A ZIP of real model papers is uploaded and the
+   whole pipeline - unzip, OCR, identify, extract, abstract, embed, cluster -
+   runs in the background, so every screen here polls rather than waits. */
+const UploadPatternBatch = `${baseApiurl}patterndiscovery/uploadBatch`;
+const GetPatternBatchStatus = `${baseApiurl}patterndiscovery/getBatchStatus`;
+const ListPatternBatches = `${baseApiurl}patterndiscovery/listBatches`;
+const GetPatternBatchDocuments = `${baseApiurl}patterndiscovery/getBatchDocuments`;
+const GetPatternDocumentQuestions = `${baseApiurl}patterndiscovery/getDocumentQuestions`;
+const SetPatternDocumentIdentification = `${baseApiurl}patterndiscovery/setDocumentIdentification`;
+const RetryPatternDocument = `${baseApiurl}patterndiscovery/retryDocument`;
+const RetryPatternBatchClustering = `${baseApiurl}patterndiscovery/retryBatchClustering`;
+const DeletePatternBatch = `${baseApiurl}patterndiscovery/deleteBatch`;
+
+/* patterndiscovery > pattern. Discovered patterns are cross-batch and keep
+   accumulating evidence from every ZIP ever uploaded, so these are never
+   scoped to one batch. */
+const ListDiscoveredPatterns = `${baseApiurl}patterndiscovery/listPatterns`;
+const GetDiscoveredPatternEvidence = `${baseApiurl}patterndiscovery/getPatternEvidence`;
+const ConfirmDiscoveredPattern = `${baseApiurl}patterndiscovery/confirmPattern`;
+const RenameDiscoveredPattern = `${baseApiurl}patterndiscovery/renamePattern`;
+const MergeDiscoveredPatterns = `${baseApiurl}patterndiscovery/mergePatterns`;
+const SplitDiscoveredPattern = `${baseApiurl}patterndiscovery/splitPattern`;
+const RejectDiscoveredPattern = `${baseApiurl}patterndiscovery/rejectPattern`;
+
+/* questionpapergeneration > paper. The Create Question Paper wizard. Saved to
+   the server step by step - currentStep in every response says where to
+   resume, so a refresh mid-wizard does not lose the paper. */
+const CreateQuestionPaper = `${baseApiurl}questionpapergeneration/createQuestionPaper`;
+const UpdateQuestionPaperBasicDetails = `${baseApiurl}questionpapergeneration/updateQuestionPaperBasicDetails`;
+const GetQuestionPaper = `${baseApiurl}questionpapergeneration/getQuestionPaper`;
+const ListQuestionPapers = `${baseApiurl}questionpapergeneration/listQuestionPapers`;
+const DeleteQuestionPaper = `${baseApiurl}questionpapergeneration/deleteQuestionPaper`;
+const GetEligibleBooksForPaper = `${baseApiurl}questionpapergeneration/getEligibleBooksForPaper`;
+const UpdateQuestionPaperChapters = `${baseApiurl}questionpapergeneration/updateQuestionPaperChapters`;
+const GetEligiblePatternsForPaper = `${baseApiurl}questionpapergeneration/getEligiblePatternsForPaper`;
+const SelectQuestionPaperPattern = `${baseApiurl}questionpapergeneration/updateQuestionPaperPattern`;
+const StartQuestionGeneration = `${baseApiurl}questionpapergeneration/startQuestionGeneration`;
+const GetGeneratedQuestions = `${baseApiurl}questionpapergeneration/getGeneratedQuestions`;
+const UpdateGeneratedQuestion = `${baseApiurl}questionpapergeneration/updateGeneratedQuestion`;
+const RegenerateQuestion = `${baseApiurl}questionpapergeneration/regenerateQuestion`;
+const ConfirmQuestions = `${baseApiurl}questionpapergeneration/confirmQuestions`;
+
 //----------------------------------- xxxxxxxx ----------------------------------
 
 //----------------------------------- Question Paper Generation ----------------------------------
@@ -1252,6 +1294,39 @@ export {
     GetPattern,
     ListPatterns,
     DeletePattern,
+
+    UploadPatternBatch,
+    GetPatternBatchStatus,
+    ListPatternBatches,
+    GetPatternBatchDocuments,
+    GetPatternDocumentQuestions,
+    SetPatternDocumentIdentification,
+    RetryPatternDocument,
+    RetryPatternBatchClustering,
+    DeletePatternBatch,
+
+    ListDiscoveredPatterns,
+    GetDiscoveredPatternEvidence,
+    ConfirmDiscoveredPattern,
+    RenameDiscoveredPattern,
+    MergeDiscoveredPatterns,
+    SplitDiscoveredPattern,
+    RejectDiscoveredPattern,
+
+    CreateQuestionPaper,
+    UpdateQuestionPaperBasicDetails,
+    GetQuestionPaper,
+    ListQuestionPapers,
+    DeleteQuestionPaper,
+    GetEligibleBooksForPaper,
+    UpdateQuestionPaperChapters,
+    GetEligiblePatternsForPaper,
+    SelectQuestionPaperPattern,
+    StartQuestionGeneration,
+    GetGeneratedQuestions,
+    UpdateGeneratedQuestion,
+    RegenerateQuestion,
+    ConfirmQuestions,
     GetBookStatus,
     ListBooks,
     ConfirmBookChapters,

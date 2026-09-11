@@ -874,6 +874,9 @@ export const normalizePaper = (row, grades) => {
         createdDate: val(row, ["createdOn", "createdDate", "postedDateAndTime"], null),
         approver: val(row, ["approverName", "approver"], ""),
         rejectReason: val(row, ["rejectReason", "remarks"], ""),
+        // Where the wizard was left. 6 means every step is done.
+        currentStep: Number(val(row, ["currentStep", "CurrentStep"], 0)) || 0,
+        qpCode: val(row, ["qpCode", "QpCode"], ""),
     };
 };
 

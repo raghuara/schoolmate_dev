@@ -15,6 +15,9 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import DashboardCustomizeOutlinedIcon from "@mui/icons-material/DashboardCustomizeOutlined";
+import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
+import DriveFolderUploadOutlinedIcon from "@mui/icons-material/DriveFolderUploadOutlined";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import TimerOutlinedIcon from "@mui/icons-material/TimerOutlined";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
@@ -30,7 +33,7 @@ import {
     normalizePatternList, patternBalanced, patternQuestionCount, patternSpread,
     patternTotal, durationLabel,
 } from "./questionPaperApi";
-import { fieldSx, outlineBtnSx, createBtnSx, primaryBtnSx } from "./questionPaperTheme";
+import { fieldSx, outlineBtnSx, createBtnSx, primaryBtnSx, Banner } from "./questionPaperTheme";
 
 const token = "123";
 
@@ -386,7 +389,14 @@ export default function PatternListPage() {
                     </Box>
                 </Box>
 
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 } }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 }, flexWrap: "wrap" }}>
+                    <Button
+                        onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/ai")}
+                        startIcon={<AutoAwesomeOutlinedIcon sx={{ fontSize: 18 }} />}
+                        sx={{ ...outlineBtnSx, height: 38, px: 2, color: DASH.violet, borderColor: "#DDD6FE" }}
+                    >
+                        Find from past papers
+                    </Button>
                     {canCreate && (
                         <Button
                             onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/create")}
@@ -399,6 +409,24 @@ export default function PatternListPage() {
                     )}
                 </Box>
             </Box>
+
+            <Banner
+                tone="info"
+                icon={InfoOutlinedIcon}
+                title="Two ways to get a pattern"
+                right={
+                    <Button
+                        onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/ai")}
+                        startIcon={<DriveFolderUploadOutlinedIcon sx={{ fontSize: 16 }} />}
+                        sx={{ ...outlineBtnSx, whiteSpace: "nowrap" }}
+                    >
+                        Upload past papers
+                    </Button>
+                }
+            >
+                Build one by hand, part by part - or upload a ZIP of past question papers and let the AI work out which
+                question types keep coming back, then use those as the parts.
+            </Banner>
 
             <Box
                 sx={{
