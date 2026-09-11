@@ -104,7 +104,6 @@ import FeaturePermissionsPage from "./Components/AccessControlComps/FeaturePermi
 import ProfileConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/ProfileConfigPage";
 import CommunicationConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/CommunicationConfigPage";
 import AcademicsConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/AcademicsConfigPage";
-import BooksConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/BooksConfigPage";
 import ComplaintsAccessConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/ComplaintsConfigPage";
 import FinanceConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/FinanceConfigPage";
 import LeaveConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/LeaveConfigPage";
@@ -196,6 +195,9 @@ import AllQuestionPapersPage from "./Components/AssessmentComps/QuestionPaperCom
 import PatternListPage from "./Components/AssessmentComps/QuestionPaperComps/PatternListPage";
 import PatternBuilderPage from "./Components/AssessmentComps/QuestionPaperComps/PatternBuilderPage";
 import PatternViewPage from "./Components/AssessmentComps/QuestionPaperComps/PatternViewPage";
+import PatternDiscoveryPage from "./Components/AssessmentComps/QuestionPaperComps/PatternDiscoveryPage";
+import PatternBatchPage from "./Components/AssessmentComps/QuestionPaperComps/PatternBatchPage";
+import DiscoveredPatternsPage from "./Components/AssessmentComps/QuestionPaperComps/DiscoveredPatternsPage";
 import CreateQuestionPaperPage from "./Components/AssessmentComps/QuestionPaperComps/CreateQuestionPaperPage";
 import QuestionPaperPreviewPage from "./Components/AssessmentComps/QuestionPaperComps/QuestionPaperPreviewPage";
 import QuestionPaperApprovalPage from "./Components/AssessmentComps/QuestionPaperComps/QuestionPaperApprovalPage";
@@ -621,7 +623,9 @@ export default function RouterPage() {
                 <Route path="access/config/profile" element={<ProfileConfigPage />} />
                 <Route path="access/config/communication" element={<CommunicationConfigPage />} />
                 <Route path="access/config/academics" element={<AcademicsConfigPage />} />
-                <Route path="access/config/books" element={<BooksConfigPage />} />
+                {/* Books, patterns and the paper builder are configured inside
+                    Academics now - an old bookmark lands there. */}
+                <Route path="access/config/books" element={<Navigate to="/dashboardmenu/access/config/academics" replace />} />
                 <Route path="access/config/complaints" element={<ComplaintsAccessConfigPage />} />
                 <Route path="access/config/finance" element={<FinanceConfigPage />} />
                 <Route path="access/config/leave" element={<LeaveConfigPage />} />
@@ -663,12 +667,25 @@ export default function RouterPage() {
                 <Route path="assessment/question-paper" element={<QuestionPaperDashboard />} />
                 <Route path="assessment/question-paper/all" element={<AllQuestionPapersPage />} />
                 <Route path="assessment/question-paper/create" element={<CreateQuestionPaperPage />} />
+                {/* Reopening a saved draft. currentStep decides which step it lands on. */}
+                <Route path="assessment/question-paper/create/:paperId" element={<CreateQuestionPaperPage />} />
                 <Route path="assessment/question-paper/bank" element={<QuestionBankPage />} />
                 <Route path="assessment/question-paper/blocks-demo" element={<QuestionBlocksDemoPage />} />
                 {/* questionpapergeneration > pattern. Each route asks for the operation it
                     performs, so a deep link cannot reach a screen the buttons would hide. */}
                 <Route path="assessment/question-paper/patterns" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["view", "create", "edit", "delete"]}><PatternListPage /></RequirePermission>} />
                 <Route path="assessment/question-paper/patterns/create" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["create"]}><PatternBuilderPage /></RequirePermission>} />
+                {/* patterndiscovery. A static segment always outranks the :patternId
+                    route below it, so /patterns/ai never resolves as a pattern id.
+                    Deliberately not wrapped in RequirePermission: no login payload
+                    carries a "patterndiscovery" menu yet, and that guard refuses
+                    anything it cannot find, which would hide the screens from
+                    everyone. The pages themselves already read the permissions and
+                    hide the buttons a user does not hold. Wrap these once RBAC
+                    seeds the menu. */}
+                <Route path="assessment/question-paper/patterns/ai" element={<PatternDiscoveryPage />} />
+                <Route path="assessment/question-paper/patterns/ai/review" element={<DiscoveredPatternsPage />} />
+                <Route path="assessment/question-paper/patterns/ai/:batchId" element={<PatternBatchPage />} />
                 <Route path="assessment/question-paper/patterns/view/:patternId" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["view"]}><PatternViewPage /></RequirePermission>} />
                 <Route path="assessment/question-paper/patterns/:patternId" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["edit"]}><PatternBuilderPage /></RequirePermission>} />
                 {/* Question paper approvals live in the Approvals module now - the old path is a shortcut. */}

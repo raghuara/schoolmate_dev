@@ -23,10 +23,13 @@ import Loader from "../../Loader";
 import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
-import { MOCK_PAPERS, PAPER_STATUSES, fmtDate, parseApiDate } from "./questionPaperApi";
-import { StatusPill, Pill, fieldSx, outlineBtnSx, createBtnSx, primaryBtnSx } from "./questionPaperTheme";
+import axios from "axios";
+import { ListQuestionPapers } from "../../../Api/Api";
+import { apiFailed } from "../../AcademicsComps/BooksChaptersComps/bookApi";
+import { PAPER_STATUSES, fmtDate, normalizePaperList, parseApiDate } from "./questionPaperApi";
+import { StatusPill, Pill, fieldSx, outlineBtnSx, createBtnSx } from "./questionPaperTheme";
 
-const STATUS_TABS = ["All", ...PAPER_STATUSES];
+const STATUS_TABS = ["All", "Draft", ...PAPER_STATUSES];
 const PER_PAGE = 9;
 
 const SORT_OPTIONS = [
@@ -169,7 +172,11 @@ export default function AllQuestionPapersPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const academicYear = useSelector(selectAcademicYear);
-    const gradeOptions = useSelector(selectGrades) || [];
+    const gradeList = useSelector(selectGrades);
+    const gradeOptions = useMemo(() => gradeList || [], [gradeList]);
+
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user?.rollNumber;
 
     const [papers, setPapers] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -186,16 +193,23 @@ export default function AllQuestionPapersPage() {
     const [page, setPage] = useState(1);
 
 
-    /* Mock source. Replace with axios.get(GetAllQuestionPapers, {
-       params: { academicYear, gradeId } }) + normalizePaperList. */
     const load = useCallback(() => {
         setIsLoading(true);
-        const timer = setTimeout(() => {
-            setPapers(MOCK_PAPERS);
-            setIsLoading(false);
-        }, 350);
-        return () => clearTimeout(timer);
-    }, []);
+        axios
+            .get(ListQuestionPapers, {
+                params: {
+                    academicYear: academicYear || undefined,
+                    requestedByRollNumber: rollNumber,
+                },
+                headers: { Authorization: "Bearer 123" },
+            })
+            .then((res) => {
+                if (apiFailed(res.data)) { setPapers([]); return; }
+                setPapers(normalizePaperList(res.data, gradeOptions));
+            })
+            .catch(() => setPapers([]))
+            .finally(() => setIsLoading(false));
+    }, [academicYear, rollNumber, gradeOptions]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -245,8 +259,14 @@ export default function AllQuestionPapersPage() {
         setSearch(""); setGradeFilter("all"); setSubjectFilter("all"); setPage(1);
     };
 
-    const openPaper = (paper) =>
+    const openPaper = (paper) => {
+        const unfinished = paper.status === "Draft" || (paper.currentStep > 0 && paper.currentStep < 6);
+        if (unfinished) {
+            navigate(`/dashboardmenu/assessment/question-paper/create/${paper.id}`, { state: { paperId: paper.id } });
+            return;
+        }
         navigate(`/dashboardmenu/assessment/question-paper/${paper.id}`, { state: { paper } });
+    };
 
     const clonePaper = (paper) =>
         navigate("/dashboardmenu/assessment/question-paper/create", { state: { clonePaper: paper } });

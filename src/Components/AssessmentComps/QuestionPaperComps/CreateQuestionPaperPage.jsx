@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Typography, Button, IconButton, LinearProgress } from "@mui/material";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
+import axios from "axios";
 import html2pdf from "html2pdf.js";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -14,25 +15,32 @@ import PaletteOutlinedIcon from "@mui/icons-material/PaletteOutlined";
 import RocketLaunchOutlinedIcon from "@mui/icons-material/RocketLaunchOutlined";
 import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
 import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 
 import SnackBar from "../../SnackBar";
 import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 import { selectAcademicYear, selectAcademicYearOptions } from "../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
-import axios from "axios";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import { useGradeSubjects, gradeSign } from "../../AcademicsComps/academicMeta";
-import { ListBooks, GetBookStatus, ListPatterns } from "../../../Api/Api";
 import {
-    apiFailed, normalizeBookList, normalizeBookResponse,
-} from "../../AcademicsComps/BooksChaptersComps/bookApi";
+    CreateQuestionPaper, UpdateQuestionPaperBasicDetails, GetQuestionPaper,
+    GetEligibleBooksForPaper, UpdateQuestionPaperChapters,
+    GetEligiblePatternsForPaper, SelectQuestionPaperPattern, GetPattern,
+    StartQuestionGeneration, GetGeneratedQuestions, UpdateGeneratedQuestion,
+    RegenerateQuestion, ConfirmQuestions,
+} from "../../../Api/Api";
+import { apiFailed } from "../../AcademicsComps/BooksChaptersComps/bookApi";
 import {
-    MOCK_QUESTION_BANK, analyseDuplicates, blankQuestion, buildMockQuestions, normalizePatternList,
-    patternTotal, sectionMarks, typeMeta, withSectionDefaults,
+    analyseDuplicates, patternFromApi, patternTotal, sectionMarks, withSectionDefaults,
 } from "./questionPaperApi";
+import {
+    normalizePaperDetail, normalizeEligibleBooks, normalizeEligiblePatterns,
+    normalizeGeneratedPaper, questionToApi, generationHint, isGenerating,
+    GENERATION_POLL_MS,
+} from "./paperWizardApi";
 import PaperDocument, { printPaperNode, padToWholePages, paperColorHex, DEFAULT_PAPER_COLOR } from "./paperTemplates";
-import QuestionBankDialog from "./QuestionBankDialog";
-import { WizardHeader, WizardFooter, Pill, outlineBtnSx, primaryBtnSx } from "./questionPaperTheme";
+import { WizardHeader, WizardFooter, Pill, outlineBtnSx, primaryBtnSx, Banner } from "./questionPaperTheme";
 
 import BasicDetailsStep from "./WizardSteps/BasicDetailsStep";
 import ChaptersStep from "./WizardSteps/ChaptersStep";
@@ -40,6 +48,8 @@ import PatternStep from "./WizardSteps/PatternStep";
 import QuestionsStep from "./WizardSteps/QuestionsStep";
 import TemplateStep from "./WizardSteps/TemplateStep";
 import PublishStep from "./WizardSteps/PublishStep";
+
+const token = "123";
 
 const WIZARD_STEPS = [
     { label: "Basic Details", icon: TuneOutlinedIcon },
@@ -52,12 +62,15 @@ const WIZARD_STEPS = [
 
 const APPROVERS = ["Principal", "Vice Principal", "Academic Coordinator", "HOD - Science", "HOD - Languages", "HOD - Mathematics"];
 
-const GENERATE_STEPS = [
-    "Reading the selected chapters",
-    "Matching them to the pattern sections",
-    "Drafting questions and answers",
-    "Checking for repeated questions",
-];
+/* The Question Bank is not part of this flow yet - the endpoints behind it do
+   not exist - so every entry point to it is off rather than half-wired. */
+const SHOW_QUESTION_BANK = false;
+
+/* Every mandatory-field check is behind this one flag while the API is being
+   wired end to end. The rules themselves are untouched; set it to true to turn
+   them back on. Server-side validation still applies either way - a rejected
+   save shows the API's own message. */
+const ENFORCE_REQUIRED = false;
 
 const emptyForm = {
     name: "",
@@ -70,127 +83,118 @@ const emptyForm = {
     durationMinutes: 90,
     totalMarks: 50,
     medium: "English",
-    paperCode: "01",
+    paperCode: "",
     notes: "",
 };
 
-const GeneratingView = ({ stepIndex }) => (
-    <Box sx={{ bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS, p: { xs: 3, md: 6 }, textAlign: "center" }}>
-        <Box
-            sx={{
-                width: 62, height: 62, borderRadius: "50%", mx: "auto",
-                bgcolor: DASH.violetLight, border: `1px solid #DDD6FE`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-        >
-            <AutoAwesomeOutlinedIcon sx={{ fontSize: 28, color: DASH.violet }} />
-        </Box>
-        <Typography sx={{ fontSize: "17px", fontWeight: 700, color: DASH.ink, mt: 1.6 }}>
-            Building your question paper
-        </Typography>
-        <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.4 }}>
-            You can edit, reorder or replace every question on the next step.
-        </Typography>
+/* What the paper is waiting on while the background job writes it. There is no
+   ETA to give - the job takes one pattern part per run - so the screen reports
+   the parts that are actually finished instead of guessing. */
+const GeneratingView = ({ status, sectionsDone, sectionsTotal, failure, onRetry }) => {
+    const failed = status === "Failed";
 
-        <Box sx={{ maxWidth: 420, mx: "auto", mt: 3, textAlign: "left" }}>
-            {GENERATE_STEPS.map((label, i) => {
-                const done = i < stepIndex;
-                const active = i === stepIndex;
-                return (
-                    <Box key={label} sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.6 }}>
-                        <Box
-                            sx={{
-                                width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                bgcolor: done ? DASH.green : active ? DASH.violet : "#fff",
-                                border: `2px solid ${done ? DASH.green : active ? DASH.violet : DASH.line}`,
-                            }}
-                        >
-                            {done
-                                ? <CheckCircleIcon sx={{ fontSize: 13, color: "#fff" }} />
-                                : <Typography sx={{ fontSize: "10px", fontWeight: 800, color: active ? "#fff" : DASH.faint }}>{i + 1}</Typography>}
-                        </Box>
-                        <Typography sx={{ fontSize: "12.5px", fontWeight: active || done ? 700 : 500, color: active || done ? DASH.ink : DASH.faint }}>
-                            {label}
+    return (
+        <Box sx={{ bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS, p: { xs: 3, md: 6 }, textAlign: "center" }}>
+            <Box
+                sx={{
+                    width: 62, height: 62, borderRadius: "50%", mx: "auto",
+                    bgcolor: failed ? DASH.redLight : DASH.violetLight,
+                    border: `1px solid ${failed ? "#FECACA" : "#DDD6FE"}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+            >
+                {failed
+                    ? <ErrorOutlineIcon sx={{ fontSize: 28, color: DASH.red }} />
+                    : <AutoAwesomeOutlinedIcon sx={{ fontSize: 28, color: DASH.violet }} />}
+            </Box>
+
+            <Typography sx={{ fontSize: "17px", fontWeight: 700, color: DASH.ink, mt: 1.6 }}>
+                {failed ? "The questions could not be written" : "Writing your question paper"}
+            </Typography>
+            <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6, maxWidth: 460, mx: "auto", lineHeight: 1.8 }}>
+                {failed
+                    ? (failure || "No reason was given. Try generating them again.")
+                    : generationHint(status, sectionsDone, sectionsTotal)}
+            </Typography>
+
+            {!failed && (
+                <>
+                    {sectionsTotal > 0 && (
+                        <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.violet, mt: 2 }}>
+                            {sectionsDone} of {sectionsTotal} parts done
                         </Typography>
-                    </Box>
-                );
-            })}
+                    )}
+                    <LinearProgress
+                        variant={sectionsTotal > 0 ? "determinate" : "indeterminate"}
+                        value={sectionsTotal > 0 ? Math.round((sectionsDone / sectionsTotal) * 100) : 0}
+                        sx={{
+                            mt: 1.4, height: 5, borderRadius: RADIUS, bgcolor: DASH.lineSoft, maxWidth: 420, mx: "auto",
+                            "& .MuiLinearProgress-bar": { bgcolor: DASH.violet },
+                        }}
+                    />
+                    <Typography sx={{ fontSize: "11.5px", color: DASH.faint, mt: 1.6, maxWidth: 460, mx: "auto", lineHeight: 1.8 }}>
+                        One part is written at a time and each run is a couple of minutes apart, so a long paper takes a
+                        while. You can leave this page - the paper keeps building and picks up where it left off.
+                    </Typography>
+                </>
+            )}
+
+            {failed && (
+                <Button onClick={onRetry} sx={{ ...primaryBtnSx, mt: 2.4 }}>Try again</Button>
+            )}
         </Box>
-
-        <LinearProgress
-            sx={{
-                mt: 2, height: 5, borderRadius: RADIUS, bgcolor: DASH.lineSoft, maxWidth: 420, mx: "auto",
-                "& .MuiLinearProgress-bar": { bgcolor: DASH.violet },
-            }}
-        />
-    </Box>
-);
-
-const token = "123";
-
-/* Every mandatory-field check in the wizard is behind this one flag. It is off
-   while the API is being wired: the flow has to be walkable end to end so the
-   backend side can reach Approve & Publish and mint the key. Set it to true to
-   turn the checks back on - the rules themselves are untouched. */
-const ENFORCE_REQUIRED = false;
+    );
+};
 
 export default function CreateQuestionPaperPage() {
     const navigate = useNavigate();
     const location = useLocation();
+    const params = useParams();
     const academicYear = useSelector(selectAcademicYear);
     const yearOptions = useSelector(selectAcademicYearOptions) || [];
     const websiteSettings = useSelector(selectWebsiteSettings);
     const { grades, subjectsForGrade, sectionsForGrade } = useGradeSubjects();
 
-    const presetBook = location.state?.presetBook;
-    const presetPattern = location.state?.presetPattern;
-    const clonePaper = location.state?.clonePaper;
-
     const user = useSelector((state) => state.auth);
     const rollNumber = user?.rollNumber;
 
-    const [libraryBooks, setLibraryBooks] = useState([]);
-    const [patterns, setPatterns] = useState([]);
-    const [patternsLoading, setPatternsLoading] = useState(false);
-    const [booksLoading, setBooksLoading] = useState(false);
-    const [chaptersLoading, setChaptersLoading] = useState(false);
+    /* questionpapergeneration > paper. Only an explicit "N" refuses, so a session
+       whose stored payload predates the submenu is not locked out. */
+    const paperPerms = findSubMenuPermissions(user?.permissions, "questionpapergeneration", "paper");
+    const mayPaper = (key) => !paperPerms || paperPerms[key] === "Y";
+    const canRegenerate = mayPaper("allowregeneratequestion");
 
+    const resumeId = params.paperId || location.state?.paperId || null;
+
+    const [paperId, setPaperId] = useState(resumeId);
     const [step, setStep] = useState(0);
-    const [form, setForm] = useState(() => ({
-        ...emptyForm,
-        academicYear: academicYear || "",
-        gradeId: presetBook?.gradeId || clonePaper?.gradeId || "",
-        subject: presetBook?.subject || clonePaper?.subject || "",
-        name: clonePaper ? `${clonePaper.name} (Copy)` : "",
-        examName: clonePaper?.examName || "",
-        totalMarks: clonePaper?.totalMarks || presetPattern?.totalMarks || 50,
-        durationMinutes: clonePaper?.durationMinutes || presetPattern?.durationMinutes || 90,
-    }));
-    const [errors, setErrors] = useState({});
+    const [saving, setSaving] = useState(false);
+    const [resuming, setResuming] = useState(Boolean(resumeId));
 
-    const [bookId, setBookId] = useState(presetBook?.id || "");
+    const [form, setForm] = useState(() => ({ ...emptyForm, academicYear: academicYear || "" }));
+    const [errors, setErrors] = useState({});
+    const [school, setSchool] = useState({ name: websiteSettings?.title || "", logo: "", address: "" });
+
+    const [books, setBooks] = useState([]);
+    const [booksLoading, setBooksLoading] = useState(false);
+    const [booksMessage, setBooksMessage] = useState("");
+    const [bookId, setBookId] = useState("");
     const [selectedChapterIds, setSelectedChapterIds] = useState([]);
     const [weightage, setWeightage] = useState({});
 
-    // Older saved patterns are topped up with the fields added since.
-    const hydratePattern = (source) => (source
-        ? { ...source, sections: (source.sections || []).map(withSectionDefaults) }
-        : null);
-    const [pattern, setPattern] = useState(() => hydratePattern(presetPattern));
-    const [questions, setQuestions] = useState([]);
-    const [generating, setGenerating] = useState(false);
-    const [generateStep, setGenerateStep] = useState(0);
+    const [patterns, setPatterns] = useState([]);
+    const [patternsLoading, setPatternsLoading] = useState(false);
+    const [patternsMessage, setPatternsMessage] = useState("");
+    const [pattern, setPattern] = useState(null);
 
-    const [templateId, setTemplateId] = useState(clonePaper?.templateId || "cbse");
+    const [genStatus, setGenStatus] = useState("");
+    const [genFailure, setGenFailure] = useState("");
+    const [genPattern, setGenPattern] = useState(null);
+    const [questions, setQuestions] = useState([]);
+
+    const [templateId, setTemplateId] = useState("cbse");
     const [showAnswers, setShowAnswers] = useState(false);
     const [zoom, setZoom] = useState(0.8);
-
-    // Section the bank dialog is adding into; null keeps it closed.
-    const [bankSection, setBankSection] = useState(null);
-    /* The question a bank pick should overwrite. Set from the row's bank button;
-       null means the dialog is in its normal "append to the section" mode. */
-    const [bankTarget, setBankTarget] = useState(null);
 
     const [approver, setApprover] = useState(APPROVERS[0]);
     const [approvalNote, setApprovalNote] = useState("");
@@ -201,184 +205,213 @@ export default function CreateQuestionPaperPage() {
     const [message, setMessage] = useState("");
 
     const printRef = useRef(null);
+    const pollRef = useRef(null);
+    const saveTimers = useRef({});
     const timers = useRef([]);
 
     const notify = (msg, ok = false) => {
         setMessage(msg); setColor(ok); setStatus(ok); setOpen(true);
     };
 
+    useEffect(() => () => {
+        timers.current.forEach(clearTimeout);
+        Object.values(saveTimers.current).forEach(clearTimeout);
+        clearInterval(pollRef.current);
+    }, []);
+
     useEffect(() => {
         if (academicYear && !form.academicYear) setForm((p) => ({ ...p, academicYear }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [academicYear]);
-
-    useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
     const setField = (key, value) => {
         setForm((prev) => ({ ...prev, [key]: value }));
         setErrors((prev) => ({ ...prev, [key]: "" }));
     };
 
-    /* Books come from Books & Chapters. Everything the library holds for this
-       class and subject, whatever state it is in. */
-    const matchingBooks = useMemo(() => {
-        const pool = presetBook
-            ? [presetBook, ...libraryBooks.filter((b) => String(b.id) !== String(presetBook.id))]
-            : libraryBooks;
-        /* Matched on the class SIGN, not gradeId: listBooks answers with
-           grade: "V" and carries no gradeId, so comparing ids dropped every
-           real book. */
-        const wantSign = String(gradeSign(grades, form.gradeId) || "").trim().toLowerCase();
-        const wantSubject = String(form.subject || "").trim().toLowerCase();
-
-        return pool.filter((b) => {
-            const gradeOk = !wantSign
-                || String(b.grade || "").trim().toLowerCase() === wantSign
-                || String(b.gradeId || "") === String(form.gradeId);
-
-            /* Compared against the book's stored subject, which is now always one
-               of the school's own subject names - the upload screen refuses to
-               store anything else. A book saved before that rule (subject read off
-               the cover as "கணக்கு") will not match; correcting its subject in
-               Books & Chapters is what brings it back. */
-            const subjectOk = !wantSubject
-                || String(b.subject || "").trim().toLowerCase() === wantSubject;
-
-            return gradeOk && subjectOk;
-        });
-    }, [presetBook, libraryBooks, grades, form.gradeId, form.subject]);
-
-    /* A book is usable here once it has a detected chapter split. Confirming is
-       the rule - an unreviewed split can be wrong - but it is held behind the
-       same flag as the rest while the API is being wired, so an unconfirmed book
-       can still be picked from and the step is not a dead end. Duplicates and
-       books still being read never qualify: they have no chapters at all. */
-    const books = useMemo(() => matchingBooks.filter((b) => (
-        ENFORCE_REQUIRED
-            ? b.status === "Ready"
-            : (b.status === "Ready" || b.status === "Needs Review")
-    )), [matchingBooks]);
-
-    /* The rest are still shown on the step. A book that is in the library but
-       not confirmed is a different problem from no book at all, and the teacher
-       can fix it in one click instead of being sent to upload a duplicate. */
-    /* Everything the class has, whatever its subject or state. The step lists
-       these when nothing is usable, so "no book" is never claimed while the
-       library plainly holds one - it is normally a subject that was stored in
-       the book's own language and never mapped. */
-    const classBooks = useMemo(() => {
-        const wantSign = String(gradeSign(grades, form.gradeId) || "").trim().toLowerCase();
-        if (!wantSign) return libraryBooks;
-        return libraryBooks.filter((b) => (
-            String(b.grade || "").trim().toLowerCase() === wantSign
-            || String(b.gradeId || "") === String(form.gradeId)
-        ));
-    }, [libraryBooks, grades, form.gradeId]);
-
-    const pendingBooks = useMemo(
-        () => classBooks.filter((b) => !books.some((u) => String(u.id) === String(b.id))),
-        [classBooks, books]
+    const gradeIdOf = useCallback(
+        (sign) => grades.find((g) => String(g.sign) === String(sign))?.id || "",
+        [grades]
     );
 
-    const activeBook = useMemo(
-        () => books.find((b) => String(b.id) === String(bookId)) || books[0] || null,
-        [books, bookId]
-    );
-
-    const selectedChapters = useMemo(
-        () => (activeBook?.chapters || []).filter((c) => selectedChapterIds.includes(c.id)),
-        [activeBook, selectedChapterIds]
-    );
-
-
-    /* Books come from the library itself, not from a local list: the wizard can
-       only build on a confirmed chapter split, and that lives on the server. */
+    /* Reopening a saved paper. currentStep says where it was left, so the wizard
+       lands there instead of at the beginning. */
     useEffect(() => {
-        if (!form.academicYear) { setLibraryBooks([]); return undefined; }
-
-        let cancelled = false;
-        setBooksLoading(true);
+        if (!resumeId) return;
+        setResuming(true);
         axios
-            .get(ListBooks, {
-                params: {
-                    academicYear: form.academicYear,
-                    grade: gradeSign(grades, form.gradeId) || undefined,
-                    requestedByRollNumber: rollNumber,
-                },
+            .get(GetQuestionPaper, {
+                params: { questionPaperId: resumeId, requestedByRollNumber: rollNumber },
                 headers: { Authorization: `Bearer ${token}` },
             })
             .then((res) => {
-                if (cancelled || apiFailed(res.data)) return;
-                setLibraryBooks(normalizeBookList(res.data, grades));
+                if (apiFailed(res.data)) { notify("That paper could not be opened"); return; }
+                const paper = normalizePaperDetail(res.data);
+                setPaperId(paper.id);
+                setForm((prev) => ({
+                    ...prev,
+                    name: paper.paperName,
+                    gradeId: gradeIdOf(paper.grade) || prev.gradeId,
+                    sections: paper.sections,
+                    subject: paper.subject,
+                    academicYear: paper.academicYear || prev.academicYear,
+                    examDate: (paper.examDate || "").slice(0, 10),
+                    medium: paper.medium || prev.medium,
+                    paperCode: paper.qpCode,
+                    notes: paper.notes,
+                    totalMarks: paper.totalMarks || prev.totalMarks,
+                    durationMinutes: paper.durationMinutes || prev.durationMinutes,
+                }));
+                if (paper.schoolName) setSchool({ name: paper.schoolName, logo: paper.schoolLogo, address: "" });
+                setStep(Math.min(Math.max((paper.currentStep || 1) - 1, 0), WIZARD_STEPS.length - 1));
             })
-            .catch(() => { if (!cancelled) setLibraryBooks([]); })
-            .finally(() => { if (!cancelled) setBooksLoading(false); });
-
-        return () => { cancelled = true; };
+            .catch(() => notify("That paper could not be opened"))
+            .finally(() => setResuming(false));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [form.academicYear, form.gradeId, rollNumber]);
+    }, [resumeId, rollNumber, gradeIdOf]);
 
-    // The first usable book is chosen for the teacher rather than left blank.
+    /* Only Confirmed books whose class and subject match the paper come back,
+       and each chapter says whether it is already chosen - so the same call
+       serves the first visit and every trip back. */
+    const loadBooks = useCallback(() => {
+        if (!paperId) return;
+        setBooksLoading(true);
+        setBooksMessage("");
+        axios
+            .get(GetEligibleBooksForPaper, {
+                params: { questionPaperId: paperId, requestedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { setBooks([]); setBooksMessage(rejected); return; }
+                const list = normalizeEligibleBooks(res.data);
+                setBooks(list);
+
+                const already = [];
+                const shares = {};
+                list.forEach((book) => book.chapters.forEach((chapter) => {
+                    if (!chapter.selected) return;
+                    already.push(chapter.id);
+                    shares[chapter.id] = chapter.weightage;
+                }));
+                if (already.length) {
+                    setSelectedChapterIds(already);
+                    setWeightage(shares);
+                    const owner = list.find((b) => b.chapters.some((c) => already.includes(c.id)));
+                    if (owner) setBookId(owner.id);
+                }
+            })
+            .catch((error) => {
+                setBooks([]);
+                setBooksMessage(
+                    error?.response?.data?.message
+                    || "No confirmed book matches this class and subject yet. Upload one in Books & Chapters first."
+                );
+            })
+            .finally(() => setBooksLoading(false));
+    }, [paperId, rollNumber]);
+
+    useEffect(() => { if (step === 1) loadBooks(); }, [step, loadBooks]);
+
     useEffect(() => {
         if (bookId && books.some((b) => String(b.id) === String(bookId))) return;
         setBookId(books[0]?.id || "");
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [books]);
 
-    /* listBooks carries no chapters, so the chosen book is read once in full.
-       Fetched per book and kept, so switching back and forth is instant. */
-    useEffect(() => {
-        if (!bookId) return undefined;
-        const current = libraryBooks.find((b) => String(b.id) === String(bookId));
-        if (!current || current.chapters?.length) return undefined;
+    const activeBook = useMemo(
+        () => books.find((b) => String(b.id) === String(bookId)) || books[0] || null,
+        [books, bookId]
+    );
 
-        let cancelled = false;
-        setChaptersLoading(true);
-        axios
-            .get(GetBookStatus, {
-                params: { bookId, requestedByRollNumber: rollNumber },
-                headers: { Authorization: `Bearer ${token}` },
-            })
-            .then((res) => {
-                if (cancelled || apiFailed(res.data)) return;
-                const full = normalizeBookResponse(res.data, grades);
-                setLibraryBooks((prev) => prev.map((b) => (
-                    String(b.id) === String(bookId) ? { ...b, chapters: full.chapters } : b
-                )));
-            })
-            .catch(() => {})
-            .finally(() => { if (!cancelled) setChaptersLoading(false); });
+    const selectedChapters = useMemo(() => {
+        const all = books.flatMap((b) => b.chapters);
+        return all.filter((c) => selectedChapterIds.includes(c.id));
+    }, [books, selectedChapterIds]);
 
-        return () => { cancelled = true; };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [bookId, libraryBooks.length, rollNumber]);
-
-    // A different book means a different chapter list; the old picks cannot stand.
-    useEffect(() => { setSelectedChapterIds([]); setWeightage({}); }, [bookId]);
-
-
-    /* Patterns are scoped to grade + subject and reused every year, so the step
-       reads whatever the school has for this class rather than a fixed list. */
-    useEffect(() => {
+    /* Patterns are scoped to this paper's class and subject - there is no way to
+       browse another class's. The list carries counts only, so each one is read
+       in full to draw its sections on the card. */
+    const loadPatterns = useCallback(() => {
+        if (!paperId) return;
         setPatternsLoading(true);
+        setPatternsMessage("");
         axios
-            .get(ListPatterns, {
-                params: {
-                    grade: gradeSign(grades, form.gradeId) || undefined,
-                    requestedByRollNumber: rollNumber,
-                },
+            .get(GetEligiblePatternsForPaper, {
+                params: { questionPaperId: paperId, requestedByRollNumber: rollNumber },
                 headers: { Authorization: `Bearer ${token}` },
             })
             .then((res) => {
-                if (apiFailed(res.data)) { setPatterns([]); return; }
-                setPatterns(normalizePatternList(res.data, {
-                    gradeIdOf: (sign) => grades.find((g) => String(g.sign) === String(sign))?.id || "",
-                }));
+                const rejected = apiFailed(res.data);
+                if (rejected) { setPatterns([]); setPatternsMessage(rejected); return null; }
+
+                const rows = normalizeEligiblePatterns(res.data);
+                if (!rows.length) { setPatterns([]); return null; }
+
+                return Promise.all(rows.map((row) => axios
+                    .get(GetPattern, {
+                        params: { patternId: row.id, requestedByRollNumber: rollNumber },
+                        headers: { Authorization: `Bearer ${token}` },
+                    })
+                    .then((detail) => (apiFailed(detail.data)
+                        ? { ...row, gradeIds: [], sections: [] }
+                        : patternFromApi(detail.data, { gradeIdOf })))
+                    .catch(() => ({ ...row, gradeIds: [], sections: [] }))))
+                    .then((full) => setPatterns(full));
             })
-            .catch(() => setPatterns([]))
+            .catch((error) => {
+                setPatterns([]);
+                setPatternsMessage(
+                    error?.response?.data?.message
+                    || "No pattern exists for this class and subject yet. Build one first."
+                );
+            })
             .finally(() => setPatternsLoading(false));
+    }, [paperId, rollNumber, gradeIdOf]);
+
+    useEffect(() => { if (step === 2) loadPatterns(); }, [step, loadPatterns]);
+
+    /* Step 4 polls. The job writes one pattern part per run, so the sections
+       arrive gradually rather than all at once. */
+    const loadQuestions = useCallback((quiet = false) => {
+        if (!paperId) return;
+        axios
+            .get(GetGeneratedQuestions, {
+                params: { questionPaperId: paperId, requestedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                if (apiFailed(res.data)) return;
+                const parsed = normalizeGeneratedPaper(res.data);
+                setGenStatus(parsed.status);
+                setGenFailure(parsed.failureReason);
+                setGenPattern({
+                    id: paperId,
+                    name: form.name,
+                    subject: form.subject,
+                    durationMinutes: form.durationMinutes,
+                    sections: parsed.sections.map(withSectionDefaults),
+                });
+                setQuestions(parsed.questions);
+            })
+            .catch(() => { if (!quiet) notify("The questions could not be loaded"); });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [form.gradeId, grades, rollNumber]);
+    }, [paperId, rollNumber, form.name, form.subject, form.durationMinutes]);
+
+    useEffect(() => { if (step === 3) loadQuestions(); }, [step, loadQuestions]);
+
+    useEffect(() => {
+        if (step !== 3 || !isGenerating(genStatus)) return undefined;
+        pollRef.current = setInterval(() => loadQuestions(true), GENERATION_POLL_MS);
+        return () => clearInterval(pollRef.current);
+    }, [step, genStatus, loadQuestions]);
+
+    const sectionsWithQuestions = useMemo(() => {
+        const filled = new Set(questions.map((q) => q.sectionId));
+        return (genPattern?.sections || []).filter((s) => filled.has(s.id)).length;
+    }, [questions, genPattern]);
+
     const duplicates = useMemo(() => analyseDuplicates(questions), [questions]);
 
     const paperMeta = useMemo(() => ({
@@ -398,15 +431,12 @@ export default function CreateQuestionPaperPage() {
         setWeightage(next);
     };
 
-    /* The sliders hand out shares of one paper, so the shares have to total 100.
-       Setting one to 64% therefore leaves 36% for everyone else, split in the
-       proportions they already had - dragging a chapter up visibly pulls the
-       others down instead of letting the total climb to 160%.
-
-       The last chapter takes the rounding remainder, so the total lands on exactly
-       100 rather than 99 or 101 after the floors. */
+    /* The shares hand out one paper between chapters, so they always total 100 -
+       the server rejects anything else. Pushing one up therefore pulls the rest
+       down in the proportions they already had, and the last one takes the
+       rounding remainder so the total lands on exactly 100. */
     const setChapterWeight = (id, value) => {
-        const target = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+        const target = Math.max(1, Math.min(100, Math.round(Number(value) || 0)));
         const others = selectedChapterIds.filter((x) => x !== id);
         if (!others.length) { setWeightage({ [id]: 100 }); return; }
 
@@ -416,12 +446,7 @@ export default function CreateQuestionPaperPage() {
             const next = { [id]: target };
             let handed = 0;
             others.forEach((x, i) => {
-                if (i === others.length - 1) {
-                    next[x] = Math.max(0, rest - handed);
-                    return;
-                }
-                // keep their relative sizes; fall back to an even split when the
-                // others are all on zero and there is no ratio to preserve
+                if (i === others.length - 1) { next[x] = Math.max(0, rest - handed); return; }
                 const share = othersTotal > 0
                     ? Math.floor(rest * ((Number(prev[x]) || 0) / othersTotal))
                     : Math.floor(rest / others.length);
@@ -448,19 +473,17 @@ export default function CreateQuestionPaperPage() {
 
     const clearChapters = () => { setSelectedChapterIds([]); setWeightage({}); };
 
-    /* Replace with POST qpaper/generateQuestions { chapters, pattern, weightage }. */
-    const generateQuestions = (chosenPattern) => {
-        setGenerating(true);
-        setGenerateStep(0);
-        GENERATE_STEPS.forEach((_, i) => {
-            timers.current.push(setTimeout(() => setGenerateStep(i), i * 750));
-        });
-        timers.current.push(setTimeout(() => {
-            setQuestions(buildMockQuestions(chosenPattern, selectedChapters));
-            setGenerating(false);
-            setStep(3);
-        }, GENERATE_STEPS.length * 750 + 500));
-    };
+    const basicsBody = () => ({
+        grade: gradeSign(grades, form.gradeId) || "",
+        sections: form.sections || [],
+        subject: form.subject || "",
+        academicYear: form.academicYear || undefined,
+        paperName: form.name || "",
+        examDate: form.examDate || null,
+        medium: form.medium || "English",
+        qpCode: (form.paperCode || "").slice(0, 6),
+        notes: form.notes || "",
+    });
 
     const validateBasics = () => {
         const next = {};
@@ -472,39 +495,211 @@ export default function CreateQuestionPaperPage() {
         return Object.keys(next).length === 0;
     };
 
+    const saveBasics = () => {
+        if (ENFORCE_REQUIRED && !validateBasics()) { notify("Fill the highlighted fields"); return; }
+
+        setSaving(true);
+        const request = paperId
+            ? axios.put(
+                UpdateQuestionPaperBasicDetails,
+                { questionPaperId: paperId, ...basicsBody(), updatedByRollNumber: rollNumber },
+                { headers: { Authorization: `Bearer ${token}` } }
+            )
+            : axios.post(
+                CreateQuestionPaper,
+                { ...basicsBody(), createdByRollNumber: rollNumber },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+        request
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+                const id = res.data?.questionPaperId || res.data?.QuestionPaperId || paperId;
+                setPaperId(id);
+                setStep(1);
+            })
+            .catch((error) => notify(error?.response?.data?.message || "The details could not be saved"))
+            .finally(() => setSaving(false));
+    };
+
+    const saveChapters = () => {
+        if (!selectedChapterIds.length) { notify("Pick at least one chapter"); return; }
+
+        const shares = selectedChapterIds.map((id) => Number(weightage[id]) || 0);
+        if (shares.some((w) => w <= 0)) {
+            notify("Every chosen chapter needs a share above 0 - use Balance to split them evenly");
+            return;
+        }
+        const total = shares.reduce((sum, w) => sum + w, 0);
+        if (Math.abs(total - 100) > 0.01) {
+            notify(`The shares add up to ${total}%, not 100% - use Balance to fix them`);
+            return;
+        }
+
+        setSaving(true);
+        axios
+            .put(
+                UpdateQuestionPaperChapters,
+                {
+                    questionPaperId: paperId,
+                    chapters: selectedChapterIds.map((id) => ({ chapterId: id, weightage: Number(weightage[id]) })),
+                    updatedByRollNumber: rollNumber,
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            )
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+                setStep(2);
+            })
+            .catch((error) => notify(error?.response?.data?.message || "The chapters could not be saved"))
+            .finally(() => setSaving(false));
+    };
+
+    /* Picking the pattern and starting the job are one action for the teacher,
+       so the two calls are chained rather than split across two buttons. */
+    const savePatternAndGenerate = () => {
+        if (!pattern) { notify("Pick a pattern to continue"); return; }
+
+        setSaving(true);
+        axios
+            .put(
+                SelectQuestionPaperPattern,
+                { questionPaperId: paperId, patternId: pattern.id, updatedByRollNumber: rollNumber },
+                { headers: { Authorization: `Bearer ${token}` } }
+            )
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return null; }
+
+                setForm((prev) => ({
+                    ...prev,
+                    totalMarks: res.data?.totalMarks || patternTotal(pattern) || prev.totalMarks,
+                    durationMinutes: res.data?.durationMinutes || pattern.durationMinutes || prev.durationMinutes,
+                }));
+
+                return axios.post(
+                    StartQuestionGeneration,
+                    { questionPaperId: paperId, startedByRollNumber: rollNumber },
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+            })
+            .then((res) => {
+                if (!res) return;
+                /* Already running or already written is not a failure - the
+                   review screen is where the teacher wants to be either way. */
+                const rejected = apiFailed(res.data);
+                if (rejected) notify(rejected);
+                setGenStatus(res.data?.questionGenerationStatus || "Pending");
+                setStep(3);
+            })
+            .catch((error) => {
+                const detail = error?.response?.data?.message || "";
+                if (/already/i.test(detail)) { setStep(3); return; }
+                notify(detail || "The questions could not be started");
+            })
+            .finally(() => setSaving(false));
+    };
+
+    const restartGeneration = () => {
+        setSaving(true);
+        axios
+            .post(
+                StartQuestionGeneration,
+                { questionPaperId: paperId, startedByRollNumber: rollNumber },
+                { headers: { Authorization: `Bearer ${token}` } }
+            )
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+                setGenStatus(res.data?.questionGenerationStatus || "Pending");
+                setGenFailure("");
+            })
+            .catch((error) => notify(error?.response?.data?.message || "That could not be started"))
+            .finally(() => setSaving(false));
+    };
+
+    const confirmAndContinue = () => {
+        if (ENFORCE_REQUIRED && duplicates.duplicateCount > 0) {
+            notify("Remove the duplicate questions before continuing");
+            return;
+        }
+        setSaving(true);
+        axios
+            .put(
+                ConfirmQuestions,
+                { questionPaperId: paperId, confirmedByRollNumber: rollNumber },
+                { headers: { Authorization: `Bearer ${token}` } }
+            )
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+                setGenStatus(res.data?.questionGenerationStatus || "Ready");
+                setStep(4);
+            })
+            .catch((error) => notify(error?.response?.data?.message || "The questions could not be confirmed"))
+            .finally(() => setSaving(false));
+    };
+
+    /* Typing edits the question on screen straight away and writes it back once
+       the teacher stops - a PUT per keystroke would be dozens of calls a
+       sentence. One timer per question, so two open edits never cancel each
+       other out. */
+    const changeQuestion = (next) => {
+        setQuestions((prev) => prev.map((q) => (q.id === next.id ? next : q)));
+        if (!next.serverId) return;
+
+        clearTimeout(saveTimers.current[next.id]);
+        saveTimers.current[next.id] = setTimeout(() => {
+            axios
+                .put(UpdateGeneratedQuestion, questionToApi(next, rollNumber), {
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                .then((res) => {
+                    const rejected = apiFailed(res.data);
+                    if (rejected) notify(rejected);
+                })
+                .catch((error) => notify(error?.response?.data?.message || "That edit could not be saved"));
+        }, 900);
+    };
+
+    const regenerateOne = (question) => {
+        if (!canRegenerate) {
+            notify("You do not have access to rewrite a question with AI - edit it by hand instead");
+            return;
+        }
+        if (question.needsAuthoring) {
+            notify("This one has to be written by hand - there is nothing for the AI to work from");
+            return;
+        }
+        setSaving(true);
+        axios
+            .post(
+                RegenerateQuestion,
+                { questionId: question.serverId, regeneratedByRollNumber: rollNumber },
+                { headers: { Authorization: `Bearer ${token}` } }
+            )
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+                notify("Question rewritten", true);
+                loadQuestions(true);
+            })
+            .catch((error) => notify(error?.response?.data?.message || "That question could not be rewritten"))
+            .finally(() => setSaving(false));
+    };
+
+    const notSupported = () => notify(
+        "The paper follows the pattern - questions cannot be added, removed or moved between parts. Rewrite one instead."
+    );
+
     const goNext = () => {
-        if (step === 0) {
-            if (ENFORCE_REQUIRED && !validateBasics()) { notify("Fill the highlighted fields"); return; }
-            setStep(1);
-            return;
-        }
-        if (step === 1) {
-            if (ENFORCE_REQUIRED && !selectedChapterIds.length) { notify("Pick at least one chapter"); return; }
-            setStep(2);
-            return;
-        }
-        if (step === 2) {
-            if (!pattern) {
-                /* Not a validation rule - there is literally nothing to generate
-                   from without a pattern, so this one stays on. */
-                notify("Pick a pattern to continue");
-                return;
-            }
-            generateQuestions(pattern);
-            return;
-        }
-        if (step === 3) {
-            if (ENFORCE_REQUIRED) {
-                if (duplicates.duplicateCount > 0) {
-                    notify("Remove the duplicate questions before continuing");
-                    return;
-                }
-                const empty = questions.find((q) => !q.text.trim());
-                if (empty) { notify("One question is still empty"); return; }
-            }
-            setStep(4);
-            return;
-        }
+        if (saving) return;
+        if (step === 0) { saveBasics(); return; }
+        if (step === 1) { saveChapters(); return; }
+        if (step === 2) { savePatternAndGenerate(); return; }
+        if (step === 3) { confirmAndContinue(); return; }
         if (step === 4) { setStep(5); return; }
     };
 
@@ -513,147 +708,8 @@ export default function CreateQuestionPaperPage() {
         setStep(step - 1);
     };
 
-    const changeQuestion = (next) =>
-        setQuestions((prev) => prev.map((q) => (q.id === next.id ? next : q)));
-
-    const removeQuestion = (question) => {
-        setQuestions((prev) => prev.filter((q) => q.id !== question.id));
-        notify("Question removed", true);
-    };
-
-    const moveQuestion = (question, delta) => {
-        setQuestions((prev) => {
-            const sectionItems = prev.filter((q) => q.sectionId === question.sectionId);
-            const index = sectionItems.findIndex((q) => q.id === question.id);
-            const target = index + delta;
-            if (target < 0 || target >= sectionItems.length) return prev;
-
-            const reordered = [...sectionItems];
-            [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
-
-            let cursor = 0;
-            return prev.map((q) => (q.sectionId === question.sectionId ? reordered[cursor++] : q));
-        });
-    };
-
-    const moveToSection = (question, section) => {
-        const meta = typeMeta(section.type);
-        setQuestions((prev) => prev.map((q) => (
-            q.id === question.id
-                ? {
-                    ...q,
-                    sectionId: section.id,
-                    type: section.type,
-                    marks: Number(section.marksPerQuestion) || meta.defaultMarks,
-                    options: meta.hasOptions ? (q.options.length ? q.options : blankQuestion(section).options) : [],
-                }
-                : q
-        )));
-        notify(`Moved to ${section.label}`, true);
-    };
-
-    /* A bank entry becomes a normal question in the section it was picked for.
-       The section decides the marks - a 2-mark section prints 2 marks even if
-       the question last appeared in a 3-mark part. */
-    const addFromBank = (entries) => {
-        const section = bankSection;
-        if (!section || !entries.length) return;
-
-        const created = entries.map((entry, i) => ({
-            ...blankQuestion(section, i),
-            id: `bank-${Date.now()}-${i}`,
-            type: section.type,
-            text: entry.text,
-            options: entry.options || [],
-            pairs: entry.pairs || [],
-            bullets: entry.bullets || [],
-            passage: entry.passage || "",
-            answerKey: entry.answerKey,
-            difficulty: entry.difficulty,
-            bloom: entry.bloom,
-            chapterId: entry.chapterId,
-            chapterName: entry.chapterName,
-            marks: Number(section.marksPerQuestion) || entry.marks,
-            source: "bank",
-            usedInPapers: (entry.usedIn || []).length,
-        }));
-
-        setQuestions((prev) => {
-            const lastIndex = prev.map((q) => q.sectionId).lastIndexOf(section.id);
-            const next = [...prev];
-            next.splice(lastIndex === -1 ? next.length : lastIndex + 1, 0, ...created);
-            return next;
-        });
-        notify(`${created.length} question${created.length === 1 ? "" : "s"} added to ${section.label || "the section"}`, true);
-    };
-
-    const addQuestion = (section) => {
-        const created = blankQuestion(section, questions.length);
-        const chapter = selectedChapters[0];
-        if (chapter) { created.chapterId = chapter.id; created.chapterName = chapter.title; }
-
-        setQuestions((prev) => {
-            const lastIndex = prev.map((q) => q.sectionId).lastIndexOf(section.id);
-            if (lastIndex === -1) return [...prev, created];
-            const next = [...prev];
-            next.splice(lastIndex + 1, 0, created);
-            return next;
-        });
-    };
-
-    /* Replace with a single-question call to qpaper/generateQuestions. */
-    const regenerateOne = (question) => {
-        const section = pattern.sections.find((s) => s.id === question.sectionId);
-        const fresh = buildMockQuestions({ sections: [{ ...section, questionsToPrint: 3 }] }, selectedChapters);
-        const replacement = fresh.find((q) => q.text !== question.text) || fresh[0];
-        if (!replacement) return;
-        setQuestions((prev) => prev.map((q) => (
-            q.id === question.id ? { ...replacement, id: q.id, sectionId: q.sectionId } : q
-        )));
-        notify("Question regenerated", true);
-    };
-
-    /* The dialog is always scoped to a section: the one being appended to, or the
-       one the question being replaced already sits in - so its filters open on the
-       right question type either way. */
-    const bankDialogSection = bankSection
-        || (bankTarget ? (pattern?.sections || []).find((sec) => sec.id === bankTarget.sectionId) : null);
-
-    /* A bank pick overwrites the target in place: it keeps the question's id, its
-       section and its marks - the pattern decides those, not the bank - and takes
-       everything else from the chosen entry. Position in the paper is unchanged,
-       which is the point of replacing rather than removing and adding. */
-    const replaceFromBank = (entries) => {
-        const entry = entries?.[0];
-        if (!entry || !bankTarget) return;
-
-        setQuestions((prev) => prev.map((q) => (
-            q.id !== bankTarget.id ? q : {
-                ...q,
-                text: entry.text,
-                options: entry.options || [],
-                pairs: entry.pairs || [],
-                bullets: entry.bullets || [],
-                passage: entry.passage || "",
-                answerKey: entry.answerKey,
-                difficulty: entry.difficulty,
-                bloom: entry.bloom,
-                chapterId: entry.chapterId,
-                chapterName: entry.chapterName,
-                source: "bank",
-                usedInPapers: (entry.usedIn || []).length,
-            }
-        )));
-        setBankTarget(null);
-        notify("Question replaced from the bank", true);
-    };
-
-    const regenerateAll = () => generateQuestions(pattern);
-
     const downloadPdf = () => {
         if (!printRef.current) return;
-        // Same reason as printing - without this the sheet colour stops where
-        // the questions stop and the rest of the last page comes out white.
         const undoPad = padToWholePages(printRef.current);
         html2pdf()
             .set({
@@ -671,16 +727,16 @@ export default function CreateQuestionPaperPage() {
     };
 
     const printPaper = () => {
-        if (!printPaperNode(printRef.current, form.name)) {
-            notify("Allow pop-ups to print the paper");
-        }
+        if (!printPaperNode(printRef.current, form.name)) notify("Allow pop-ups to print the paper");
     };
 
     const checks = useMemo(() => {
-        const sections = pattern?.sections || [];
+        const sections = genPattern?.sections || [];
         const shortSections = sections.filter(
             (s) => questions.filter((q) => q.sectionId === s.id).length < s.questionsToPrint
         );
+        const manual = questions.filter((q) => q.needsAuthoring && !String(q.text || "").trim());
+        const failedQuestions = questions.filter((q) => q.status === "Failed");
         const missingAnswers = questions.filter((q) => !String(q.answerKey || "").trim());
         const sectionsTotal = sections.reduce((sum, s) => sum + sectionMarks(s), 0);
 
@@ -690,9 +746,21 @@ export default function CreateQuestionPaperPage() {
                 text: `Section marks add up to ${sectionsTotal} against a ${form.totalMarks} mark paper.`,
             },
             {
+                ok: failedQuestions.length === 0,
+                text: failedQuestions.length === 0
+                    ? "Every question was written successfully."
+                    : `${failedQuestions.length} question(s) failed and have to be rewritten or typed in.`,
+            },
+            {
+                ok: manual.length === 0,
+                text: manual.length === 0
+                    ? "Nothing is waiting to be written by hand."
+                    : `${manual.length} question(s) still have to be written by hand.`,
+            },
+            {
                 ok: shortSections.length === 0,
                 text: shortSections.length === 0
-                    ? "Every section has as many questions as the pattern asks for."
+                    ? "Every part has as many questions as the pattern asks for."
                     : `${shortSections.map((s) => s.label).join(", ")} ${shortSections.length === 1 ? "is" : "are"} short of questions.`,
             },
             {
@@ -720,32 +788,27 @@ export default function CreateQuestionPaperPage() {
                 text: `${selectedChapters.length} chapter(s) from ${activeBook?.title || "the textbook"} are covered.`,
             },
         ];
-    }, [pattern, questions, form.totalMarks, duplicates, selectedChapters, activeBook]);
+    }, [genPattern, questions, form.totalMarks, duplicates, selectedChapters, activeBook]);
 
     const blocking = checks.filter((c) => !c.ok && !c.warn);
 
-    /* Replace with POST qpaper/save, then qpaper/approvalRequests or qpaper/publish. */
+    /* Steps 5 and 6 have no endpoint yet - confirmQuestions is the end of the
+       line on the server - so the paper is not sent anywhere from here. */
     const savePaper = (nextStatus) => {
-        // Every save now goes out to someone, so the checks always apply.
-        if (blocking.length) {
-            notify(blocking[0].text);
-            return;
-        }
-        const label = nextStatus === "Pending"
-            ? `Sent to ${approver} for approval`
-            : "Question paper published";
-        notify(label, true);
-        timers.current.push(setTimeout(() => navigate("/dashboardmenu/assessment/question-paper/all"), 900));
+        if (blocking.length) { notify(blocking[0].text); return; }
+        notify(
+            nextStatus === "Pending"
+                ? `Approval routing is not built on the server yet - nothing was sent to ${approver}.`
+                : "Publishing is not built on the server yet - the paper stays as a draft."
+        );
     };
-
-    const school = { name: websiteSettings?.title, address: "" };
 
     const footerLeft = (() => {
         if (step === 0) return <Typography sx={{ fontSize: "12px", color: DASH.muted }}>Step 1 of 6 - the paper header</Typography>;
         if (step === 1) return (
             <>
                 <Pill label={`${selectedChapterIds.length} chapters`} color={DASH.ink} bg={DASH.primaryLight} border={DASH.primaryBorder} />
-                <Typography sx={{ fontSize: "12px", color: DASH.muted }}>{activeBook?.title}</Typography>
+                <Typography sx={{ fontSize: "12px", color: DASH.muted }}>{activeBook?.title || ""}</Typography>
             </>
         );
         if (step === 2) return (
@@ -764,10 +827,19 @@ export default function CreateQuestionPaperPage() {
         if (step === 4) return <Typography sx={{ fontSize: "12px", color: DASH.muted }}>Pick a layout, then check the preview</Typography>;
         return (
             <Typography sx={{ fontSize: "12px", color: blocking.length ? DASH.red : DASH.green, fontWeight: 600 }}>
-                {blocking.length ? blocking[0].text : "All checks passed - ready to send"}
+                {blocking.length ? blocking[0].text : "All checks passed"}
             </Typography>
         );
     })();
+
+    const nextLabel = (() => {
+        if (saving) return "Saving...";
+        if (step === 2) return "Generate Questions";
+        if (step === 3) return "Confirm Questions";
+        return "Next";
+    })();
+
+    const waiting = step === 3 && (isGenerating(genStatus) || genStatus === "Failed" || (!genStatus && !questions.length));
 
     return (
         <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%" }}>
@@ -783,182 +855,222 @@ export default function CreateQuestionPaperPage() {
                     </Typography>
                     <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.2 }}>
                         Six steps - details, chapters, pattern, questions, template, approval.
+                        {paperId ? ` Saved as you go, so you can leave and come back.` : ""}
                     </Typography>
                 </Box>
             </Box>
 
-            <WizardHeader steps={WIZARD_STEPS} step={step} onJump={setStep} />
+            {resuming && (
+                <LinearProgress
+                    sx={{
+                        mb: 2, height: 4, borderRadius: RADIUS, bgcolor: DASH.lineSoft,
+                        "& .MuiLinearProgress-bar": { bgcolor: DASH.primary },
+                    }}
+                />
+            )}
 
-            {generating ? (
-                <GeneratingView stepIndex={generateStep} />
-            ) : (
+            <WizardHeader
+                steps={WIZARD_STEPS}
+                step={step}
+                onJump={(next) => {
+                    // Nothing exists to jump into until the paper has been created.
+                    if (!paperId && next > 0) { notify("Save the details first"); return; }
+                    setStep(next);
+                }}
+            />
+
+            {step === 0 && (
+                <BasicDetailsStep
+                    form={form}
+                    setField={setField}
+                    errors={errors}
+                    grades={grades}
+                    subjectsForGrade={subjectsForGrade}
+                    sectionsForGrade={sectionsForGrade}
+                    yearOptions={yearOptions.length ? yearOptions : [academicYear].filter(Boolean)}
+                />
+            )}
+
+            {step === 1 && (
                 <>
-                    {step === 0 && (
-                        <BasicDetailsStep
-                            form={form}
-                            setField={setField}
-                            errors={errors}
-                            grades={grades}
-                            subjectsForGrade={subjectsForGrade}
-                            sectionsForGrade={sectionsForGrade}
-                            yearOptions={yearOptions.length ? yearOptions : [academicYear].filter(Boolean)}
-                        />
+                    {booksMessage && (
+                        <Banner tone="warn" icon={ErrorOutlineIcon} title="No book to build from">
+                            {booksMessage}
+                        </Banner>
                     )}
-
-                    {step === 1 && (
-                        <ChaptersStep
-                            books={books}
-                            loading={booksLoading}
-                            chaptersLoading={chaptersLoading}
-                            pendingBooks={pendingBooks}
-                            gradeLabel={gradeSign(grades, form.gradeId)}
-                            subject={form.subject}
-                            bookId={activeBook?.id}
-                            onBookChange={(id) => { setBookId(id); clearChapters(); }}
-                            selectedChapterIds={selectedChapterIds}
-                            onToggleChapter={toggleChapter}
-                            onSelectAll={selectAllChapters}
-                            onClearAll={clearChapters}
-                            weightage={weightage}
-                            onWeightageChange={setChapterWeight}
-                            onBalanceWeightage={() => balanceWeightage()}
-                        />
-                    )}
-
-                    {step === 2 && (
-                        <PatternStep
-                            patterns={patterns}
-                            loading={patternsLoading}
-                            gradeId={form.gradeId}
-                            subject={form.subject}
-                            durationMinutes={form.durationMinutes}
-                            onDurationChange={(v) => setField("durationMinutes", v)}
-                            selectedPattern={pattern}
-                            onPick={(picked) => {
-                                const next = hydratePattern(picked);
-                                setPattern(next);
-                                setForm((prev) => ({
-                                    ...prev,
-                                    totalMarks: patternTotal(next),
-                                    durationMinutes: next.durationMinutes || prev.durationMinutes,
-                                }));
-                            }}
-                        />
-                    )}
-
-                    {step === 3 && pattern && (
-                        <QuestionsStep
-                            pattern={pattern}
-                            questions={questions}
-                            chapters={selectedChapters}
-                            duplicates={duplicates}
-                            onChangeQuestion={changeQuestion}
-                            onRemoveQuestion={removeQuestion}
-                            onMoveQuestion={moveQuestion}
-                            onMoveToSection={moveToSection}
-                            onAddQuestion={addQuestion}
-                            onPickFromBank={setBankSection}
-                            onRegenerateOne={regenerateOne}
-                            onSwapFromBank={setBankTarget}
-                            onRegenerateAll={regenerateAll}
-                        />
-                    )}
-
-                    {step === 4 && (
-                        <TemplateStep
-                            templateId={templateId}
-                            onPick={setTemplateId}
-                            paper={paperMeta}
-                            pattern={pattern}
-                            questions={questions}
-                            school={school}
-                            showAnswers={showAnswers}
-                            onToggleAnswers={setShowAnswers}
-                            zoom={zoom}
-                            onZoom={setZoom}
-                            onDownload={downloadPdf}
-                            onPrint={printPaper}
-                        />
-                    )}
-
-                    {step === 5 && (
-                        <PublishStep
-                            form={{ ...form, gradeSign: gradeSign(grades, form.gradeId) }}
-                            pattern={pattern}
-                            questions={questions}
-                            chapters={selectedChapters}
-                            duplicates={duplicates}
-                            templateId={templateId}
-                            approver={approver}
-                            onApproverChange={setApprover}
-                            approvers={APPROVERS}
-                            note={approvalNote}
-                            onNoteChange={setApprovalNote}
-                            checks={checks}
-                        />
-                    )}
-
-                    <WizardFooter
-                        left={footerLeft}
-                        right={
-                            step < WIZARD_STEPS.length - 1 ? (
-                                <>
-                                    <Button onClick={goBack} sx={outlineBtnSx}>
-                                        {step === 0 ? "Cancel" : "Back"}
-                                    </Button>
-                                    <Button
-                                        onClick={goNext}
-                                        endIcon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
-                                        sx={primaryBtnSx}
-                                    >
-                                        {step === 2 ? "Generate Questions" : "Next"}
-                                    </Button>
-                                </>
-                            ) : (
-                                <>
-                                    <Button onClick={goBack} sx={outlineBtnSx}>Back</Button>
-                                    <Button
-                                        onClick={() => savePaper("Pending")}
-                                        startIcon={<SendOutlinedIcon sx={{ fontSize: 16 }} />}
-                                        disabled={blocking.length > 0}
-                                        sx={primaryBtnSx}
-                                    >
-                                        Request Approval
-                                    </Button>
-                                    <Button
-                                        onClick={() => savePaper("Published")}
-                                        startIcon={<RocketLaunchOutlinedIcon sx={{ fontSize: 16 }} />}
-                                        disabled={blocking.length > 0}
-                                        sx={{ ...primaryBtnSx, bgcolor: DASH.green, "&:hover": { bgcolor: "#059669" } }}
-                                    >
-                                        Publish
-                                    </Button>
-                                </>
-                            )
-                        }
+                    <ChaptersStep
+                        books={books}
+                        loading={booksLoading}
+                        chaptersLoading={false}
+                        pendingBooks={[]}
+                        gradeLabel={gradeSign(grades, form.gradeId)}
+                        subject={form.subject}
+                        bookId={activeBook?.id}
+                        onBookChange={(id) => setBookId(id)}
+                        selectedChapterIds={selectedChapterIds}
+                        onToggleChapter={toggleChapter}
+                        onSelectAll={selectAllChapters}
+                        onClearAll={clearChapters}
+                        weightage={weightage}
+                        onWeightageChange={setChapterWeight}
+                        onBalanceWeightage={() => balanceWeightage()}
                     />
                 </>
             )}
 
-            <QuestionBankDialog
-                open={Boolean(bankSection) || Boolean(bankTarget)}
-                onClose={() => { setBankSection(null); setBankTarget(null); }}
-                mode={bankTarget ? "replace" : "add"}
-                bank={MOCK_QUESTION_BANK}
-                section={bankDialogSection}
-                gradeId={form.gradeId}
-                gradeLabel={gradeSign(grades, form.gradeId)}
-                subject={form.subject}
-                chapters={selectedChapters}
-                existingText={questions.map((q) => q.text)}
-                onAdd={bankTarget ? replaceFromBank : addFromBank}
+            {step === 2 && (
+                <>
+                    {patternsMessage && (
+                        <Banner tone="warn" icon={ErrorOutlineIcon} title="No pattern for this class and subject">
+                            {patternsMessage}
+                        </Banner>
+                    )}
+                    <PatternStep
+                        patterns={patterns}
+                        loading={patternsLoading}
+                        gradeId={form.gradeId}
+                        subject={form.subject}
+                        durationMinutes={form.durationMinutes}
+                        onDurationChange={(v) => setField("durationMinutes", v)}
+                        selectedPattern={pattern}
+                        onPick={(picked) => {
+                            setPattern(picked);
+                            setForm((prev) => ({
+                                ...prev,
+                                totalMarks: patternTotal(picked) || prev.totalMarks,
+                                durationMinutes: picked.durationMinutes || prev.durationMinutes,
+                            }));
+                        }}
+                    />
+                </>
+            )}
+
+            {step === 3 && (
+                waiting ? (
+                    <GeneratingView
+                        status={genStatus}
+                        sectionsDone={sectionsWithQuestions}
+                        sectionsTotal={genPattern?.sections?.length || pattern?.sections?.length || 0}
+                        failure={genFailure}
+                        onRetry={restartGeneration}
+                    />
+                ) : (
+                    <>
+                        {questions.some((q) => q.needsAuthoring) && (
+                            <Banner tone="warn" icon={ErrorOutlineIcon} title="Some questions need you">
+                                A part asking for a diagram, a map or anything else with a picture cannot be written by
+                                AI. Those are left blank on purpose - type them in and they count as done.
+                            </Banner>
+                        )}
+                        <QuestionsStep
+                            pattern={genPattern}
+                            questions={questions}
+                            chapters={selectedChapters}
+                            duplicates={duplicates}
+                            onChangeQuestion={changeQuestion}
+                            onRemoveQuestion={notSupported}
+                            onMoveQuestion={notSupported}
+                            onMoveToSection={notSupported}
+                            onAddQuestion={notSupported}
+                            onPickFromBank={notSupported}
+                            onRegenerateOne={regenerateOne}
+                            onSwapFromBank={notSupported}
+                            onRegenerateAll={canRegenerate ? restartGeneration : () => notify("You do not have access to rewrite questions with AI")}
+                            showBank={SHOW_QUESTION_BANK}
+                            allowStructure={false}
+                            busy={saving}
+                        />
+                    </>
+                )
+            )}
+
+            {step === 4 && (
+                <TemplateStep
+                    templateId={templateId}
+                    onPick={setTemplateId}
+                    paper={paperMeta}
+                    pattern={genPattern}
+                    questions={questions}
+                    school={school}
+                    showAnswers={showAnswers}
+                    onToggleAnswers={setShowAnswers}
+                    zoom={zoom}
+                    onZoom={setZoom}
+                    onDownload={downloadPdf}
+                    onPrint={printPaper}
+                />
+            )}
+
+            {step === 5 && (
+                <>
+                    <Banner tone="info" icon={ErrorOutlineIcon} title="Approval is not wired up yet">
+                        The server has no approval or publish endpoint for question papers yet - confirming the
+                        questions is the last step it supports. Everything below is the screen those endpoints will
+                        drive; nothing is sent anywhere until they exist.
+                    </Banner>
+                    <PublishStep
+                        form={{ ...form, gradeSign: gradeSign(grades, form.gradeId) }}
+                        pattern={genPattern}
+                        questions={questions}
+                        chapters={selectedChapters}
+                        duplicates={duplicates}
+                        templateId={templateId}
+                        approver={approver}
+                        onApproverChange={setApprover}
+                        approvers={APPROVERS}
+                        note={approvalNote}
+                        onNoteChange={setApprovalNote}
+                        checks={checks}
+                    />
+                </>
+            )}
+
+            <WizardFooter
+                left={footerLeft}
+                right={
+                    step < WIZARD_STEPS.length - 1 ? (
+                        <>
+                            <Button onClick={goBack} sx={outlineBtnSx}>
+                                {step === 0 ? "Cancel" : "Back"}
+                            </Button>
+                            <Button
+                                onClick={goNext}
+                                disabled={saving || (step === 3 && waiting)}
+                                endIcon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
+                                sx={primaryBtnSx}
+                            >
+                                {nextLabel}
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button onClick={goBack} sx={outlineBtnSx}>Back</Button>
+                            <Button
+                                onClick={() => savePaper("Pending")}
+                                startIcon={<SendOutlinedIcon sx={{ fontSize: 16 }} />}
+                                disabled={blocking.length > 0}
+                                sx={primaryBtnSx}
+                            >
+                                Request Approval
+                            </Button>
+                            <Button
+                                onClick={() => savePaper("Published")}
+                                startIcon={<RocketLaunchOutlinedIcon sx={{ fontSize: 16 }} />}
+                                disabled={blocking.length > 0}
+                                sx={{ ...primaryBtnSx, bgcolor: DASH.green, "&:hover": { bgcolor: "#059669" } }}
+                            >
+                                Publish
+                            </Button>
+                        </>
+                    )
+                }
             />
 
             <Box sx={{ position: "fixed", left: -10000, top: 0, width: 794 }} aria-hidden>
                 <PaperDocument
                     ref={printRef}
                     paper={paperMeta}
-                    pattern={pattern}
+                    pattern={genPattern}
                     questions={questions}
                     templateId={templateId}
                     school={school}

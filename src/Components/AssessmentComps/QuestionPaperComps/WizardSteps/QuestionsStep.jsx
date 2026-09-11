@@ -48,6 +48,8 @@ const QuestionCard = ({
     onMoveToSection,
     onRegenerate,
     onSwapFromBank,
+    showBank,
+    allowStructure,
 }) => {
     const meta = typeMeta(question.type);
     const [menuAnchor, setMenuAnchor] = useState(null);
@@ -157,26 +159,32 @@ const QuestionCard = ({
                                     </IconButton>
                                 </span>
                             </Tooltip>
-                            <Tooltip title="Move to another section" arrow>
-                                <IconButton size="small" onClick={(e) => setMenuAnchor(e.currentTarget)} sx={{ width: 26, height: 26 }}>
-                                    <SwapHorizOutlinedIcon sx={{ fontSize: 15, color: DASH.muted }} />
-                                </IconButton>
-                            </Tooltip>
+                            {allowStructure && (
+                                <Tooltip title="Move to another section" arrow>
+                                    <IconButton size="small" onClick={(e) => setMenuAnchor(e.currentTarget)} sx={{ width: 26, height: 26 }}>
+                                        <SwapHorizOutlinedIcon sx={{ fontSize: 15, color: DASH.muted }} />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
                             <Tooltip title="Regenerate this question" arrow>
                                 <IconButton size="small" onClick={() => onRegenerate(question)} sx={{ width: 26, height: 26 }}>
                                     <AutorenewIcon sx={{ fontSize: 15, color: DASH.violet }} />
                                 </IconButton>
                             </Tooltip>
-                            <Tooltip title="Replace from the question bank" arrow>
-                                <IconButton size="small" onClick={() => onSwapFromBank(question)} sx={{ width: 26, height: 26 }}>
-                                    <InventoryOutlinedIcon sx={{ fontSize: 15, color: DASH.cyan }} />
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Remove" arrow>
-                                <IconButton size="small" onClick={() => onRemove(question)} sx={{ width: 26, height: 26 }}>
-                                    <DeleteOutlineIcon sx={{ fontSize: 15, color: DASH.red }} />
-                                </IconButton>
-                            </Tooltip>
+                            {showBank && (
+                                <Tooltip title="Replace from the question bank" arrow>
+                                    <IconButton size="small" onClick={() => onSwapFromBank(question)} sx={{ width: 26, height: 26 }}>
+                                        <InventoryOutlinedIcon sx={{ fontSize: 15, color: DASH.cyan }} />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                            {allowStructure && (
+                                <Tooltip title="Remove" arrow>
+                                    <IconButton size="small" onClick={() => onRemove(question)} sx={{ width: 26, height: 26 }}>
+                                        <DeleteOutlineIcon sx={{ fontSize: 15, color: DASH.red }} />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
                         </Box>
                     </Box>
                 </Box>
@@ -461,6 +469,9 @@ export default function QuestionsStep({
     onRegenerateOne,
     onSwapFromBank,
     onRegenerateAll,
+    showBank = false,
+    busy = false,
+    allowStructure = true,
 }) {
     const [editingId, setEditingId] = useState(null);
     // Memoised so the three useMemos below actually memoise.
@@ -554,7 +565,7 @@ export default function QuestionsStep({
                     </Typography>
                     <Pill label={`${pattern?.totalMarks || 0} marks paper`} color={DASH.ink} bg={DASH.primaryLight} border={DASH.primaryBorder} />
                 </Box>
-                <Button onClick={onRegenerateAll} startIcon={<AutorenewIcon sx={{ fontSize: 16 }} />} sx={outlineBtnSx}>
+                <Button onClick={onRegenerateAll} disabled={busy} startIcon={<AutorenewIcon sx={{ fontSize: 16 }} />} sx={outlineBtnSx}>
                     Regenerate all
                 </Button>
             </Box>
@@ -610,20 +621,24 @@ export default function QuestionsStep({
                                     border={shortfall ? "#FECACA" : "#BBF7D0"}
                                 />
                                 <Pill label={sectionMarksLabel(section) || `${sectionMarks(section)}`} color={DASH.ink} bg="#fff" border={DASH.line} />
-                                <Button
-                                    onClick={() => onPickFromBank(section)}
-                                    startIcon={<InventoryOutlinedIcon sx={{ fontSize: 14 }} />}
-                                    sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px", color: DASH.cyan, borderColor: "#A5F3FC" }}
-                                >
-                                    Question Bank
-                                </Button>
-                                <Button
-                                    onClick={() => onAddQuestion(section)}
-                                    startIcon={<AddIcon sx={{ fontSize: 14 }} />}
-                                    sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px" }}
-                                >
-                                    Add question
-                                </Button>
+                                {showBank && (
+                                    <Button
+                                        onClick={() => onPickFromBank(section)}
+                                        startIcon={<InventoryOutlinedIcon sx={{ fontSize: 14 }} />}
+                                        sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px", color: DASH.cyan, borderColor: "#A5F3FC" }}
+                                    >
+                                        Question Bank
+                                    </Button>
+                                )}
+                                {allowStructure && (
+                                    <Button
+                                        onClick={() => onAddQuestion(section)}
+                                        startIcon={<AddIcon sx={{ fontSize: 14 }} />}
+                                        sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px" }}
+                                    >
+                                        Add question
+                                    </Button>
+                                )}
                             </Box>
                         </Box>
 
@@ -634,20 +649,24 @@ export default function QuestionsStep({
                                         No questions in this section yet.
                                     </Typography>
                                     <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
-                                        <Button
-                                            onClick={() => onPickFromBank(section)}
-                                            startIcon={<InventoryOutlinedIcon sx={{ fontSize: 15 }} />}
-                                            sx={outlineBtnSx}
-                                        >
-                                            Pick from the bank
-                                        </Button>
-                                        <Button
-                                            onClick={() => onAddQuestion(section)}
-                                            startIcon={<AddIcon sx={{ fontSize: 15 }} />}
-                                            sx={primaryBtnSx}
-                                        >
-                                            Write one
-                                        </Button>
+                                        {showBank && (
+                                            <Button
+                                                onClick={() => onPickFromBank(section)}
+                                                startIcon={<InventoryOutlinedIcon sx={{ fontSize: 15 }} />}
+                                                sx={outlineBtnSx}
+                                            >
+                                                Pick from the bank
+                                            </Button>
+                                        )}
+                                        {allowStructure && (
+                                            <Button
+                                                onClick={() => onAddQuestion(section)}
+                                                startIcon={<AddIcon sx={{ fontSize: 15 }} />}
+                                                sx={primaryBtnSx}
+                                            >
+                                                Write one
+                                            </Button>
+                                        )}
                                     </Box>
                                 </Box>
                             ) : (
@@ -671,6 +690,8 @@ export default function QuestionsStep({
                                             onMoveToSection={onMoveToSection}
                                             onRegenerate={onRegenerateOne}
                                             onSwapFromBank={onSwapFromBank}
+                                            showBank={showBank}
+                                            allowStructure={allowStructure}
                                         />
                                     );
                                 })
