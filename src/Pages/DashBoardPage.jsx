@@ -112,6 +112,12 @@ const SEVERITY_ICON = {
     info: InfoOutlinedIcon,
 };
 
+/* Fee & Finance, Staff & Payroll, Transport and Operations & Communication have
+   no masterDashboard endpoint yet, so their figures are placeholders. They stay
+   hidden on a live site - flip this to true to bring all four back once the
+   endpoints exist, then replace the MOCK_* reads with the real ones. */
+const SHOW_SAMPLE_BANDS = false;
+
 // A span, not a Chip - it sits inside the SectionTitle Typography.
 const SampleChip = () => (
     <Box
@@ -184,6 +190,8 @@ export default function DashBoardPage() {
     };
     const canViewComm = (sub) =>
         (findSubMenuPermissions(permissions, "communication", sub) || {}).view === "Y";
+    const quizPerms = findSubMenuPermissions(permissions, "communication", "onlinequiz");
+    const canCreateQuiz = !quizPerms || quizPerms.createquiz === "Y";
 
     /* Which dashboard this role lands on after login is set in Access Control
        (Feature Permissions > Dashboard View) and arrives on the login response as
@@ -294,7 +302,7 @@ export default function DashBoardPage() {
         { label: "Send Circular", path: "/dashboardmenu/circulars/create", icon: ReceiptLongOutlinedIcon, tone: SOFT.green, show: canViewComm("circular") },
         { label: "Add Homework", path: "/dashboardmenu/homework/create", icon: AutoStoriesOutlinedIcon, tone: SOFT.pink, show: canViewComm("homework") },
         { label: "Mark Attendance", path: "/dashboardmenu/attendance", icon: HowToRegOutlinedIcon, tone: SOFT.blue, show: canViewComm("attendance") },
-        { label: "Create Quiz", path: "/dashboardmenu/assessment/online-quiz/create", icon: FactCheckOutlinedIcon, tone: SOFT.orange, show: true },
+        { label: "Create Quiz", path: "/dashboardmenu/assessment/online-quiz/create", icon: FactCheckOutlinedIcon, tone: SOFT.orange, show: canCreateQuiz },
         { label: "Collect Fee", path: "/dashboardmenu/fee", icon: PaymentsOutlinedIcon, tone: SOFT.cyan, show: showFinance },
     ].filter((a) => a.show);
 
@@ -752,7 +760,7 @@ export default function DashBoardPage() {
             )}
 
             {/* Band 4 - Fee & Finance */}
-            {showFinance && (
+            {SHOW_SAMPLE_BANDS && showFinance && (
                 <>
                     <SectionTitle icon={PaymentsOutlinedIcon}>Fee &amp; Finance <SampleChip /></SectionTitle>
                     <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
@@ -868,7 +876,7 @@ export default function DashBoardPage() {
             )}
 
             {/* Band 5 - Staff & Payroll */}
-            {showPayroll && (
+            {SHOW_SAMPLE_BANDS && showPayroll && (
                 <>
                     <SectionTitle icon={BadgeOutlinedIcon}>Staff &amp; Payroll <SampleChip /></SectionTitle>
                     <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
@@ -924,7 +932,7 @@ export default function DashBoardPage() {
             )}
 
             {/* Band 6 - Transport */}
-            {showTransport && (
+            {SHOW_SAMPLE_BANDS && showTransport && (
                 <>
                     <SectionTitle icon={DirectionsBusFilledOutlinedIcon}>Transport <SampleChip /></SectionTitle>
                     <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
@@ -975,6 +983,7 @@ export default function DashBoardPage() {
             )}
 
             {/* Band 7 + 8 - Operations and Communication */}
+            {SHOW_SAMPLE_BANDS && (<>
             <SectionTitle icon={FactCheckOutlinedIcon}>Operations &amp; Communication <SampleChip /></SectionTitle>
             <Grid container spacing={2} sx={{ alignItems: "stretch" }}>
                 {showOperations && (
@@ -1057,6 +1066,7 @@ export default function DashBoardPage() {
                     </Panel>
                 </Grid>
             </Grid>
+            </>)}
 
             {/* Band 9 - Quick actions */}
             {quickActions.length > 0 && (

@@ -855,6 +855,11 @@ export const buildMockQuestions = (pattern, chapters) => {
 
 export const normalizePaper = (row, grades) => {
     const gradeId = val(row, ["gradeId", "gradeID"], null);
+    const rawStatus = String(val(row, ["status", "paperStatus"], "") || "");
+    const rawApproval = String(val(row, ["approvalStatus", "ApprovalStatus"], "") || "");
+    const status = rawApproval
+        ? paperStatusLabel(rawApproval)
+        : /^published$/i.test(rawStatus) ? "Published" : "Draft";
     return {
         id: val(row, ["paperId", "questionPaperId", "id"], null),
         name: val(row, ["paperName", "title", "name", "heading"], "Untitled paper"),
@@ -869,14 +874,16 @@ export const normalizePaper = (row, grades) => {
         patternName: val(row, ["patternName", "pattern"], ""),
         templateId: val(row, ["templateId", "template"], "classic"),
         questionCount: Number(val(row, ["questionCount", "totalQuestions"], 0)) || 0,
-        status: paperStatusLabel(val(row, ["status", "paperStatus"], "")),
-        createdBy: val(row, ["createdByName", "createdBy", "teacherName"], "-"),
+        status,
+        approvalStatus: rawApproval,
+        createdBy: val(row, ["createdByName", "createdBy", "createdByRollNumber", "teacherName"], "-"),
         createdDate: val(row, ["createdOn", "createdDate", "postedDateAndTime"], null),
         approver: val(row, ["approverName", "approver"], ""),
-        rejectReason: val(row, ["rejectReason", "remarks"], ""),
-        // Where the wizard was left. 6 means every step is done.
+        rejectReason: val(row, ["rejectReason", "reason", "sentBackReason", "remarks"], ""),
+        sentBackCount: Number(val(row, ["sentBackCount", "SentBackCount"], 0)) || 0,
         currentStep: Number(val(row, ["currentStep", "CurrentStep"], 0)) || 0,
         qpCode: val(row, ["qpCode", "QpCode"], ""),
+        medium: val(row, ["medium", "Medium"], ""),
     };
 };
 
@@ -1067,15 +1074,15 @@ export const marksShownAs = (section) => {
     return `${answered} x ${per} = ${answered * per}`;
 };
 
-export const patternToApi = (pattern, { gradeSignOf, rollNumber, patternId }) => {
+export const patternToApi = (pattern, { gradeSignOf, rollNumber, patternId, gradeId }) => {
     const instructions = String(pattern.instructions || "")
         .split("\n").map((line) => line.trim()).filter(Boolean);
 
     const body = {
         patternName: (pattern.name || "").trim(),
-        /* The endpoint takes ONE class; the builder lets several be ticked. The
-           first is sent and the screen says so rather than silently dropping. */
-        grade: gradeSignOf(pattern.gradeIds?.[0]),
+        /* The endpoint takes ONE class; the builder saves one pattern per
+           ticked class and passes each one in here. */
+        grade: gradeSignOf(gradeId ?? pattern.gradeIds?.[0]),
         subject: pattern.subject === "Any" ? "" : pattern.subject,
         totalMarks: Number(pattern.totalMarks) || 0,
         durationMinutes: Number(pattern.durationMinutes) || 0,

@@ -1,37 +1,81 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     Box, Grid, Typography, Button, IconButton, Tabs, Tab, TextField, Tooltip,
-    Dialog, DialogTitle, DialogContent, DialogActions,
+    Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import axios from "axios";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import RocketLaunchOutlinedIcon from "@mui/icons-material/RocketLaunchOutlined";
 import PendingActionsOutlinedIcon from "@mui/icons-material/PendingActionsOutlined";
 import EventOutlinedIcon from "@mui/icons-material/EventOutlined";
-import HelpOutlineOutlinedIcon from "@mui/icons-material/HelpOutlineOutlined";
+import TimerOutlinedIcon from "@mui/icons-material/TimerOutlined";
 import DashboardCustomizeOutlinedIcon from "@mui/icons-material/DashboardCustomizeOutlined";
 import ReplayOutlinedIcon from "@mui/icons-material/ReplayOutlined";
+import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
+import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 
 import SnackBar from "../../SnackBar";
 import Loader from "../../Loader";
 import { DASH, RADIUS, KPI_TONES, SolidStatCard } from "../../DashBoardComps/dashboardTheme";
-import { MOCK_PAPERS, REVIEW_OUTCOMES, fmtDate } from "./questionPaperApi";
+import { GetQuestionPaperApprovalDashboard, DecideQuestionPaper, GetQuestionPaperApprovalHistory } from "../../../Api/Api";
+import { apiFailed } from "../../AcademicsComps/BooksChaptersComps/bookApi";
+import { fmtDate } from "./questionPaperApi";
+import { normalizeApprovalDashboard, normalizeApprovalHistory, fmtDateTime } from "./paperWizardApi";
 import { StatusPill, Pill, fieldSx, outlineBtnSx, primaryBtnSx } from "./questionPaperTheme";
+import { ApprovalHistory } from "./WizardSteps/ApprovalStep";
 
-const TABS = ["Pending", "Approved", "Sent Back", "Rejected"];
+const token = "123";
+const auth = { headers: { Authorization: `Bearer ${token}` } };
 
-/* The left edge says at a glance which pile a paper is in. Amber for the one
-   waiting on the teacher, red only for the one that is closed. */
+const TABS = [
+    { key: "Pending", label: "Pending" },
+    { key: "Approved", label: "Approved" },
+    { key: "SentBack", label: "Sent Back" },
+    { key: "Rejected", label: "Rejected" },
+];
+
 const EDGE_COLOR = {
     Pending: DASH.primary,
     Approved: DASH.green,
-    "Sent Back": DASH.amber,
+    SentBack: DASH.amber,
     Rejected: DASH.red,
+};
+
+const DECISIONS = {
+    Approve: {
+        title: "Approve this paper",
+        blurb: "is signed off. This is final - no further decision can change it.",
+        field: "Note for the teacher (optional)",
+        confirm: "Approve",
+        color: DASH.green,
+        hover: "#059669",
+        needsReason: false,
+    },
+    SentBack: {
+        title: "Send this paper back",
+        blurb: "goes back to the teacher to correct and submit again.",
+        field: "What needs to change",
+        confirm: "Send back",
+        color: DASH.amber,
+        hover: "#D97706",
+        needsReason: true,
+    },
+    Reject: {
+        title: "Reject this paper",
+        blurb: "is closed for good. It cannot be submitted again - a new paper has to be built.",
+        field: "Why it is being rejected",
+        confirm: "Reject paper",
+        color: DASH.red,
+        hover: "#DC2626",
+        needsReason: true,
+    },
 };
 
 const Meta = ({ icon: Icon, label }) => (
@@ -43,15 +87,21 @@ const Meta = ({ icon: Icon, label }) => (
 
 export default function QuestionPaperApprovalPage() {
     const navigate = useNavigate();
+    const rollNumber = useSelector((state) => state.auth?.rollNumber);
 
-    const [papers, setPapers] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
     const [tab, setTab] = useState(0);
-    /* One dialog serves both ways of saying no. It holds the paper and which
-       outcome was chosen, so the wording and the resulting status follow from
-       the same place. */
-    const [review, setReview] = useState(null);
+    const [papers, setPapers] = useState([]);
+    const [counts, setCounts] = useState({ Pending: 0, Approved: 0, SentBack: 0, Rejected: 0 });
+    const [isLoading, setIsLoading] = useState(false);
+    const [denied, setDenied] = useState("");
+
+    const [decision, setDecision] = useState(null);
     const [remarks, setRemarks] = useState("");
+    const [deciding, setDeciding] = useState(false);
+
+    const [historyFor, setHistoryFor] = useState(null);
+    const [history, setHistory] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -62,67 +112,80 @@ export default function QuestionPaperApprovalPage() {
         setMessage(msg); setColor(ok); setStatus(ok); setOpen(true);
     };
 
-    /* Mock source. Replace with GET qpaper/approvalRequests. */
-    const load = useCallback(() => {
-        setIsLoading(true);
-        const timer = setTimeout(() => {
-            setPapers(MOCK_PAPERS.filter((p) => TABS.includes(p.status)));
-            setIsLoading(false);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, []);
+    const activeKey = TABS[tab].key;
+
+    const load = useCallback((quiet = false) => {
+        if (!quiet) setIsLoading(true);
+        axios
+            .get(GetQuestionPaperApprovalDashboard, { params: { status: activeKey, requestedByRollNumber: rollNumber }, ...auth })
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { setDenied(rejected); setPapers([]); return; }
+                setDenied("");
+                const parsed = normalizeApprovalDashboard(res.data);
+                setCounts(parsed.counts);
+                setPapers(parsed.papers);
+            })
+            .catch((error) => {
+                setPapers([]);
+                const detail = error?.response?.data?.message || "";
+                if (error?.response?.status === 400 || error?.response?.status === 403) setDenied(detail || "You are not set as an approver for question papers.");
+                else notify(detail || "The approval queue could not be loaded");
+            })
+            .finally(() => setIsLoading(false));
+    }, [activeKey, rollNumber]);
 
     useEffect(() => { load(); }, [load]);
 
-    const counts = useMemo(() => TABS.reduce(
-        (acc, name) => ({ ...acc, [name]: papers.filter((p) => p.status === name).length }),
-        {}
-    ), [papers]);
+    const openDecision = (paper, key) => { setDecision({ paper, key }); setRemarks(""); };
+    const outcome = decision ? DECISIONS[decision.key] : null;
 
-    const filtered = useMemo(
-        () => papers.filter((p) => p.status === TABS[tab]),
-        [papers, tab]
-    );
-
-    /* Replace with POST qpaper/updateApproval { paperId, status, remarks }. */
-    const setPaperStatus = (paper, next, remarks = "") => {
-        setPapers((prev) => prev.map((p) => (
-            p.id === paper.id ? { ...p, status: next, rejectReason: remarks } : p
-        )));
-    };
-
-    const approve = (paper) => {
-        setPaperStatus(paper, "Approved");
-        notify(`"${paper.name}" approved`, true);
-    };
-
-    const publish = (paper) => {
-        setPaperStatus(paper, "Published");
-        setPapers((prev) => prev.filter((p) => p.id !== paper.id));
-        notify(`"${paper.name}" published`, true);
-    };
-
-    const openReview = (paper, key) => { setReview({ paper, key }); setRemarks(""); };
-
-    const outcome = review ? REVIEW_OUTCOMES[review.key] : null;
-
-    /* Both outcomes need a note - the teacher has to know what happened, and a
-       rejection with no reason is the one thing worse than no answer at all. */
-    const confirmReview = () => {
-        if (!remarks.trim()) {
-            notify(review.key === "reject" ? "Give a reason for rejecting" : "Tell the teacher what to fix");
+    const confirmDecision = () => {
+        if (!decision) return;
+        if (outcome.needsReason && !remarks.trim()) {
+            notify(decision.key === "Reject" ? "Give a reason for rejecting" : "Tell the teacher what to fix");
             return;
         }
-        setPaperStatus(review.paper, outcome.status, remarks.trim());
-        notify(
-            review.key === "reject"
-                ? `"${review.paper.name}" rejected`
-                : `"${review.paper.name}" sent back to ${review.paper.createdBy}`,
-            true
-        );
-        setReview(null);
-        setRemarks("");
+        setDeciding(true);
+        axios
+            .put(DecideQuestionPaper, {
+                questionPaperId: decision.paper.id,
+                action: decision.key,
+                note: decision.key === "Approve" ? remarks.trim() : "",
+                reason: decision.key === "Approve" ? "" : remarks.trim(),
+                decidedByRollNumber: rollNumber,
+            }, auth)
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+                notify(
+                    decision.key === "Approve" ? `"${decision.paper.name}" approved`
+                        : decision.key === "SentBack" ? `"${decision.paper.name}" sent back to the teacher`
+                            : `"${decision.paper.name}" rejected`,
+                    true
+                );
+                setDecision(null);
+                setRemarks("");
+                load(true);
+            })
+            .catch((error) => notify(error?.response?.data?.message || "That decision could not be saved"))
+            .finally(() => setDeciding(false));
     };
+
+    const openHistory = (paper) => {
+        setHistoryFor(paper);
+        setHistory([]);
+        setHistoryLoading(true);
+        axios
+            .get(GetQuestionPaperApprovalHistory, { params: { questionPaperId: paper.id, requestedByRollNumber: rollNumber }, ...auth })
+            .then((res) => { if (!apiFailed(res.data)) setHistory(normalizeApprovalHistory(res.data)); })
+            .catch(() => setHistory([]))
+            .finally(() => setHistoryLoading(false));
+    };
+
+    const readPaper = (paper) => navigate(`/dashboardmenu/assessment/question-paper/${paper.id}`, { state: { review: true } });
+
+    const tabLabel = (key) => TABS.find((t) => t.key === key)?.label || key;
 
     return (
         <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%" }}>
@@ -137,10 +200,7 @@ export default function QuestionPaperApprovalPage() {
                 }}
             >
                 <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, minWidth: 0 }}>
-                    <IconButton
-                        onClick={() => navigate("/dashboardmenu/approvals", { state: { tabId: "academics" } })}
-                        sx={{ mt: -0.5 }}
-                    >
+                    <IconButton onClick={() => navigate("/dashboardmenu/approvals", { state: { tabId: "academics" } })} sx={{ mt: -0.5 }}>
                         <ArrowBackIcon sx={{ fontSize: 20, color: DASH.text }} />
                     </IconButton>
                     <Box sx={{ minWidth: 0 }}>
@@ -148,14 +208,14 @@ export default function QuestionPaperApprovalPage() {
                             Question Paper Approvals
                         </Typography>
                         <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.2 }}>
-                            Read the paper before you sign it off. Approved papers can then be published.
+                            Read the paper before you sign it off. Send it back for changes, or reject it to close it for good.
                         </Typography>
                     </Box>
                 </Box>
 
                 <Tooltip title="Reload" arrow>
                     <IconButton
-                        onClick={load}
+                        onClick={() => load()}
                         sx={{
                             border: `1px solid ${DASH.line}`, borderRadius: RADIUS, bgcolor: "#fff", ml: { xs: 5, md: 0 },
                             "&:hover": { bgcolor: DASH.primaryLight, borderColor: DASH.primaryBorder },
@@ -166,249 +226,213 @@ export default function QuestionPaperApprovalPage() {
                 </Tooltip>
             </Box>
 
-            <Grid container spacing={1.5} sx={{ mb: 2 }}>
-                <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
-                    <SolidStatCard
-                        icon={PendingActionsOutlinedIcon}
-                        label="Waiting on you"
-                        value={counts.Pending}
-                        note="Papers to review"
-                        tone={KPI_TONES.orange}
-                        onClick={() => setTab(0)}
-                    />
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
-                    <SolidStatCard
-                        icon={CheckCircleOutlineIcon}
-                        label="Approved"
-                        value={counts.Approved}
-                        note="Ready to publish"
-                        tone={KPI_TONES.green}
-                        onClick={() => setTab(1)}
-                    />
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
-                    <SolidStatCard
-                        icon={ReplayOutlinedIcon}
-                        label="Sent back"
-                        value={counts["Sent Back"]}
-                        note="Waiting on the teacher"
-                        tone={KPI_TONES.violet}
-                        onClick={() => setTab(2)}
-                    />
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
-                    <SolidStatCard
-                        icon={CancelOutlinedIcon}
-                        label="Rejected"
-                        value={counts.Rejected}
-                        note="Closed, not reworked"
-                        tone={KPI_TONES.pink}
-                        onClick={() => setTab(3)}
-                    />
-                </Grid>
-            </Grid>
-
-            <Box sx={{ bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS, mb: 2, px: 1 }}>
-                <Tabs
-                    value={tab}
-                    onChange={(e, v) => setTab(v)}
-                    variant="scrollable"
-                    sx={{
-                        minHeight: 44,
-                        "& .MuiTab-root": {
-                            textTransform: "none", fontSize: "12.5px", fontWeight: 600,
-                            minHeight: 44, color: DASH.muted, px: 1.6,
-                            "&.Mui-selected": { color: DASH.ink },
-                        },
-                        "& .MuiTabs-indicator": { backgroundColor: DASH.primary, height: 2.5 },
-                    }}
-                >
-                    {TABS.map((t) => (
-                        <Tab
-                            key={t}
-                            label={
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
-                                    {t}
-                                    <Box
-                                        sx={{
-                                            minWidth: 20, px: 0.6, py: 0.1, borderRadius: RADIUS,
-                                            bgcolor: DASH.lineSoft, color: DASH.muted, fontSize: "10.5px", fontWeight: 700,
-                                        }}
-                                    >
-                                        {counts[t]}
-                                    </Box>
-                                </Box>
-                            }
-                        />
-                    ))}
-                </Tabs>
-            </Box>
-
-            {filtered.length === 0 ? (
+            {denied ? (
                 <Box sx={{ bgcolor: "#fff", border: `1px dashed ${DASH.line}`, borderRadius: RADIUS, py: 7, px: 3, textAlign: "center" }}>
-                    <CheckCircleOutlineIcon sx={{ fontSize: 42, color: DASH.line }} />
+                    <LockOutlinedIcon sx={{ fontSize: 42, color: DASH.line }} />
                     <Typography sx={{ fontSize: "14.5px", fontWeight: 700, color: DASH.ink, mt: 1 }}>
-                        Nothing in {TABS[tab].toLowerCase()}
+                        You are not an approver for question papers
                     </Typography>
-                    <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.5 }}>
-                        Papers land here as soon as a teacher requests approval.
+                    <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.5, maxWidth: 520, mx: "auto", lineHeight: 1.7 }}>
+                        {denied} Approvers are set under Access Control - Approval Flows - Question Paper.
                     </Typography>
                 </Box>
             ) : (
-                <Grid container spacing={1.8}>
-                    {filtered.map((paper) => (
-                        <Grid key={paper.id} size={{ xs: 12, sm: 6, md: 6, lg: 4 }}>
-                            <Box
-                                sx={{
-                                    bgcolor: "#fff", border: `1px solid ${DASH.line}`,
-                                    borderLeft: `3px solid ${EDGE_COLOR[paper.status] || DASH.line}`,
-                                    borderRadius: RADIUS, height: "100%", boxSizing: "border-box",
-                                    display: "flex", flexDirection: "column", overflow: "hidden",
-                                    transition: "box-shadow .2s ease",
-                                    "&:hover": { boxShadow: "0 8px 22px rgba(17,24,39,0.10)" },
-                                }}
-                            >
-                                <Box sx={{ p: 1.8, flex: 1 }}>
-                                    <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
-                                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                                            <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink, lineHeight: 1.35 }}>
-                                                {paper.name}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: "11px", color: DASH.faint, mt: 0.3 }}>
-                                                {paper.examName} - by {paper.createdBy}
-                                            </Typography>
+                <>
+                    <Grid container spacing={1.5} sx={{ mb: 2 }}>
+                        <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
+                            <SolidStatCard icon={PendingActionsOutlinedIcon} label="Waiting on you" value={counts.Pending} note="Papers to review" tone={KPI_TONES.orange} onClick={() => setTab(0)} />
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
+                            <SolidStatCard icon={CheckCircleOutlineIcon} label="Approved" value={counts.Approved} note="Signed off" tone={KPI_TONES.green} onClick={() => setTab(1)} />
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
+                            <SolidStatCard icon={ReplayOutlinedIcon} label="Sent back" value={counts.SentBack} note="Waiting on the teacher" tone={KPI_TONES.violet} onClick={() => setTab(2)} />
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
+                            <SolidStatCard icon={CancelOutlinedIcon} label="Rejected" value={counts.Rejected} note="Closed, not reworked" tone={KPI_TONES.pink} onClick={() => setTab(3)} />
+                        </Grid>
+                    </Grid>
+
+                    <Box sx={{ bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS, mb: 2, px: 1 }}>
+                        <Tabs
+                            value={tab}
+                            onChange={(e, v) => setTab(v)}
+                            variant="scrollable"
+                            sx={{
+                                minHeight: 44,
+                                "& .MuiTab-root": {
+                                    textTransform: "none", fontSize: "12.5px", fontWeight: 600,
+                                    minHeight: 44, color: DASH.muted, px: 1.6,
+                                    "&.Mui-selected": { color: DASH.ink },
+                                },
+                                "& .MuiTabs-indicator": { backgroundColor: DASH.primary, height: 2.5 },
+                            }}
+                        >
+                            {TABS.map((t) => (
+                                <Tab
+                                    key={t.key}
+                                    label={
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                                            {t.label}
+                                            <Box sx={{ minWidth: 20, px: 0.6, py: 0.1, borderRadius: RADIUS, bgcolor: DASH.lineSoft, color: DASH.muted, fontSize: "10.5px", fontWeight: 700 }}>
+                                                {counts[t.key]}
+                                            </Box>
                                         </Box>
-                                        <StatusPill status={paper.status} />
-                                    </Box>
+                                    }
+                                />
+                            ))}
+                        </Tabs>
+                    </Box>
 
-                                    <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap", mt: 1.3 }}>
-                                        <Pill label={paper.grade} color={DASH.text} bg={DASH.lineSoft} />
-                                        <Pill label={paper.subject} color={DASH.blue} bg={DASH.blueLight} border="#BFDBFE" />
-                                        <Pill label={`${paper.totalMarks} marks`} color={DASH.ink} bg={DASH.primaryLight} border={DASH.primaryBorder} />
-                                    </Box>
-
-                                    <Box sx={{ display: "flex", gap: 1.4, flexWrap: "wrap", mt: 1.3 }}>
-                                        <Meta icon={HelpOutlineOutlinedIcon} label={`${paper.questionCount} questions`} />
-                                        <Meta icon={EventOutlinedIcon} label={fmtDate(paper.examDate)} />
-                                        <Meta icon={DashboardCustomizeOutlinedIcon} label={paper.patternName} />
-                                    </Box>
-
-                                    {/* The note the reviewer left, in the colour of
-                                        the decision it belongs to. */}
-                                    {paper.rejectReason && (paper.status === "Sent Back" || paper.status === "Rejected") && (
+                    {papers.length === 0 ? (
+                        <Box sx={{ bgcolor: "#fff", border: `1px dashed ${DASH.line}`, borderRadius: RADIUS, py: 7, px: 3, textAlign: "center" }}>
+                            <CheckCircleOutlineIcon sx={{ fontSize: 42, color: DASH.line }} />
+                            <Typography sx={{ fontSize: "14.5px", fontWeight: 700, color: DASH.ink, mt: 1 }}>
+                                Nothing in {tabLabel(activeKey).toLowerCase()}
+                            </Typography>
+                            <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.5 }}>
+                                {activeKey === "Pending" ? "Papers land here as soon as a teacher sends one for approval." : "No paper has reached this state yet."}
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <Grid container spacing={1.8}>
+                            {papers.map((paper) => {
+                                const own = paper.submittedByRollNumber && String(paper.submittedByRollNumber) === String(rollNumber);
+                                const note = paper.reason || paper.note;
+                                return (
+                                    <Grid key={paper.id} size={{ xs: 12, sm: 6, md: 6, lg: 4 }}>
                                         <Box
                                             sx={{
-                                                mt: 1.3, px: 1.2, py: 0.9, borderRadius: RADIUS,
-                                                bgcolor: paper.status === "Sent Back" ? DASH.amberLight : DASH.redLight,
-                                                border: `1px solid ${paper.status === "Sent Back" ? "#FDE68A" : "#FECACA"}`,
+                                                bgcolor: "#fff", border: `1px solid ${DASH.line}`,
+                                                borderLeft: `3px solid ${EDGE_COLOR[paper.approvalStatus || activeKey] || DASH.line}`,
+                                                borderRadius: RADIUS, height: "100%", boxSizing: "border-box",
+                                                display: "flex", flexDirection: "column", overflow: "hidden",
+                                                transition: "box-shadow .2s ease",
+                                                "&:hover": { boxShadow: "0 8px 22px rgba(17,24,39,0.10)" },
                                             }}
                                         >
-                                            <Typography
-                                                sx={{
-                                                    fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.05em",
-                                                    color: paper.status === "Sent Back" ? "#B45309" : "#991B1B", mb: 0.3,
-                                                }}
-                                            >
-                                                {paper.status === "Sent Back" ? "TO FIX" : "REASON"}
-                                            </Typography>
-                                            <Typography
-                                                sx={{
-                                                    fontSize: "11.5px", lineHeight: 1.55,
-                                                    color: paper.status === "Sent Back" ? "#92400E" : "#991B1B",
-                                                }}
-                                            >
-                                                {paper.rejectReason}
-                                            </Typography>
+                                            <Box sx={{ p: 1.8, flex: 1 }}>
+                                                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                                                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                        <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink, lineHeight: 1.35 }}>
+                                                            {paper.name}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: "11px", color: DASH.faint, mt: 0.3 }}>
+                                                            {paper.academicYear}{paper.qpCode ? ` - Q.P. ${paper.qpCode}` : ""}
+                                                        </Typography>
+                                                    </Box>
+                                                    <StatusPill status={tabLabel(paper.approvalStatus || activeKey)} />
+                                                </Box>
+
+                                                <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap", mt: 1.3 }}>
+                                                    <Pill label={paper.grade} color={DASH.text} bg={DASH.lineSoft} />
+                                                    <Pill label={paper.subject} color={DASH.blue} bg={DASH.blueLight} border="#BFDBFE" />
+                                                    {paper.totalMarks > 0 && <Pill label={`${paper.totalMarks} marks`} color={DASH.ink} bg={DASH.primaryLight} border={DASH.primaryBorder} />}
+                                                    {paper.medium && <Pill label={paper.medium} color={DASH.muted} bg={DASH.lineSoft} />}
+                                                    {paper.sentBackCount > 0 && <Pill label={`Sent back ${paper.sentBackCount}x`} color="#B45309" bg={DASH.amberLight} border="#FDE68A" />}
+                                                    {own && <Pill label="Your own paper" color={DASH.violet} bg={DASH.violetLight} border="#DDD6FE" />}
+                                                </Box>
+
+                                                <Box sx={{ display: "flex", gap: 1.4, flexWrap: "wrap", mt: 1.3 }}>
+                                                    {paper.submittedBy && <Meta icon={PersonOutlineOutlinedIcon} label={paper.submittedBy} />}
+                                                    {paper.submittedOn && <Meta icon={EventOutlinedIcon} label={`Sent ${fmtDateTime(paper.submittedOn)}`} />}
+                                                    {!paper.submittedOn && paper.examDate && <Meta icon={EventOutlinedIcon} label={fmtDate(paper.examDate)} />}
+                                                    {paper.durationMinutes > 0 && <Meta icon={TimerOutlinedIcon} label={`${paper.durationMinutes} min`} />}
+                                                    {paper.patternName && <Meta icon={DashboardCustomizeOutlinedIcon} label={paper.patternName} />}
+                                                </Box>
+
+                                                {note && activeKey !== "Pending" && (
+                                                    <Box
+                                                        sx={{
+                                                            mt: 1.3, px: 1.2, py: 0.9, borderRadius: RADIUS,
+                                                            bgcolor: activeKey === "SentBack" ? DASH.amberLight : activeKey === "Rejected" ? DASH.redLight : DASH.greenLight,
+                                                            border: `1px solid ${activeKey === "SentBack" ? "#FDE68A" : activeKey === "Rejected" ? "#FECACA" : "#BBF7D0"}`,
+                                                        }}
+                                                    >
+                                                        <Typography sx={{ fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.05em", color: activeKey === "SentBack" ? "#B45309" : activeKey === "Rejected" ? "#991B1B" : "#065F46", mb: 0.3 }}>
+                                                            {activeKey === "SentBack" ? "TO FIX" : activeKey === "Rejected" ? "REASON" : "NOTE"}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: "11.5px", lineHeight: 1.55, color: activeKey === "SentBack" ? "#92400E" : activeKey === "Rejected" ? "#991B1B" : "#065F46" }}>
+                                                            {note}
+                                                        </Typography>
+                                                        {paper.decidedBy && (
+                                                            <Typography sx={{ fontSize: "10.5px", color: DASH.muted, mt: 0.4 }}>
+                                                                - {paper.decidedBy}{paper.decidedOn ? `, ${fmtDateTime(paper.decidedOn)}` : ""}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                )}
+                                            </Box>
+
+                                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, flexWrap: "wrap", px: 1.8, py: 1.2, borderTop: `1px solid ${DASH.lineSoft}`, bgcolor: "#FCFCFD" }}>
+                                                <Tooltip title="Read paper" arrow>
+                                                    <IconButton
+                                                        onClick={() => readPaper(paper)}
+                                                        sx={{ width: 30, height: 30, borderRadius: RADIUS, flexShrink: 0, border: `1px solid ${DASH.line}`, bgcolor: "#fff", "&:hover": { bgcolor: DASH.primaryLight, borderColor: DASH.primaryBorder } }}
+                                                    >
+                                                        <VisibilityOutlinedIcon sx={{ fontSize: 16, color: DASH.text }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                                <Tooltip title="Approval history" arrow>
+                                                    <IconButton
+                                                        onClick={() => openHistory(paper)}
+                                                        sx={{ width: 30, height: 30, borderRadius: RADIUS, flexShrink: 0, border: `1px solid ${DASH.line}`, bgcolor: "#fff", "&:hover": { bgcolor: DASH.violetLight, borderColor: "#DDD6FE" } }}
+                                                    >
+                                                        <HistoryOutlinedIcon sx={{ fontSize: 16, color: DASH.violet }} />
+                                                    </IconButton>
+                                                </Tooltip>
+
+                                                {activeKey === "Pending" && (
+                                                    own ? (
+                                                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, ml: "auto" }}>
+                                                            Someone else has to approve your own paper
+                                                        </Typography>
+                                                    ) : (
+                                                        <>
+                                                            <Tooltip title="Back to the teacher to correct and resubmit" arrow>
+                                                                <Button
+                                                                    onClick={() => openDecision(paper, "SentBack")}
+                                                                    startIcon={<ReplayOutlinedIcon sx={{ fontSize: 15 }} />}
+                                                                    sx={{ ...outlineBtnSx, height: 30, py: 0, fontSize: "11.5px", color: "#B45309", borderColor: "#FDE68A" }}
+                                                                >
+                                                                    Send back
+                                                                </Button>
+                                                            </Tooltip>
+                                                            <Tooltip title="Close this paper - it cannot be resubmitted" arrow>
+                                                                <Button
+                                                                    onClick={() => openDecision(paper, "Reject")}
+                                                                    startIcon={<CancelOutlinedIcon sx={{ fontSize: 15 }} />}
+                                                                    sx={{ ...outlineBtnSx, height: 30, py: 0, fontSize: "11.5px", color: DASH.red, borderColor: "#FECACA" }}
+                                                                >
+                                                                    Reject
+                                                                </Button>
+                                                            </Tooltip>
+                                                            <Button
+                                                                onClick={() => openDecision(paper, "Approve")}
+                                                                startIcon={<CheckCircleOutlineIcon sx={{ fontSize: 15 }} />}
+                                                                sx={{ ...primaryBtnSx, height: 30, py: 0, fontSize: "11.5px", ml: "auto", bgcolor: DASH.green, "&:hover": { bgcolor: "#059669" } }}
+                                                            >
+                                                                Approve
+                                                            </Button>
+                                                        </>
+                                                    )
+                                                )}
+                                            </Box>
                                         </Box>
-                                    )}
-                                </Box>
-
-                                <Box
-                                    sx={{
-                                        display: "flex", alignItems: "center", gap: 0.8, flexWrap: "wrap",
-                                        px: 1.8, py: 1.2, borderTop: `1px solid ${DASH.lineSoft}`, bgcolor: "#FCFCFD",
-                                    }}
-                                >
-                                    {/* Reading the paper is an icon - it is the one
-                                        action on this row that needs no label, and
-                                        the width it gives back keeps the three
-                                        decisions on a single line. */}
-                                    <Tooltip title="Read paper" arrow>
-                                        <IconButton
-                                            onClick={() => navigate(`/dashboardmenu/assessment/question-paper/${paper.id}`, { state: { paper } })}
-                                            sx={{
-                                                width: 30, height: 30, borderRadius: RADIUS, flexShrink: 0,
-                                                border: `1px solid ${DASH.line}`, bgcolor: "#fff",
-                                                "&:hover": { bgcolor: DASH.primaryLight, borderColor: DASH.primaryBorder },
-                                            }}
-                                        >
-                                            <VisibilityOutlinedIcon sx={{ fontSize: 16, color: DASH.text }} />
-                                        </IconButton>
-                                    </Tooltip>
-
-                                    {/* Two ways to say no. Send back asks for a fix,
-                                        reject closes the paper - so they are worded
-                                        and coloured apart rather than sharing one
-                                        button. */}
-                                    {paper.status === "Pending" && (
-                                        <>
-                                            <Tooltip title="Back to the teacher to correct and resubmit" arrow>
-                                                <Button
-                                                    onClick={() => openReview(paper, "sendBack")}
-                                                    startIcon={<ReplayOutlinedIcon sx={{ fontSize: 15 }} />}
-                                                    sx={{ ...outlineBtnSx, height: 30, py: 0, fontSize: "11.5px", color: "#B45309", borderColor: "#FDE68A" }}
-                                                >
-                                                    Send back
-                                                </Button>
-                                            </Tooltip>
-                                            <Tooltip title="Close this paper - it cannot be resubmitted" arrow>
-                                                <Button
-                                                    onClick={() => openReview(paper, "reject")}
-                                                    startIcon={<CancelOutlinedIcon sx={{ fontSize: 15 }} />}
-                                                    sx={{ ...outlineBtnSx, height: 30, py: 0, fontSize: "11.5px", color: DASH.red, borderColor: "#FECACA" }}
-                                                >
-                                                    Reject
-                                                </Button>
-                                            </Tooltip>
-                                            <Button
-                                                onClick={() => approve(paper)}
-                                                startIcon={<CheckCircleOutlineIcon sx={{ fontSize: 15 }} />}
-                                                sx={{ ...primaryBtnSx, height: 30, py: 0, fontSize: "11.5px", ml: "auto" }}
-                                            >
-                                                Approve
-                                            </Button>
-                                        </>
-                                    )}
-
-                                    {paper.status === "Approved" && (
-                                        <Button
-                                            onClick={() => publish(paper)}
-                                            startIcon={<RocketLaunchOutlinedIcon sx={{ fontSize: 15 }} />}
-                                            sx={{ ...primaryBtnSx, height: 30, py: 0, fontSize: "11.5px", ml: "auto", bgcolor: DASH.green, "&:hover": { bgcolor: "#059669" } }}
-                                        >
-                                            Publish
-                                        </Button>
-                                    )}
-                                </Box>
-                            </Box>
+                                    </Grid>
+                                );
+                            })}
                         </Grid>
-                    ))}
-                </Grid>
+                    )}
+                </>
             )}
 
-            <Dialog
-                open={Boolean(review)}
-                onClose={() => setReview(null)}
-                slotProps={{ paper: { sx: { borderRadius: RADIUS, width: 440 } } }}
-            >
-                <DialogTitle sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink }}>
-                    {outcome?.title}
-                </DialogTitle>
+            <Dialog open={Boolean(decision)} onClose={() => !deciding && setDecision(null)} slotProps={{ paper: { sx: { borderRadius: RADIUS, width: 460 } } }}>
+                <DialogTitle sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink }}>{outcome?.title}</DialogTitle>
                 <DialogContent>
                     <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mb: 1.6, lineHeight: 1.6 }}>
-                        "{review?.paper?.name}" {outcome?.blurb}
-                        {review?.key === "sendBack" ? ` ${review?.paper?.createdBy} is notified with your note.` : ""}
+                        "{decision?.paper?.name}" {outcome?.blurb}
+                        {decision?.key === "SentBack" && decision?.paper?.submittedBy ? ` ${decision.paper.submittedBy} sees your note on the paper.` : ""}
                     </Typography>
                     <TextField
                         fullWidth multiline minRows={3} size="small"
@@ -419,17 +443,27 @@ export default function QuestionPaperApprovalPage() {
                     />
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => setReview(null)} sx={outlineBtnSx}>Cancel</Button>
+                    <Button onClick={() => setDecision(null)} disabled={deciding} sx={outlineBtnSx}>Cancel</Button>
                     <Button
-                        onClick={confirmReview}
-                        sx={{
-                            ...primaryBtnSx,
-                            bgcolor: review?.key === "reject" ? DASH.red : DASH.amber,
-                            "&:hover": { bgcolor: review?.key === "reject" ? "#DC2626" : "#D97706" },
-                        }}
+                        onClick={confirmDecision}
+                        disabled={deciding}
+                        startIcon={deciding ? <CircularProgress size={13} sx={{ color: "#fff" }} /> : null}
+                        sx={{ ...primaryBtnSx, bgcolor: outcome?.color, "&:hover": { bgcolor: outcome?.hover } }}
                     >
-                        {outcome?.confirm}
+                        {deciding ? "Saving..." : outcome?.confirm}
                     </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={Boolean(historyFor)} onClose={() => setHistoryFor(null)} slotProps={{ paper: { sx: { borderRadius: RADIUS, width: 520 } } }}>
+                <DialogTitle sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink }}>
+                    Approval history - {historyFor?.name}
+                </DialogTitle>
+                <DialogContent>
+                    <ApprovalHistory history={history} loading={historyLoading} />
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setHistoryFor(null)} sx={outlineBtnSx}>Close</Button>
                 </DialogActions>
             </Dialog>
         </Box>

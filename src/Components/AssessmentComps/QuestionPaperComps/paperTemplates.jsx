@@ -1,4 +1,5 @@
-import React, { forwardRef } from "react";
+import React, { forwardRef, useCallback, useLayoutEffect, useRef, useState } from "react";
+import html2pdf from "html2pdf.js";
 import {
     choiceHint, groupMarks, groupSections, sectionHeading, sectionInstruction,
     sectionMarks, sectionMarksLabel, typeMeta,
@@ -357,7 +358,7 @@ const QuestionBody = ({ question, style, accent, answerSpace, lang }) => {
     );
 };
 
-const QuestionBlock = ({ question, number, section, style, accent, showAnswers, answerSpace, lang }) => {
+const QuestionBlock = ({ question, number, section, style, accent, showAnswers, answerSpace, lang, tag = true }) => {
     const meta = typeMeta(question.type);
     // Answer ruling is part of the answer space, never part of the question, so
     // the whole thing is off in "questions only" mode however the pattern or
@@ -368,7 +369,7 @@ const QuestionBlock = ({ question, number, section, style, accent, showAnswers, 
             (style.dottedAnswerLines && !meta.hasOptions && !meta.needsSpace && !meta.ruled));
 
     return (
-        <div style={{ breakInside: "avoid", marginBottom: answerSpace ? (style.dottedAnswerLines ? 14 : 11) : 9 }}>
+        <div data-qp-block={tag ? "q" : undefined} style={{ breakInside: "avoid", marginBottom: answerSpace ? (style.dottedAnswerLines ? 14 : 11) : 9 }}>
             {/* The extract sits above the question it belongs to. */}
             {meta.hasPassage && question.passage && (
                 <PassageBox passage={question.passage} style={style} accent={accent} />
@@ -636,7 +637,7 @@ const BlueprintTable = ({ groups, style, accent, lang }) => (
                     </div>
                 )}
                 {group.sections.map((section) => (
-                    <div key={section.id} style={{ display: "flex", alignItems: "flex-start", fontSize: style.bodySize, marginBottom: 7, breakInside: "avoid" }}>
+                    <div key={section.id} data-qp-block="q" style={{ display: "flex", alignItems: "flex-start", fontSize: style.bodySize, marginBottom: 7, breakInside: "avoid" }}>
                         <span style={{ width: 62, fontWeight: 700 }}>{partLabel(sectionHeading(section), lang)}</span>
                         <span style={{ flex: 1, lineHeight: 1.6 }}>
                             {section.title || typeMeta(section.type).label}
@@ -672,7 +673,66 @@ export const PAPER_COLORS = [
     { key: "blue", label: "Blue", hex: "#E7F0FA" },
 ];
 
-export const DEFAULT_PAPER_COLOR = "gray";
+export const DEFAULT_PAPER_COLOR = "white";
+
+/* Page sizes schools actually print on. Width and height are the sheet at 96dpi,
+   so the same node lays out 1:1 in the print window and in the PDF. */
+export const PAPER_SIZES = [
+    { key: "a4", label: "A4", hint: "210 x 297 mm", width: 794, height: 1123, css: "A4", pdf: "a4" },
+    { key: "legal", label: "Legal", hint: "8.5 x 14 in", width: 816, height: 1344, css: "8.5in 14in", pdf: "legal" },
+    { key: "fs", label: "FS", hint: "8.5 x 13 in", width: 816, height: 1248, css: "8.5in 13in", pdf: [612, 936] },
+    { key: "letter", label: "Letter", hint: "8.5 x 11 in", width: 816, height: 1056, css: "8.5in 11in", pdf: "letter" },
+];
+
+export const DEFAULT_PAPER_SIZE = "a4";
+
+export const paperSizeOf = (key) => PAPER_SIZES.find((s) => s.key === key) || PAPER_SIZES[0];
+
+/* Blank space kept at the top and bottom of every page after the first, so a
+   question pushed to a new page never prints against the sheet edge. */
+const PAGE_PAD = 48;
+const KEEP_WITH_NEXT = 70;
+
+/* Moves any block that would be cut by a page edge to the top of the next
+   page. The margins live in the DOM, so the on-screen preview, the print
+   window and the PDF all break in the same places. Returns the page count. */
+const paginate = (root, pageHeight) => {
+    if (!root) return 1;
+    const blocks = Array.from(root.querySelectorAll("[data-qp-block]"));
+
+    blocks.forEach((b) => {
+        if (b.dataset.qpShift) {
+            b.style.marginTop = b.dataset.qpBase || "";
+            delete b.dataset.qpShift;
+            delete b.dataset.qpBase;
+        }
+    });
+
+    const usable = pageHeight - PAGE_PAD * 2;
+
+    blocks.forEach((b) => {
+        const rootRect = root.getBoundingClientRect();
+        const scale = root.offsetWidth ? rootRect.width / root.offsetWidth : 1;
+        const top = (b.getBoundingClientRect().top - rootRect.top) / (scale || 1);
+        const height = b.offsetHeight;
+        const keep = b.dataset.qpBlock === "heading" ? KEEP_WITH_NEXT : 0;
+        if (height + keep > usable) return;
+
+        const page = Math.floor(top / pageHeight);
+        const intoPage = top - page * pageHeight;
+        let add = 0;
+        if (page > 0 && intoPage < PAGE_PAD) add = PAGE_PAD - intoPage;
+        else if (top + height + keep > (page + 1) * pageHeight - PAGE_PAD) add = (page + 1) * pageHeight + PAGE_PAD - top;
+        if (add <= 0) return;
+
+        const base = parseFloat(window.getComputedStyle(b).marginTop) || 0;
+        b.dataset.qpBase = b.style.marginTop;
+        b.dataset.qpShift = "1";
+        b.style.marginTop = `${base + add}px`;
+    });
+
+    return Math.max(1, Math.ceil(root.scrollHeight / pageHeight));
+};
 
 export const paperColorHex = (key) =>
     (PAPER_COLORS.find((c) => c.key === key) || PAPER_COLORS[0]).hex;
@@ -692,12 +752,36 @@ export const A4_PAGE_PX = 1123;
    element carrying print-color-adjust: exact still prints its fill.
 
    Returns the undo, so the on-screen preview is never left padded. */
-export const padToWholePages = (node) => {
+export const padToWholePages = (node, pageHeight = A4_PAGE_PX) => {
     if (!node) return () => {};
     const previous = node.style.minHeight;
-    const pages = Math.max(1, Math.ceil(node.scrollHeight / A4_PAGE_PX));
-    node.style.minHeight = `${pages * A4_PAGE_PX}px`;
+    const pages = Math.max(1, Math.ceil(node.scrollHeight / pageHeight));
+    node.style.minHeight = `${pages * pageHeight}px`;
     return () => { node.style.minHeight = previous; };
+};
+
+/* The sheet colour is what the paper in the tray looks like. It is only
+   printed when printColor is on - otherwise the page stays white and the
+   coloured stock supplies the tint, with no toner spent on a background. */
+export const printedSheetHex = (paperColor, printColor) =>
+    (printColor ? paperColorHex(paperColor) : "#FFFFFF");
+
+export const exportPaperPdf = (node, { filename, sizeKey = DEFAULT_PAPER_SIZE, sheetHex = "#FFFFFF" } = {}) => {
+    if (!node) return Promise.resolve();
+    const size = paperSizeOf(sizeKey);
+    const undoPad = padToWholePages(node, size.height);
+    return html2pdf()
+        .set({
+            margin: 0,
+            filename: filename || "question-paper.pdf",
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, backgroundColor: sheetHex, width: size.width, windowWidth: size.width },
+            jsPDF: { unit: "pt", format: size.pdf, orientation: "portrait" },
+            pagebreak: { mode: ["css", "legacy"] },
+        })
+        .from(node)
+        .save()
+        .then(undoPad, undoPad);
 };
 
 /* A bare popup leaves the browser free to draw its own header and footer - the
@@ -705,17 +789,19 @@ export const padToWholePages = (node) => {
    @page margin band. Zeroing that margin removes the band, so the sheet prints
    clean; PaperDocument's own 44-50px padding supplies the real margins.
    print-color-adjust keeps the sheet colour, which browsers drop to save ink. */
-export const printPaperNode = (node, title, sheetHex = paperColorHex(DEFAULT_PAPER_COLOR)) => {
+export const printPaperNode = (node, title, { sheetHex = "#FFFFFF", sizeKey = DEFAULT_PAPER_SIZE } = {}) => {
     if (!node) return false;
     const win = window.open("", "_blank", "width=900,height=1000");
     if (!win) return false;
+    const size = paperSizeOf(sizeKey);
 
     // The copy has to carry the padding, so grow the node, read it, put it back.
-    const undoPad = padToWholePages(node);
+    const undoPad = padToWholePages(node, size.height);
 
     win.document.write(
         `<html><head><title>${title || "Question Paper"}</title><style>
-            @page { size: A4 portrait; margin: 0; }
+            @page { size: ${size.css}; margin: 0; }
+            .qp-page-guide { display: none !important; }
             html, body {
                 margin: 0;
                 padding: 0;
@@ -749,7 +835,38 @@ const PaperDocument = forwardRef(({
     paperColor = DEFAULT_PAPER_COLOR,
     answerSpace = false,
     language,
+    paperSize = DEFAULT_PAPER_SIZE,
+    pageGuides = false,
+    onPages,
 }, ref) => {
+    const size = paperSizeOf(paperSize);
+    const rootRef = useRef(null);
+    const [pageCount, setPageCount] = useState(1);
+
+    const setRefs = useCallback((node) => {
+        rootRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) ref.current = node;
+    }, [ref]);
+
+    useLayoutEffect(() => {
+        const root = rootRef.current;
+        if (!root) return undefined;
+        let frame = 0;
+        const run = () => {
+            const pages = paginate(root, size.height);
+            setPageCount((prev) => (prev === pages ? prev : pages));
+        };
+        run();
+        const later = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(run); };
+        if (document.fonts?.ready) document.fonts.ready.then(later);
+        const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(later) : null;
+        observer?.observe(root);
+        return () => { cancelAnimationFrame(frame); observer?.disconnect(); };
+    });
+
+    useLayoutEffect(() => { if (onPages) onPages(pageCount); }, [pageCount, onPages]);
+
     const lang = paperLang(language || paper?.medium);
     const template = templateById(templateId);
     const style = template.style;
@@ -768,10 +885,10 @@ const PaperDocument = forwardRef(({
 
     return (
         <div
-            ref={ref}
+            ref={setRefs}
             style={{
-                width: "794px",
-                minHeight: "1123px",
+                width: `${size.width}px`,
+                minHeight: `${size.height}px`,
                 margin: "0 auto",
                 background: paperColorHex(paperColor),
                 color: "#111827",
@@ -785,7 +902,7 @@ const PaperDocument = forwardRef(({
                 style={{
                     border: style.pageBorder ? `2px solid ${accent}` : "none",
                     padding: style.pageBorder ? "20px 24px" : 0,
-                    minHeight: style.pageBorder ? "1064px" : "auto",
+                    minHeight: style.pageBorder ? `${size.height - 59}px` : "auto",
                     boxSizing: "border-box",
                 }}
             >
@@ -800,6 +917,7 @@ const PaperDocument = forwardRef(({
                         <div key={group.name || "main"} style={{ marginBottom: 6 }}>
                             {group.name && (
                                 <div
+                                    data-qp-block="heading"
                                     style={{
                                         textAlign: style.centreGroups ? "center" : "left",
                                         margin: "16px 0 10px",
@@ -831,10 +949,12 @@ const PaperDocument = forwardRef(({
                                 const heading = partLabel(sectionHeading(section), lang);
                                 const marksLabel = sectionMarksLabel(section);
                                 const tightMarks = style.tightEquation ? marksLabel.replace(/[()]/g, "").replace(/\s/g, "") : marksLabel;
+                                const twoColumn = style.columns === 2 && ["mcq", "truefalse", "fillblank", "oneword"].includes(section.type);
 
                                 return (
                                     <div key={section.id} style={{ marginBottom: 16 }}>
                                         <div
+                                            data-qp-block="heading"
                                             style={{
                                                 display: "flex",
                                                 alignItems: "baseline",
@@ -865,11 +985,8 @@ const PaperDocument = forwardRef(({
                                         )}
 
                                         <div
-                                            style={
-                                                style.columns === 2 && ["mcq", "truefalse", "fillblank", "oneword"].includes(section.type)
-                                                    ? { columnCount: 2, columnGap: 30 }
-                                                    : undefined
-                                            }
+                                            data-qp-block={twoColumn ? "q" : undefined}
+                                            style={twoColumn ? { columnCount: 2, columnGap: 30 } : undefined}
                                         >
                                             {items.length === 0 ? (
                                                 <div style={{ fontSize: style.bodySize - 1, color: "#9CA3AF", fontStyle: "italic" }}>
@@ -889,6 +1006,7 @@ const PaperDocument = forwardRef(({
                                                             showAnswers={showAnswers}
                                                             answerSpace={answerSpace}
                                                             lang={lang}
+                                                            tag={!twoColumn}
                                                         />
                                                     );
                                                 })
@@ -902,13 +1020,14 @@ const PaperDocument = forwardRef(({
                 )}
 
                 {style.endMark && (
-                    <div style={{ textAlign: "center", marginTop: 22, fontSize: 12.5, fontWeight: 700, letterSpacing: 3 }}>
+                    <div data-qp-block="q" style={{ textAlign: "center", marginTop: 22, fontSize: 12.5, fontWeight: 700, letterSpacing: 3 }}>
                         {style.endMark}
                     </div>
                 )}
 
                 {style.footerLabel && (
                     <div
+                        data-qp-block="q"
                         style={{
                             display: "flex",
                             justifyContent: "space-between",
@@ -920,10 +1039,47 @@ const PaperDocument = forwardRef(({
                         }}
                     >
                         <span>{paper?.name || "Model Q-Paper"}{paper?.academicYear ? ` ${paper.academicYear}` : ""}</span>
-                        <span>Page 1</span>
+                        <span>Page {pageCount} of {pageCount}</span>
                     </div>
                 )}
             </div>
+
+            {pageGuides && Array.from({ length: pageCount - 1 }, (_, i) => (
+                <div
+                    key={i}
+                    className="qp-page-guide"
+                    data-html2canvas-ignore="true"
+                    style={{
+                        position: "absolute",
+                        left: -1,
+                        right: -1,
+                        top: (i + 1) * size.height - 7,
+                        height: 14,
+                        background: "#EEF0F4",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-end",
+                        pointerEvents: "none",
+                    }}
+                >
+                    <span
+                        style={{
+                            fontFamily: "sans-serif",
+                            fontSize: 9.5,
+                            fontWeight: 700,
+                            color: "#6B7280",
+                            background: "#fff",
+                            border: "1px solid #D1D5DB",
+                            borderRadius: 3,
+                            padding: "0 5px",
+                            marginRight: 8,
+                            lineHeight: "13px",
+                        }}
+                    >
+                        Page {i + 2}
+                    </span>
+                </div>
+            ))}
         </div>
     );
 });

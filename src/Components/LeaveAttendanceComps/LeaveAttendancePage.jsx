@@ -58,7 +58,7 @@ import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlin
 import ApplyLeavePage from "./ApplyLeavePage";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import ManageHistoryOutlinedIcon from "@mui/icons-material/ManageHistoryOutlined";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { selectSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 
@@ -461,8 +461,9 @@ function StatusChip({ status }) {
 
 export default function LeaveAttendancePage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [today] = useState(() => new Date());
-    const [tab, setTab] = useState("dashboard");
+    const [tab, setTab] = useState(location.state?.tab || "dashboard");
     const [academicYear, setAcademicYear] = useState(ACADEMIC_YEARS[0]);
     const [search, setSearch] = useState("");
     const [todayRole, setTodayRole] = useState("All Roles");
@@ -477,7 +478,7 @@ export default function LeaveAttendancePage() {
     const [overview, setOverview] = useState({ cards: null, dateHeaders: [], details: [] });
     const [loadingOverview, setLoadingOverview] = useState(false);
     // ─── Leave Management tab ───
-    const [leaveView, setLeaveView] = useState("applications");
+    const [leaveView, setLeaveView] = useState(location.state?.leaveView || "applications");
 
     const [leaveFilter, setLeaveFilter] = useState("All Leaves");
     const [leaveSearch, setLeaveSearch] = useState("");

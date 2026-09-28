@@ -22,6 +22,8 @@ function SubMenuPage({active}) {
        today, and starts obeying allowchat the moment the key appears. */
     const chatPerms = findSubMenuPermissions(user.permissions, "communication", "chats");
     const canChat = !chatPerms || chatPerms.allowchat === "Y";
+    const quizPerms = findSubMenuPermissions(user.permissions, "communication", "onlinequiz");
+    const canQuiz = !quizPerms || quizPerms.viewdashboard === "Y";
 
     const communicationMenuItems = [
         ...(canViewComm("dashboard") ? [{ path: '/dashboardmenu/com-dashboard', label: 'Dashboard' }] : []),
@@ -47,12 +49,10 @@ function SubMenuPage({active}) {
         // Books & Chapters and Question Paper - ungated until the backend adds
         // permission keys for them, same approach as Online Quiz below.
         { path: '/dashboardmenu/books', label: 'Books & Chapters' },
-        { path: '/dashboardmenu/assessment/question-paper', label: 'Question Paper', disabled: true },
+        { path: '/dashboardmenu/assessment/question-paper', label: 'Question Paper' },
         ...(canViewComm("marks") ? [{ path: '/dashboardmenu/marks', label: 'Marks' }] : []),
         ...(canViewComm("attendance") ? [{ path: '/dashboardmenu/attendance', label: 'Attendance' }] : []),
-        // Online Quiz - ungated until the backend adds a permission key for it.
-        // Swap to canViewComm("onlinequiz") once the key exists in the login response.
-        { path: '/dashboardmenu/assessment/online-quiz', label: 'Online Quiz' },
+        ...(canQuiz ? [{ path: '/dashboardmenu/assessment/online-quiz', label: 'Online Quiz' }] : []),
     ];
 
     const transportMenuItems = [

@@ -260,7 +260,7 @@ export default function PatternListPage() {
        treating "not in my payload" as denied would lock out someone who holds
        the right. Once the key is there it decides on its own. */
     const patternPerms = findSubMenuPermissions(user?.permissions, "questionpapergeneration", "pattern");
-    const may = (key) => !patternPerms || patternPerms[key] === "Y";
+    const may = (key) => patternPerms?.[key] !== "N";
     const canCreate = may("create");
     const canEditPattern = may("edit");
     const canDeletePattern = may("delete");

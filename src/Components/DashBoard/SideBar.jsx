@@ -1008,7 +1008,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Complaints Tab */}
           {version.LITE && canComplaints && (
-            <ListItem onClick={() => !isDisabled && handleMenuClickOne('complaints')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
+            <ListItem onClick={() => handleMenuClickOne('complaints')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Complaints"} arrow placement="right-start">
                 <Box
                   sx={{
@@ -1018,22 +1018,14 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     paddingTop: '1px',
                     paddingBottom: '1px',
                     borderRadius: '5px',
-                    boxShadow: isActive('/dashboardmenu/complaints') && !isDisabled ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                    boxShadow: isActive('/dashboardmenu/complaints') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
                     width: '100%',
-                    backgroundColor: isDisabled
-                      ? 'inherit'
-                      : isActive('/dashboardmenu/complaints') ? websiteSettings.mainColor : 'inherit',
-                    color: isDisabled
-                      ? '#000'
-                      : isActive('/dashboardmenu/complaints') ? websiteSettings.textColor : '#000',
+                    backgroundColor: isActive('/dashboardmenu/complaints') ? websiteSettings.mainColor : 'inherit',
+                    color: isActive('/dashboardmenu/complaints') ? websiteSettings.textColor : '#000',
                     position: 'relative',
-                    cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    opacity: isDisabled ? 0.5 : 1,
-                    pointerEvents: isDisabled ? 'none' : 'auto',
+                    cursor: "pointer",
                     '&:hover': {
-                      backgroundColor: isDisabled
-                        ? 'none'
-                        : !isActive('/dashboardmenu/complaints') ? websiteSettings.lightColor : 'none',
+                      backgroundColor: !isActive('/dashboardmenu/complaints') ? websiteSettings.lightColor : 'none',
                     }
                   }}
                 >
@@ -1041,9 +1033,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     <Box
                       sx={{
                         width: '5px',
-                        backgroundColor: isDisabled
-                          ? 'transparent'
-                          : isActive('/dashboardmenu/complaints') ? websiteSettings.darkColor : 'inherit',
+                        backgroundColor: isActive('/dashboardmenu/complaints') ? websiteSettings.darkColor : 'inherit',
                         height: '100%',
                         position: 'absolute',
                         left: 0,
@@ -1054,11 +1044,11 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     />
                   )}
                   <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                    <SupportAgentOutlinedIcon style={{ fontSize: 20, color: isDisabled ? '#6B7280' : isActive('/dashboardmenu/complaints') ? websiteSettings.textColor : '#6B7280', }} />
+                    <SupportAgentOutlinedIcon style={{ fontSize: 20, color: isActive('/dashboardmenu/complaints') ? websiteSettings.textColor : '#6B7280', }} />
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText>
-                      <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isDisabled ? '#000' : isActive('/dashboardmenu/complaints') ? websiteSettings.textColor : '#000' }}>
+                      <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isActive('/dashboardmenu/complaints') ? websiteSettings.textColor : '#000' }}>
                         Complaints
                       </Typography>
                     </ListItemText>

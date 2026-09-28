@@ -16,8 +16,13 @@ import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
 import { selectApproverUserTypes } from "../../Redux/Slices/userTypesSlice";
 import { APPROVAL_MODULES, fetchApprovalMatrix, selectApprovalMatrix } from "../../Redux/Slices/approvalMatrixSlice";
-import { UpdateApprovalMatrix, GetLeaveApprovalSettings, UpdateLeaveApprovalSettings } from "../../Api/Api";
+import {
+    UpdateApprovalMatrix, GetLeaveApprovalSettings, UpdateLeaveApprovalSettings,
+    GetQuestionPaperApprovalSettings, UpdateQuestionPaperApprovalSettings,
+} from "../../Api/Api";
 import { DASH, RADIUS } from "../DashBoardComps/dashboardTheme";
+import { findSubMenuPermissions, selectPermissions, selectUserTypeID } from "../../Redux/Slices/AuthSlice";
+import { isSuperAdminId } from "../../Redux/userTypeIds";
 
 const ACCENT = "#4338CA";
 const MAX_LEVELS = 3;
@@ -74,6 +79,68 @@ const blankFlows = () => {
     return init;
 };
 
+const QP_KEY = "questionpaper";
+const QP_LABEL = "Question Paper";
+
+const ApproverTiles = ({ options, picked, accent, accentLight, onToggle }) => (
+    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(3, 1fr)" }, gap: 1.2 }}>
+        {options.map((u) => {
+            const id = String(u.userTypeID);
+            const on = picked.includes(id);
+            const initials = String(u.userType || "?")
+                .split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+
+            return (
+                <Box
+                    key={id}
+                    role="checkbox"
+                    aria-checked={on}
+                    tabIndex={0}
+                    onClick={() => onToggle(id)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(id); }
+                    }}
+                    sx={{
+                        display: "flex", alignItems: "center", gap: 1.2,
+                        px: 1.4, py: 1.2,
+                        borderRadius: RADIUS,
+                        cursor: "pointer",
+                        userSelect: "none",
+                        bgcolor: on ? accentLight : "#fff",
+                        border: `1px solid ${on ? accent : DASH.line}`,
+                        transition: "background-color 0.15s, border-color 0.15s, box-shadow 0.15s",
+                        "&:hover": { borderColor: on ? accent : "#9AA3AF", bgcolor: on ? accentLight : DASH.surface },
+                        "&:focus-visible": { outline: `2px solid ${accent}`, outlineOffset: 2 },
+                    }}
+                >
+                    <Box sx={{
+                        width: 30, height: 30, borderRadius: RADIUS, flexShrink: 0,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        bgcolor: on ? accent : DASH.lineSoft,
+                        color: on ? "#fff" : DASH.muted,
+                        fontSize: 11, fontWeight: 800,
+                    }}>
+                        {initials}
+                    </Box>
+
+                    <Typography sx={{
+                        flex: 1, minWidth: 0,
+                        fontSize: 12.5, fontWeight: on ? 700 : 600,
+                        color: on ? DASH.ink : DASH.text,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                        {u.userType}
+                    </Typography>
+
+                    {on
+                        ? <CheckCircleIcon sx={{ fontSize: 18, color: accent, flexShrink: 0 }} />
+                        : <RadioButtonUncheckedIcon sx={{ fontSize: 18, color: DASH.line, flexShrink: 0 }} />}
+                </Box>
+            );
+        })}
+    </Box>
+);
+
 export default function ApprovalFlowsTab({ showSnack }) {
     const dispatch = useDispatch();
     // The matrix lives in the store so every screen reads the same flow.
@@ -88,9 +155,22 @@ export default function ApprovalFlowsTab({ showSnack }) {
 
     const rollNumber = useSelector((state) => state.auth?.rollNumber);
 
+    /* The question-paper approver list is served under its own permission -
+       questionpapergeneration > approval - and the server refuses the request
+       without view = Y. Asking without it only produced a red error on a tab
+       that works fine for everything else. */
+    const permissions = useSelector(selectPermissions);
+    const userTypeID = useSelector(selectUserTypeID);
+    const qpPerms = findSubMenuPermissions(permissions, "questionpapergeneration", "approval");
+    const canViewQp = isSuperAdminId(userTypeID) || qpPerms?.view === "Y";
+    const canEditQp = isSuperAdminId(userTypeID) || qpPerms?.edit === "Y";
+
     const [flows, setFlows] = useState(blankFlows);
     // Leave approvers as the server last returned them, in its own shape.
     const [leaveCategories, setLeaveCategories] = useState(null);
+    const [qpSettings, setQpSettings] = useState(null);
+    const [qpPicked, setQpPicked] = useState([]);
+    const [qpSaved, setQpSaved] = useState([]);
     // What the server last gave us, so Save only sends what actually changed.
     const [saved, setSaved] = useState(blankFlows);
     const [expanded, setExpanded] = useState(APPROVAL_PAGES[0].key);
@@ -159,6 +239,39 @@ export default function ApprovalFlowsTab({ showSnack }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rollNumber]);
 
+    const loadQpSettings = useCallback(async () => {
+        if (!canViewQp) {
+            setQpSettings(null);
+            setQpPicked([]);
+            setQpSaved([]);
+            return;
+        }
+        try {
+            const res = await axios.get(GetQuestionPaperApprovalSettings, {
+                params: { requestedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res?.data?.error) {
+                showSnack?.(apiMessage(res.data, "Failed to load question paper approvers."), false);
+                setQpSettings({ userTypes: [] });
+                setQpPicked([]);
+                setQpSaved([]);
+                return;
+            }
+            const userTypes = Array.isArray(res?.data?.userTypes) ? res.data.userTypes : [];
+            const picked = userTypes.filter((u) => u?.isSelected).map((u) => String(u.userTypeID));
+            setQpSettings({ userTypes });
+            setQpPicked(picked);
+            setQpSaved(picked);
+        } catch (err) {
+            showSnack?.(apiMessage(err?.response?.data, "Failed to load question paper approvers."), false);
+            setQpSettings({ userTypes: [] });
+            setQpPicked([]);
+            setQpSaved([]);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rollNumber, canViewQp]);
+
     const loadMatrix = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -167,12 +280,13 @@ export default function ApprovalFlowsTab({ showSnack }) {
                     showSnack?.(typeof err === "string" ? err : "Failed to load approval flows.", false);
                 }),
                 loadLeaveSettings(),
+                loadQpSettings(),
             ]);
         } finally {
             setIsLoading(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dispatch, loadLeaveSettings]);
+    }, [dispatch, loadLeaveSettings, loadQpSettings]);
 
     useEffect(() => { loadMatrix(); }, [loadMatrix]);
 
@@ -300,6 +414,7 @@ export default function ApprovalFlowsTab({ showSnack }) {
     // Throw away local edits and go back to what the server last gave us.
     const handleDiscard = () => {
         setFlows(JSON.parse(JSON.stringify(saved)));
+        setQpPicked([...qpSaved]);
     };
 
     // ── Save ──────────────────────────────────────────────────────────────────
@@ -329,9 +444,16 @@ export default function ApprovalFlowsTab({ showSnack }) {
         ? JSON.stringify(leaveUserTypeIDs(c))
         : JSON.stringify(toPayload(key, c)));
 
-    const changedKeys = APPROVAL_PAGES
-        .map((p) => p.key)
-        .filter((key) => flowSignature(key, cfg(key)) !== flowSignature(key, saved[key] || emptyFlow(key)));
+    const sortedIds = (ids) => ids.map(Number).filter((n) => !Number.isNaN(n)).sort((a, b) => a - b);
+    const qpDirty = qpSettings !== null && JSON.stringify(sortedIds(qpPicked)) !== JSON.stringify(sortedIds(qpSaved));
+
+    const changedKeys = [
+        ...APPROVAL_PAGES
+            .map((p) => p.key)
+            .filter((key) => flowSignature(key, cfg(key)) !== flowSignature(key, saved[key] || emptyFlow(key))),
+        ...(qpDirty ? [QP_KEY] : []),
+    ];
+    const labelFor = (key) => (key === QP_KEY ? QP_LABEL : APPROVAL_PAGES.find((p) => p.key === key)?.label || key);
 
     // The Update endpoint replaces the whole set, so every category rides along
     // even when only one of them changed.
@@ -346,6 +468,11 @@ export default function ApprovalFlowsTab({ showSnack }) {
     const handleSave = async () => {
         if (changedKeys.length === 0) {
             showSnack?.("Nothing to save - no approval flow has changed.", false);
+            return;
+        }
+        if (qpDirty && !qpPicked.length) {
+            showSnack?.(`Pick who approves ${QP_LABEL}.`, false);
+            setExpanded(QP_KEY);
             return;
         }
         // A half-filled level would silently drop a step out of the chain.
@@ -363,7 +490,7 @@ export default function ApprovalFlowsTab({ showSnack }) {
             return;
         }
 
-        const matrixKeys = changedKeys.filter((key) => !isSingleApprover(key));
+        const matrixKeys = changedKeys.filter((key) => !isSingleApprover(key) && key !== QP_KEY);
         const leaveKeys = changedKeys.filter(isSingleApprover);
 
         setIsSaving(true);
@@ -386,10 +513,21 @@ export default function ApprovalFlowsTab({ showSnack }) {
                 );
             }
 
+            if (qpDirty) {
+                calls.push(
+                    axios.put(UpdateQuestionPaperApprovalSettings, {
+                        userTypeIDs: sortedIds(qpPicked),
+                        updatedByRollNumber: String(rollNumber || ""),
+                    }, { headers: { Authorization: `Bearer ${token}` } })
+                        .then((res) => ({ key: QP_KEY, ok: !res?.data?.error, message: apiMessage(res?.data) }))
+                        .catch((err) => ({ key: QP_KEY, ok: false, message: apiMessage(err?.response?.data) }))
+                );
+            }
+
             const results = await Promise.all(calls);
             const failed = results.filter((r) => !r.ok);
             if (failed.length) {
-                const names = failed.map((f) => APPROVAL_PAGES.find((p) => p.key === f.key)?.label || f.key);
+                const names = failed.map((f) => labelFor(f.key));
                 showSnack?.(failed[0].message || `Could not save: ${names.join(", ")}.`, false);
             } else {
                 showSnack?.(`Saved ${changedKeys.length} approval flow${changedKeys.length > 1 ? "s" : ""}.`);
@@ -713,62 +851,7 @@ export default function ApprovalFlowsTab({ showSnack }) {
                                                         Who can approve
                                                     </Typography>
 
-                                                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(3, 1fr)" }, gap: 1.2 }}>
-                                                        {options.map((u) => {
-                                                            const id = String(u.userTypeID);
-                                                            const on = picked.includes(id);
-                                                            const initials = String(u.userType || "?")
-                                                                .split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-
-                                                            return (
-                                                                <Box
-                                                                    key={id}
-                                                                    role="checkbox"
-                                                                    aria-checked={on}
-                                                                    tabIndex={0}
-                                                                    onClick={() => toggleApprover(id)}
-                                                                    onKeyDown={(e) => {
-                                                                        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleApprover(id); }
-                                                                    }}
-                                                                    sx={{
-                                                                        display: "flex", alignItems: "center", gap: 1.2,
-                                                                        px: 1.4, py: 1.2,
-                                                                        borderRadius: RADIUS,
-                                                                        cursor: "pointer",
-                                                                        userSelect: "none",
-                                                                        bgcolor: on ? accentLight : "#fff",
-                                                                        border: `1px solid ${on ? accent : DASH.line}`,
-                                                                        transition: "background-color 0.15s, border-color 0.15s, box-shadow 0.15s",
-                                                                        "&:hover": { borderColor: on ? accent : "#9AA3AF", bgcolor: on ? accentLight : DASH.surface },
-                                                                        "&:focus-visible": { outline: `2px solid ${accent}`, outlineOffset: 2 },
-                                                                    }}
-                                                                >
-                                                                    <Box sx={{
-                                                                        width: 30, height: 30, borderRadius: RADIUS, flexShrink: 0,
-                                                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                                                        bgcolor: on ? accent : DASH.lineSoft,
-                                                                        color: on ? "#fff" : DASH.muted,
-                                                                        fontSize: 11, fontWeight: 800,
-                                                                    }}>
-                                                                        {initials}
-                                                                    </Box>
-
-                                                                    <Typography sx={{
-                                                                        flex: 1, minWidth: 0,
-                                                                        fontSize: 12.5, fontWeight: on ? 700 : 600,
-                                                                        color: on ? DASH.ink : DASH.text,
-                                                                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                                                                    }}>
-                                                                        {u.userType}
-                                                                    </Typography>
-
-                                                                    {on
-                                                                        ? <CheckCircleIcon sx={{ fontSize: 18, color: accent, flexShrink: 0 }} />
-                                                                        : <RadioButtonUncheckedIcon sx={{ fontSize: 18, color: DASH.line, flexShrink: 0 }} />}
-                                                                </Box>
-                                                            );
-                                                        })}
-                                                    </Box>
+                                                    <ApproverTiles options={options} picked={picked} accent={accent} accentLight={accentLight} onToggle={toggleApprover} />
 
                                                     <Typography sx={{ fontSize: 11, color: picked.length ? DASH.muted : DASH.amber, mt: 1.4, lineHeight: 1.5, fontWeight: picked.length ? 400 : 600 }}>
                                                         {picked.length === 0
@@ -781,6 +864,112 @@ export default function ApprovalFlowsTab({ showSnack }) {
                                             </Box>
                                         );
                                     })}
+                                </Box>
+                            </AccordionDetails>
+                        </Accordion>
+                    );
+                })()}
+                {canViewQp && (() => {
+                    const dirty = changedKeys.includes(QP_KEY);
+                    const picked = qpPicked.map(String);
+                    const options = (qpSettings?.userTypes || []).filter((u) => u?.userTypeID !== null && u?.userTypeID !== undefined);
+                    const optionName = (id) => options.find((o) => String(o.userTypeID) === String(id))?.userType || roleName(id);
+                    const toggle = (id) => {
+                        if (!canEditQp) return;
+                        const key = String(id);
+                        setQpPicked(picked.includes(key) ? picked.filter((x) => x !== key) : [...picked, key]);
+                    };
+
+                    return (
+                        <Accordion
+                            expanded={expanded === QP_KEY}
+                            onChange={() => setExpanded(expanded === QP_KEY ? "" : QP_KEY)}
+                            disableGutters
+                            elevation={0}
+                            sx={{ border: `1px solid ${dirty ? "#FCD34D" : DASH.line}`, borderRadius: "10px !important", "&:before": { display: "none" }, overflow: "hidden" }}
+                        >
+                            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: DASH.surface, minHeight: 52, "& .MuiAccordionSummary-content": { alignItems: "center", gap: 1.2 } }}>
+                                <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: ACCENT }} />
+                                <Typography sx={{ fontSize: 14, fontWeight: 700, color: DASH.ink }}>{QP_LABEL}</Typography>
+                                <Typography sx={{ fontSize: 11, color: DASH.faint }}>· Assessment</Typography>
+                                {dirty && (
+                                    <Chip size="small" label="Unsaved" sx={{ height: 19, fontSize: 9.5, fontWeight: 700, bgcolor: "#FEF3C7", color: "#92400E" }} />
+                                )}
+                                {!canEditQp && (
+                                    <Chip size="small" label="View only" sx={{ height: 19, fontSize: 9.5, fontWeight: 700, bgcolor: DASH.lineSoft, color: DASH.muted }} />
+                                )}
+                                <Chip
+                                    size="small"
+                                    label={qpSettings === null ? "Loading" : picked.length ? `Always on · ${picked.length} approver${picked.length > 1 ? "s" : ""}` : "Always on · No approver yet"}
+                                    sx={{ ml: "auto", mr: 1, height: 20, fontSize: 10, fontWeight: 700, bgcolor: picked.length ? DASH.greenLight : DASH.amberLight, color: picked.length ? DASH.green : DASH.amber }}
+                                />
+                            </AccordionSummary>
+
+                            <AccordionDetails sx={{ p: 2, bgcolor: DASH.canvas }}>
+                                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.9, mb: 2, px: 1.2, py: 1, borderRadius: RADIUS, bgcolor: "#fff", border: `1px dashed ${DASH.line}` }}>
+                                    <InfoOutlinedIcon sx={{ fontSize: 14, color: DASH.faint, mt: "1px" }} />
+                                    <Typography sx={{ fontSize: 11.5, color: DASH.muted, lineHeight: 1.5 }}>
+                                        Every generated question paper needs approval before it is final — there is no way to turn it off.
+                                        Tick every user type allowed to decide; any one of them can approve, send back or reject a paper.
+                                        Nobody can approve their own paper, and students are never offered as approvers.
+                                    </Typography>
+                                </Box>
+
+                                <Box sx={{ bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS, overflow: "hidden" }}>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, px: 2, py: 1.4, borderBottom: `1px solid ${DASH.lineSoft}` }}>
+                                        <Box sx={{ width: 3, height: 20, borderRadius: RADIUS, bgcolor: DASH.green, flexShrink: 0 }} />
+                                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: DASH.ink, lineHeight: 1.35 }}>
+                                                Question Paper Approval
+                                            </Typography>
+                                            <Typography sx={{ fontSize: 11.5, color: DASH.muted, mt: 0.1 }}>
+                                                Raised by whoever builds a paper in Question Paper Generation
+                                            </Typography>
+                                        </Box>
+                                        <Chip
+                                            size="small"
+                                            label={picked.length === 0 ? "No approver yet" : `${picked.length} approver${picked.length > 1 ? "s" : ""}`}
+                                            sx={{
+                                                height: 20, fontSize: 10, fontWeight: 700, borderRadius: RADIUS,
+                                                bgcolor: picked.length ? DASH.greenLight : DASH.amberLight,
+                                                color: picked.length ? DASH.green : DASH.amber,
+                                            }}
+                                        />
+                                    </Box>
+
+                                    <Box sx={{ p: 2 }}>
+                                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: DASH.muted, textTransform: "uppercase", letterSpacing: 0.4, mb: 1.2 }}>
+                                            Who can approve
+                                        </Typography>
+
+                                        {qpSettings === null ? (
+                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, py: 1 }}>
+                                                <CircularProgress size={14} sx={{ color: DASH.green }} />
+                                                <Typography sx={{ fontSize: 12, color: DASH.muted }}>Loading approvers…</Typography>
+                                            </Box>
+                                        ) : (
+                                            <Box sx={canEditQp ? undefined : { pointerEvents: "none", opacity: 0.75 }}>
+                                                <ApproverTiles options={options} picked={picked} accent={DASH.green} accentLight={DASH.greenLight} onToggle={toggle} />
+                                            </Box>
+                                        )}
+
+                                        <Typography sx={{ fontSize: 11, color: picked.length ? DASH.muted : DASH.amber, mt: 1.4, lineHeight: 1.5, fontWeight: picked.length ? 400 : 600 }}>
+                                            {picked.length === 0
+                                                ? "Pick at least one user type — no question paper can be approved until you do."
+                                                : picked.length === 1
+                                                    ? `${optionName(picked[0])} approves every question paper.`
+                                                    : `Any one of these ${picked.length} user types can approve a question paper.`}
+                                        </Typography>
+
+                                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.8, mt: 1.4, px: 1.2, py: 1, borderRadius: RADIUS, bgcolor: DASH.amberLight, border: "1px solid #FCD34D" }}>
+                                            <InfoOutlinedIcon sx={{ fontSize: 14, color: DASH.amber, mt: "1px" }} />
+                                            <Typography sx={{ fontSize: 11.5, color: "#92400E", lineHeight: 1.55 }}>
+                                                Ticking a user type here says who <strong>decides</strong>. To actually open the approval queue, that user type
+                                                also needs <strong>View</strong> on <strong>Question Paper Approval</strong> in Feature Permissions &gt; Configure · Academics.
+                                                Without it the Academics tab stays hidden on their Approvals page.
+                                            </Typography>
+                                        </Box>
+                                    </Box>
                                 </Box>
                             </AccordionDetails>
                         </Accordion>
@@ -815,9 +1004,7 @@ export default function ApprovalFlowsTab({ showSnack }) {
                             {changedKeys.length} unsaved change{changedKeys.length > 1 ? "s" : ""}
                         </Typography>
                         <Typography sx={{ fontSize: 11.5, color: DASH.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {changedKeys
-                                .map((k) => (APPROVAL_PAGES.find((ap) => ap.key === k)?.label || k))
-                                .join(", ")}
+                            {changedKeys.map(labelFor).join(", ")}
                         </Typography>
                     </Box>
 

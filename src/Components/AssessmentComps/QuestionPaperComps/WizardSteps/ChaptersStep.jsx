@@ -1,59 +1,80 @@
 import React, { useMemo } from "react";
-import {
-    Box, Grid, Typography, Button, Checkbox, Slider, TextField, MenuItem, LinearProgress,
-    CircularProgress,
-} from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { Box, Grid, Typography, Button, Checkbox, Slider, LinearProgress, CircularProgress } from "@mui/material";
 
 import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 import LayersOutlinedIcon from "@mui/icons-material/LayersOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import BalanceOutlinedIcon from "@mui/icons-material/BalanceOutlined";
-import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
+import RefreshIcon from "@mui/icons-material/Refresh";
 
 import { DASH, RADIUS, Panel, EmptyNote } from "../../../DashBoardComps/dashboardTheme";
-import { chapterPageCount } from "../../../AcademicsComps/BooksChaptersComps/bookApi";
-import { StatusPill } from "../../../AcademicsComps/BooksChaptersComps/bookTheme";
-import { fieldSx, outlineBtnSx, primaryBtnSx, Banner } from "../questionPaperTheme";
+import { Pill, outlineBtnSx, primaryBtnSx, Banner } from "../questionPaperTheme";
+
+const pageCount = (chapter) => Math.max(0, (Number(chapter.endPage) || 0) - (Number(chapter.startPage) || 0) + 1);
+
+const ChapterRow = ({ chapter, isOn, weight, onToggle, onWeightageChange }) => (
+    <Box
+        onClick={() => onToggle(chapter.id)}
+        sx={{
+            display: "flex", alignItems: "flex-start", gap: 1,
+            border: `1px solid ${isOn ? DASH.primary : DASH.line}`,
+            bgcolor: isOn ? DASH.primaryLight : "#fff",
+            borderRadius: RADIUS, p: 1.2, mb: 1, cursor: "pointer",
+            transition: "border-color .2s ease, background-color .2s ease",
+            "&:hover": { borderColor: DASH.primaryBorder },
+        }}
+    >
+        <Checkbox checked={isOn} size="small" sx={{ p: 0.3, mt: 0.1, "&.Mui-checked": { color: DASH.primary } }} />
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: DASH.ink }}>
+                {chapter.number}. {chapter.title}
+            </Typography>
+            <Typography sx={{ fontSize: "11px", color: DASH.muted, mt: 0.3 }}>
+                p.{chapter.startPage}-{chapter.endPage} - {pageCount(chapter)} pages
+            </Typography>
+
+            {isOn && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 1 }} onClick={(e) => e.stopPropagation()}>
+                    <Typography sx={{ fontSize: "11px", color: DASH.muted, width: 68, flexShrink: 0 }}>Weightage</Typography>
+                    <Slider
+                        size="small"
+                        value={weight}
+                        onChange={(e, value) => onWeightageChange(chapter.id, value)}
+                        min={0}
+                        max={100}
+                        sx={{ flex: 1, color: DASH.primary, "& .MuiSlider-thumb": { width: 12, height: 12 } }}
+                    />
+                    <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: DASH.ink, width: 34, textAlign: "right" }}>
+                        {weight}%
+                    </Typography>
+                </Box>
+            )}
+        </Box>
+    </Box>
+);
 
 export default function ChaptersStep({
     books,
-    pendingBooks = [],
     loading = false,
-    chaptersLoading = false,
+    emptyMessage = "",
     gradeLabel,
     subject,
-    bookId,
-    onBookChange,
     selectedChapterIds,
     onToggleChapter,
-    onSelectAll,
+    onSelectBook,
     onClearAll,
     weightage,
     onWeightageChange,
     onBalanceWeightage,
+    onReload,
 }) {
-    const navigate = useNavigate();
-
-    const book = useMemo(
-        () => books.find((b) => String(b.id) === String(bookId)) || books[0] || null,
-        [books, bookId]
-    );
-
-    const chapters = book?.chapters || [];
-    const selected = chapters.filter((c) => selectedChapterIds.includes(c.id));
+    const allChapters = useMemo(() => books.flatMap((b) => b.chapters), [books]);
+    const selected = allChapters.filter((c) => selectedChapterIds.includes(c.id));
     const weightTotal = selected.reduce((sum, c) => sum + (Number(weightage[c.id]) || 0), 0);
     const balanced = selected.length === 0 || weightTotal === 100;
     const remaining = 100 - weightTotal;
-
-    /* Weightage is a share of one paper, so the shares always add up to 100.
-       Raising one chapter takes the difference off the others rather than pushing
-       the total past 100 - see setChapterWeight in CreateQuestionPaperPage. */
-
     const portion = [gradeLabel, subject].filter(Boolean).join(" - ");
 
-    /* The library is read over the network, so waiting is its own state - not
-       the same thing as "there is no book for this class". */
     if (loading) {
         return (
             <Panel title="Chapters" subtitle="Reading the library" accent={DASH.primary}>
@@ -66,112 +87,39 @@ export default function ChaptersStep({
             </Panel>
         );
     }
+
     if (!books.length) {
-        /* The library does hold books for this class and subject - they just are
-           not confirmed. Listing them turns a dead end into one click. */
-        const hasPending = pendingBooks.length > 0;
-
         return (
-            <Box sx={{ bgcolor: "#fff", border: `1px dashed ${DASH.line}`, borderRadius: RADIUS, py: hasPending ? 4 : 7, px: 3 }}>
-                <Box sx={{ textAlign: "center" }}>
-                    <MenuBookOutlinedIcon sx={{ fontSize: 44, color: DASH.line }} />
-                    <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink, mt: 1.2 }}>
-                        {hasPending
-                            ? `No book filed under ${portion || "this class and subject"}`
-                            : `No book in the library${portion ? ` for ${portion}` : " for this class and subject"}`}
-                    </Typography>
-                    <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6, mb: 2.4, maxWidth: 540, mx: "auto", lineHeight: 1.7 }}>
-                        {hasPending
-                            ? `Nothing here is filed under ${subject || "this subject"} with a confirmed chapter split. The library does hold these for this class - open one to set its subject or confirm its chapters:`
-                            : "Questions are generated from chapters, so a book has to be in the library first. Upload it, confirm the detected chapter split, then come back to this step."}
-                    </Typography>
-                </Box>
-
-                {hasPending && (
-                    <Box sx={{ maxWidth: 560, mx: "auto", mb: 2.4 }}>
-                        {pendingBooks.map((b) => (
-                            <Box
-                                key={b.id}
-                                sx={{
-                                    display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap",
-                                    border: `1px solid ${DASH.line}`, borderRadius: RADIUS,
-                                    bgcolor: "#FCFCFD", px: 1.4, py: 1.1, mb: 1,
-                                }}
-                            >
-                                <Box sx={{ minWidth: 0, flex: 1 }}>
-                                    <Typography
-                                        sx={{
-                                            fontSize: "12.5px", fontWeight: 700, color: DASH.ink,
-                                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        {b.title}
-                                    </Typography>
-                                    <Typography sx={{ fontSize: "11px", color: DASH.muted, mt: 0.2 }}>
-                                        {b.chapterCount || (b.chapters || []).length} chapters - {b.pages} pages
-                                        {b.subject ? ` - ${b.subject}` : ""}
-                                    </Typography>
-                                </Box>
-                                <StatusPill status={b.status} dense />
-                                <Button
-                                    onClick={() => navigate(`/dashboardmenu/books/${b.id}`, { state: { book: b } })}
-                                    sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px" }}
-                                >
-                                    {b.status === "Needs Review" ? "Confirm chapters" : "Open book"}
-                                </Button>
-                            </Box>
-                        ))}
-                    </Box>
-                )}
-
-                <Box sx={{ display: "flex", gap: 1, justifyContent: "center", flexWrap: "wrap" }}>
-                    <Button
-                        onClick={() => navigate("/dashboardmenu/books")}
-                        startIcon={<MenuBookOutlinedIcon sx={{ fontSize: 16 }} />}
-                        sx={outlineBtnSx}
-                    >
-                        Books &amp; Chapters
-                    </Button>
-                    <Button
-                        onClick={() => navigate("/dashboardmenu/books/upload")}
-                        startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 16 }} />}
-                        sx={primaryBtnSx}
-                    >
-                        Upload Book
-                    </Button>
-                </Box>
+            <Box sx={{ bgcolor: "#fff", border: `1px dashed ${DASH.line}`, borderRadius: RADIUS, py: 6, px: 3, textAlign: "center" }}>
+                <MenuBookOutlinedIcon sx={{ fontSize: 44, color: DASH.line }} />
+                <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink, mt: 1.2 }}>
+                    No confirmed book{portion ? ` for ${portion}` : " for this class and subject"}
+                </Typography>
+                <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6, mb: 2.4, maxWidth: 560, mx: "auto", lineHeight: 1.7 }}>
+                    {emptyMessage || "Questions are generated from chapters, so a confirmed book for this class and subject has to be in the library first. Once it is confirmed, check again and the chapters appear here."}
+                </Typography>
+                <Button onClick={onReload} startIcon={<RefreshIcon sx={{ fontSize: 16 }} />} sx={primaryBtnSx}>
+                    Check again
+                </Button>
             </Box>
         );
     }
 
     return (
         <>
-            {book && book.status !== "Ready" ? (
-                /* Picking from a split nobody has checked yet. Worth saying once,
-                   rather than letting a wrong chapter range reach the paper. */
-                <Banner tone="warn" icon={InfoOutlinedIcon} title="This book is not confirmed yet">
-                    The chapters below were detected automatically and have not been reviewed. You can
-                    still pick from them, but check the split in Books &amp; Chapters before the paper is
-                    published.
-                </Banner>
-            ) : (
-                <Banner tone="info" icon={InfoOutlinedIcon} title="Pick the portion">
-                    Only the chapters you tick are used to generate questions. Weightage is optional -
-                    set it when a chapter should carry more of the paper than the others.
-                </Banner>
-            )}
+            <Banner tone="info" icon={InfoOutlinedIcon} title="Pick the portion">
+                Only the chapters you tick are used to generate questions. The shares must add up to 100% -
+                use Split evenly if you want every chapter to carry the same weight.
+            </Banner>
 
             <Grid container spacing={1.8}>
                 <Grid size={{ xs: 12, md: 7, lg: 8 }}>
                     <Panel
                         title="Chapters"
-                        subtitle={`${selected.length} of ${chapters.length} selected`}
+                        subtitle={`${selected.length} of ${allChapters.length} selected${books.length > 1 ? ` across ${books.length} books` : ""}`}
                         accent={DASH.primary}
                         right={
                             <Box sx={{ display: "flex", gap: 0.8 }}>
-                                <Button onClick={onSelectAll} sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px" }}>
-                                    Select all
-                                </Button>
                                 <Button onClick={onClearAll} sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px" }}>
                                     Clear
                                 </Button>
@@ -179,88 +127,52 @@ export default function ChaptersStep({
                         }
                         bodySx={{ p: 1.4 }}
                     >
-                        {books.length > 0 && (
-                            <TextField
-                                select fullWidth size="small" label="Book"
-                                value={String(book?.id ?? "")}
-                                onChange={(e) => onBookChange(e.target.value)}
-                                sx={{ ...fieldSx, mb: 1.6 }}
-                            >
-                                {books.map((b) => (
-                                    <MenuItem key={b.id} value={String(b.id)} sx={{ fontSize: "13px" }}>
-                                        {b.title} - {b.chapterCount} chapters{b.status === "Ready" ? "" : ` (${b.status})`}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        )}
-
-                        {chaptersLoading ? (
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, py: 2.5, justifyContent: "center" }}>
-                                <CircularProgress size={18} thickness={4} sx={{ color: DASH.primary }} />
-                                <Typography sx={{ fontSize: "12.5px", color: DASH.muted }}>Reading the chapters</Typography>
-                            </Box>
-                        ) : chapters.length === 0 ? (
-                            <EmptyNote text="This book has no confirmed chapters yet." />
-                        ) : (
-                            chapters.map((chapter) => {
-                                const isOn = selectedChapterIds.includes(chapter.id);
-                                return (
+                        {books.map((book) => {
+                            const bookSelected = book.chapters.filter((c) => selectedChapterIds.includes(c.id)).length;
+                            return (
+                                <Box key={book.id} sx={{ mb: 1.6 }}>
                                     <Box
-                                        key={chapter.id}
-                                        onClick={() => onToggleChapter(chapter.id)}
                                         sx={{
-                                            display: "flex", alignItems: "flex-start", gap: 1,
-                                            border: `1px solid ${isOn ? DASH.primary : DASH.line}`,
-                                            bgcolor: isOn ? DASH.primaryLight : "#fff",
-                                            borderRadius: RADIUS, p: 1.2, mb: 1, cursor: "pointer",
-                                            transition: "border-color .2s ease, background-color .2s ease",
-                                            "&:hover": { borderColor: DASH.primaryBorder },
+                                            display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap",
+                                            px: 1.2, py: 0.9, mb: 1, borderRadius: RADIUS,
+                                            bgcolor: DASH.surface, border: `1px solid ${DASH.lineSoft}`,
                                         }}
                                     >
-                                        <Checkbox
-                                            checked={isOn}
-                                            size="small"
-                                            sx={{ p: 0.3, mt: 0.1, "&.Mui-checked": { color: DASH.primary } }}
-                                        />
+                                        <MenuBookOutlinedIcon sx={{ fontSize: 16, color: DASH.cyan }} />
                                         <Box sx={{ minWidth: 0, flex: 1 }}>
                                             <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: DASH.ink }}>
-                                                {chapter.number}. {chapter.title}
+                                                {book.title}
                                             </Typography>
-                                            <Typography sx={{ fontSize: "11px", color: DASH.muted, mt: 0.3 }}>
-                                                p.{chapter.startPage}-{chapter.endPage} - {chapterPageCount(chapter)} pages -{" "}
-                                                {(chapter.wordCount || 0).toLocaleString()} words
+                                            <Typography sx={{ fontSize: "11px", color: DASH.muted }}>
+                                                {[book.term ? `Term ${book.term}` : "", book.medium, book.publisher, book.editionYear].filter(Boolean).join(" - ")}
                                             </Typography>
-
-                                            {isOn && (
-                                                <Box
-                                                    sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 1 }}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <Typography sx={{ fontSize: "11px", color: DASH.muted, width: 68, flexShrink: 0 }}>
-                                                        Weightage
-                                                    </Typography>
-                                                    <Slider
-                                                        size="small"
-                                                        value={Number(weightage[chapter.id]) || 0}
-                                                        onChange={(e, value) => onWeightageChange(chapter.id, value)}
-                                                        min={0}
-                                                        max={100}
-                                                        sx={{
-                                                            flex: 1,
-                                                            color: DASH.primary,
-                                                            "& .MuiSlider-thumb": { width: 12, height: 12 },
-                                                        }}
-                                                    />
-                                                    <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: DASH.ink, width: 34, textAlign: "right" }}>
-                                                        {Number(weightage[chapter.id]) || 0}%
-                                                    </Typography>
-                                                </Box>
-                                            )}
                                         </Box>
+                                        <Pill label={`${bookSelected} / ${book.chapters.length}`} color={DASH.muted} bg="#fff" border={DASH.line} />
+                                        <Button
+                                            onClick={() => onSelectBook(book)}
+                                            sx={{ ...outlineBtnSx, py: 0.2, fontSize: "11px", height: 26 }}
+                                        >
+                                            {bookSelected === book.chapters.length ? "Unselect all" : "Select all"}
+                                        </Button>
                                     </Box>
-                                );
-                            })
-                        )}
+
+                                    {book.chapters.length === 0 ? (
+                                        <EmptyNote text="This book has no confirmed chapters." />
+                                    ) : (
+                                        book.chapters.map((chapter) => (
+                                            <ChapterRow
+                                                key={chapter.id}
+                                                chapter={chapter}
+                                                isOn={selectedChapterIds.includes(chapter.id)}
+                                                weight={Number(weightage[chapter.id]) || 0}
+                                                onToggle={onToggleChapter}
+                                                onWeightageChange={onWeightageChange}
+                                            />
+                                        ))
+                                    )}
+                                </Box>
+                            );
+                        })}
                     </Panel>
                 </Grid>
 
@@ -277,10 +189,10 @@ export default function ChaptersStep({
                             </Box>
                             <Box sx={{ minWidth: 0 }}>
                                 <Typography sx={{ fontSize: "13px", fontWeight: 700, color: DASH.ink }}>
-                                    {book?.title}
+                                    {portion || "This paper"}
                                 </Typography>
                                 <Typography sx={{ fontSize: "11px", color: DASH.muted }}>
-                                    {book?.grade} - {book?.subject} - {book?.medium}
+                                    {books.length === 1 ? books[0].title : `${books.length} confirmed books`}
                                 </Typography>
                             </Box>
                         </Box>

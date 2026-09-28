@@ -32,8 +32,11 @@ import {
     POLL_MS, MAX_ZIP_MB, isZipFile, fileSizeLabel, fmtDate, elapsedLabel,
 } from "./patternDiscoveryApi";
 import { fieldSx, outlineBtnSx, createBtnSx, Banner, Pill } from "./questionPaperTheme";
+import { useBackgroundTasks, isTaskActive } from "../../BackgroundTasks/BackgroundTasksContext";
 
 const token = "123";
+
+const TASK_KIND = "patternBatch";
 
 const StagePill = ({ status }) => {
     const stage = batchStage(status);
@@ -138,7 +141,7 @@ export default function PatternDiscoveryPage() {
     const rollNumber = user?.rollNumber;
 
     const perms = findSubMenuPermissions(user?.permissions, "patterndiscovery", "batch");
-    const may = (key) => !perms || perms[key] === "Y";
+    const may = (key) => perms?.[key] !== "N";
     const canCreate = may("create");
     const canDelete = may("delete");
 
@@ -148,8 +151,10 @@ export default function PatternDiscoveryPage() {
     const [search, setSearch] = useState("");
 
     const [file, setFile] = useState(null);
-    const [uploading, setUploading] = useState(false);
     const [dragging, setDragging] = useState(false);
+
+    const { tasks, lastFinished, startUpload } = useBackgroundTasks() || {};
+    const uploading = (tasks || []).some((t) => t.kind === TASK_KIND && isTaskActive(t));
     const [deleteTarget, setDeleteTarget] = useState(null);
 
     const inputRef = useRef(null);
@@ -186,6 +191,10 @@ export default function PatternDiscoveryPage() {
 
     useEffect(() => { load(); }, [load]);
 
+    useEffect(() => {
+        if (lastFinished?.kind === TASK_KIND && lastFinished.status === "done") load(true);
+    }, [lastFinished, load]);
+
     /* Polling is only armed while something is actually moving. A page full of
        finished batches makes no requests at all. */
     const anyBusy = useMemo(() => batches.some((b) => isBatchBusy(b.status)), [batches]);
@@ -220,32 +229,36 @@ export default function PatternDiscoveryPage() {
         setFile(picked);
     };
 
-    /* FormData carries its own multipart boundary. Setting Content-Type by hand
-       drops it and the server sees an empty body, so the header is left alone. */
+    /* The file goes to the app shell, which keeps the request alive whatever
+       page the user is on and shows its progress in the corner. Nothing here
+       waits for it - the picker clears straight away and the page is free.
+       FormData carries its own multipart boundary, so no Content-Type is set. */
     const upload = () => {
-        if (!file || uploading) return;
-        const body = new FormData();
-        body.append("file", file);
-        body.append("uploadedByRollNumber", rollNumber || "");
+        if (!file || !startUpload) return;
+        const picked = file;
 
-        setUploading(true);
-        axios
-            .post(UploadPatternBatch, body, { headers: { Authorization: `Bearer ${token}` } })
-            .then((res) => {
+        startUpload({
+            kind: TASK_KIND,
+            label: "Past papers for pattern discovery",
+            file: picked,
+            url: UploadPatternBatch,
+            fields: { uploadedByRollNumber: rollNumber || "" },
+            headers: { Authorization: `Bearer ${token}` },
+            onSuccess: (res) => {
                 const rejected = apiFailed(res.data);
-                if (rejected) { notify(rejected); return; }
-                setFile(null);
-                if (inputRef.current) inputRef.current.value = "";
-                notify("Uploaded. Reading the papers now - this page updates on its own.", true);
+                if (rejected) return { error: rejected };
                 const batchId = res.data?.batchId || res.data?.BatchId;
-                if (batchId) {
-                    navigate(`/dashboardmenu/assessment/question-paper/patterns/ai/${batchId}`);
-                    return;
-                }
-                load();
-            })
-            .catch((error) => notify(error?.response?.data?.message || "The ZIP could not be uploaded"))
-            .finally(() => setUploading(false));
+                return {
+                    message: "Uploaded. The papers are being read now.",
+                    link: batchId ? `/dashboardmenu/assessment/question-paper/patterns/ai/${batchId}` : "",
+                    linkLabel: "Open this batch",
+                };
+            },
+        });
+
+        setFile(null);
+        if (inputRef.current) inputRef.current.value = "";
+        notify("Uploading in the background - carry on with anything else. Progress is in the bottom-right corner.", true);
     };
 
     const confirmDelete = () => {
@@ -372,11 +385,11 @@ export default function PatternDiscoveryPage() {
                             <Box sx={{ display: "flex", gap: 1, mt: 1.6 }}>
                                 <Button
                                     onClick={upload}
-                                    disabled={!file || uploading}
+                                    disabled={!file}
                                     startIcon={<AutoAwesomeOutlinedIcon sx={{ fontSize: 17 }} />}
                                     sx={{ ...createBtnSx, flex: 1 }}
                                 >
-                                    {uploading ? "Uploading..." : "Upload and find patterns"}
+                                    Upload and find patterns
                                 </Button>
                                 {file && (
                                     <Button
@@ -389,12 +402,19 @@ export default function PatternDiscoveryPage() {
                             </Box>
 
                             {uploading && (
-                                <LinearProgress
+                                <Box
                                     sx={{
-                                        mt: 1.4, height: 4, borderRadius: RADIUS, bgcolor: DASH.lineSoft,
-                                        "& .MuiLinearProgress-bar": { bgcolor: DASH.violet },
+                                        display: "flex", alignItems: "center", gap: 1, mt: 1.4,
+                                        bgcolor: DASH.violetLight, border: "1px solid #DDD6FE",
+                                        borderRadius: RADIUS, px: 1.4, py: 1,
                                     }}
-                                />
+                                >
+                                    <HourglassEmptyOutlinedIcon sx={{ fontSize: 15, color: DASH.violet, flexShrink: 0 }} />
+                                    <Typography sx={{ fontSize: "11.5px", color: "#5B21B6", lineHeight: 1.6 }}>
+                                        A ZIP is still uploading. Its progress is in the bottom-right corner - you can
+                                        pick another file, or leave this page entirely.
+                                    </Typography>
+                                </Box>
                             )}
 
                             <Box sx={{ mt: 2 }}>
@@ -407,10 +427,11 @@ export default function PatternDiscoveryPage() {
                             </Box>
 
                             <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 1.6, lineHeight: 1.8 }}>
-                                <strong>It takes a while.</strong> Every paper is read page by page, its questions are
-                                pulled out one at a time, and only then are the patterns worked out. A big ZIP can run
-                                for a long time. You can close this page - the work carries on and the batch is waiting
-                                for you when you come back.
+                                <strong>It takes a while, twice.</strong> First the ZIP has to reach the server - a
+                                big one takes minutes, and you can watch it in the bottom-right corner while you do
+                                something else. Then every paper is read page by page and the patterns are worked out,
+                                which runs on its own. Leave the page whenever you like; only closing the browser tab
+                                stops an upload that is still going.
                             </Typography>
                         </Panel>
                     )}

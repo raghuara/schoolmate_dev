@@ -1,9 +1,7 @@
 import { Avatar, Box, Button, Chip, Divider, Grid, Typography } from "@mui/material";
-import React from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
-import HowToRegOutlinedIcon from "@mui/icons-material/HowToRegOutlined";
-import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
 import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
@@ -11,41 +9,31 @@ import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import CakeOutlinedIcon from "@mui/icons-material/CakeOutlined";
 import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
-import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import {
-    DASH, RADIUS, KPI_TONES, SOFT, Panel, SolidStatCard, MeterRow, EmptyNote,
+    DASH, RADIUS, KPI_TONES, Panel, SolidStatCard, MeterRow, EmptyNote,
 } from "./dashboardTheme";
 import { useSelector } from "react-redux";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import {
-    MOCK_MY_SCHEDULE, MOCK_MY_ACTIONS, MOCK_MARKS_ENTRY,
-} from "./dashboardMockData";
 import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
 import { useCommonDashboard } from "./dashboardApi";
 
-/* commonDashboard serves headline, attendanceLeave, work and forMe. Today's
-   Schedule, My Pending Actions and Marks Entry have no endpoint - the collection
-   notes there is no honest data source for them yet - so those three keep the
-   placeholder data and are marked "Sample" on screen. */
 const EMPTY_ATTENDANCE = { month: "", workingDays: 0, present: 0, absent: 0, late: 0, halfDay: 0, percent: 0 };
 const EMPTY_HOMEWORK = { assignedToday: 0, thisWeek: 0, dueTomorrow: 0, classesCovered: 0 };
 const EMPTY_PAYSLIP = { month: "", net: "", status: "", creditedOn: "" };
+const UNAVAILABLE = "Couldn't load this right now. Use refresh to try again.";
+const FOR_ME_BODY = {
+    maxHeight: 300,
+    overflowY: "auto",
+    overscrollBehavior: "contain",
+    "&::-webkit-scrollbar": { width: 6 },
+    "&::-webkit-scrollbar-thumb": { backgroundColor: DASH.line, borderRadius: 3 },
+    "&::-webkit-scrollbar-thumb:hover": { backgroundColor: DASH.faint },
+    "&::-webkit-scrollbar-track": { backgroundColor: "transparent" },
+    scrollbarWidth: "thin",
+    scrollbarColor: `${DASH.line} transparent`,
+};
 
-const SampleChip = () => (
-    <Box
-        component="span"
-        sx={{
-            display: "inline-block", ml: 1, px: 0.7, borderRadius: "20px",
-            bgcolor: DASH.lineSoft, color: DASH.faint,
-            fontSize: "9px", fontWeight: 800, lineHeight: "15px", verticalAlign: "middle",
-        }}
-    >
-        Sample
-    </Box>
-);
+const SECTION_LABELS = { headline: "Overview", attendanceLeave: "Attendance & Leave", work: "My Work", forMe: "For Me" };
 
 const SectionTitle = ({ children, icon: Icon }) => (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.4, mt: 1 }}>
@@ -84,9 +72,6 @@ const StatusChip = ({ status }) => {
     );
 };
 
-const severityIcon = (severity) =>
-    severity === "critical" ? ErrorOutlineRoundedIcon : severity === "info" ? InfoOutlinedIcon : WarningAmberRoundedIcon;
-
 export default function CommonDashboard({ header }) {
     const navigate = useNavigate();
     const auth = useSelector((state) => state.auth);
@@ -104,14 +89,26 @@ export default function CommonDashboard({ header }) {
     const leaveRequests = common?.attendanceLeave?.leaveRequests || [];
     const myHomework = common?.work?.homework || EMPTY_HOMEWORK;
     const submissions = common?.work?.submissions || [];
-    const news = common?.forMe?.news || [];
+    const news = useMemo(() => common?.forMe?.news || [], [common]);
+    const newsFeed = useMemo(() => {
+        const pinned = new Set();
+        ["news", "circular"].forEach((kind) => {
+            const first = news.find((n) => String(n.kind).toLowerCase() === kind);
+            if (first) pinned.add(first);
+        });
+        const picked = new Set(pinned);
+        for (const n of news) {
+            if (picked.size >= 4) break;
+            picked.add(n);
+        }
+        return news.filter((n) => picked.has(n));
+    }, [news]);
     const events = common?.forMe?.events || [];
     const birthdays = common?.forMe?.birthdays || [];
     const payslip = common?.forMe?.payslip || EMPTY_PAYSLIP;
+    const hasPayslip = Boolean(payslip.net || payslip.month || payslip.status);
 
     const failedSections = Object.keys(commonErrors || {}).filter((k) => commonErrors[k]);
-
-    const toMark = MOCK_MY_SCHEDULE.filter((s) => !s.attendanceMarked);
 
     // The headline endpoint carries these directly; the leave section is the
     // fallback so the cards still read correctly if headline is the one that fails.
@@ -153,31 +150,12 @@ export default function CommonDashboard({ header }) {
                 </Button>
                 {failedSections.length > 0 && (
                     <Typography sx={{ fontSize: "11.5px", color: DASH.red }}>
-                        Could not load: {failedSections.join(", ")}
+                        Could not load: {failedSections.map((k) => SECTION_LABELS[k] || k).join(", ")}
                     </Typography>
                 )}
             </Box>
 
             <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
-                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                    <SolidStatCard
-                        icon={ScheduleOutlinedIcon}
-                        label="My Classes Today"
-                        value={MOCK_MY_SCHEDULE.length}
-                        note={`${MOCK_MY_SCHEDULE.length - toMark.length} done`}
-                        tone={KPI_TONES.violet}
-                    />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                    <SolidStatCard
-                        icon={HowToRegOutlinedIcon}
-                        label="Attendance To Mark"
-                        value={toMark.length}
-                        note={toMark.length ? "Pending for today" : "All marked"}
-                        tone={KPI_TONES.pink}
-                        onClick={() => navigate("/dashboardmenu/attendance")}
-                    />
-                </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
                     <SolidStatCard
                         icon={EventAvailableOutlinedIcon}
@@ -196,114 +174,23 @@ export default function CommonDashboard({ header }) {
                         tone={KPI_TONES.orange}
                     />
                 </Grid>
-            </Grid>
-
-            <SectionTitle icon={ScheduleOutlinedIcon}>My Day <SampleChip /></SectionTitle>
-            <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
-                <Grid size={{ xs: 12, sm: 12, md: 7, lg: 7 }}>
-                    <Panel
-                        title="Today's Schedule"
-                        subtitle={`${MOCK_MY_SCHEDULE.length} periods`}
-                        accent={DASH.violet}
-                        sx={{ height: "100%" }}
-                        right={
-                            <Button
-                                onClick={() => navigate("/dashboardmenu/timetable")}
-                                endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
-                                sx={{ textTransform: "none", fontSize: "12px", fontWeight: 700, color: DASH.blue }}
-                            >
-                                Full Timetable
-                            </Button>
-                        }
-                    >
-                        {MOCK_MY_SCHEDULE.length === 0 && <EmptyNote text="No classes scheduled for today." />}
-                        {MOCK_MY_SCHEDULE.map((s) => (
-                            <Box
-                                key={s.id}
-                                sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 1.4,
-                                    py: 1,
-                                    px: s.current ? 1.2 : 0,
-                                    mx: s.current ? -1.2 : 0,
-                                    borderRadius: RADIUS,
-                                    bgcolor: s.current ? DASH.violetLight : "transparent",
-                                    borderBottom: `1px solid ${DASH.lineSoft}`,
-                                    "&:last-of-type": { borderBottom: "none" },
-                                }}
-                            >
-                                <Box
-                                    sx={{
-                                        width: 34,
-                                        height: 34,
-                                        borderRadius: RADIUS,
-                                        bgcolor: s.current ? DASH.violet : DASH.lineSoft,
-                                        color: s.current ? "#fff" : DASH.muted,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        flexShrink: 0,
-                                    }}
-                                >
-                                    <Typography sx={{ fontSize: "12.5px", fontWeight: 800 }}>{s.period}</Typography>
-                                </Box>
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography sx={{ fontSize: "13px", fontWeight: 600, color: DASH.ink }} noWrap>
-                                        {s.grade} · {s.subject}
-                                    </Typography>
-                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
-                                        {s.time} • {s.room}
-                                    </Typography>
-                                </Box>
-                                {s.attendanceMarked ? (
-                                    <Chip label="Marked" size="small" sx={{ height: 20, fontSize: "10.5px", fontWeight: 700, bgcolor: DASH.greenLight, color: DASH.green }} />
-                                ) : (
-                                    <Button
-                                        onClick={() => navigate("/dashboardmenu/attendance")}
-                                        sx={{
-                                            textTransform: "none",
-                                            fontSize: "11.5px",
-                                            fontWeight: 700,
-                                            height: 26,
-                                            px: 1.2,
-                                            borderRadius: RADIUS,
-                                            color: SOFT.pink.color,
-                                            bgcolor: SOFT.pink.bg,
-                                            border: `1px solid ${SOFT.pink.border}`,
-                                            "&:hover": { bgcolor: SOFT.pink.hover },
-                                        }}
-                                    >
-                                        Mark
-                                    </Button>
-                                )}
-                            </Box>
-                        ))}
-                    </Panel>
+                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                    <SolidStatCard
+                        icon={FactCheckOutlinedIcon}
+                        label="Pending Requests"
+                        value={pendingRequests}
+                        note={pendingRequests ? "Awaiting approval" : "Nothing waiting"}
+                        tone={KPI_TONES.pink}
+                    />
                 </Grid>
-
-                <Grid size={{ xs: 12, sm: 12, md: 5, lg: 5 }}>
-                    <Panel title="My Pending Actions" subtitle="Assigned to you" accent={DASH.primary} right={<SampleChip />} sx={{ height: "100%" }}>
-                        {MOCK_MY_ACTIONS.length === 0 && <EmptyNote text="Nothing pending. You are all caught up." />}
-                        {MOCK_MY_ACTIONS.map((a) => {
-                            const Icon = severityIcon(a.severity);
-                            return (
-                                <Box
-                                    key={a.id}
-                                    onClick={() => navigate(a.path)}
-                                    sx={{
-                                        display: "flex", alignItems: "center", gap: 1.2, p: 1.2, mb: 1,
-                                        border: `1px solid ${DASH.lineSoft}`, borderRadius: RADIUS, cursor: "pointer",
-                                        "&:hover": { bgcolor: DASH.primaryLight, borderColor: DASH.primaryBorder },
-                                    }}
-                                >
-                                    <Icon sx={{ fontSize: 18, color: a.severity === "critical" ? DASH.red : a.severity === "info" ? DASH.blue : DASH.amber, flexShrink: 0 }} />
-                                    <Typography sx={{ fontSize: "13px", color: DASH.ink, flex: 1, minWidth: 0 }}>{a.label}</Typography>
-                                    <Chip label={a.due} size="small" sx={{ height: 20, fontSize: "10.5px", fontWeight: 700, bgcolor: DASH.lineSoft, color: DASH.muted }} />
-                                </Box>
-                            );
-                        })}
-                    </Panel>
+                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                    <SolidStatCard
+                        icon={AutoStoriesOutlinedIcon}
+                        label="Homework This Week"
+                        value={myHomework.thisWeek}
+                        note={`${myHomework.assignedToday} assigned today`}
+                        tone={KPI_TONES.violet}
+                    />
                 </Grid>
             </Grid>
 
@@ -344,7 +231,7 @@ export default function CommonDashboard({ header }) {
 
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                     <Panel title="Leave Balance" subtitle="This academic year" accent={DASH.cyan} sx={{ height: "100%" }}>
-                        {leaveBalance.length === 0 && (<EmptyNote text={commonErrors.attendanceLeave || (commonLoading ? "Loading..." : "No leave types configured.")} />)}
+                        {leaveBalance.length === 0 && (<EmptyNote text={commonErrors.attendanceLeave ? UNAVAILABLE : (commonLoading ? "Loading..." : "No leave types configured.")} />)}
                         {leaveBalance.map((l) => (
                             <MeterRow
                                 key={l.type}
@@ -357,7 +244,7 @@ export default function CommonDashboard({ header }) {
                         ))}
                         <Divider sx={{ my: 1.2 }} />
                         <Button
-                            onClick={() => navigate("/dashboardmenu/Leave/leave-attendance")}
+                            onClick={() => navigate("/dashboardmenu/Leave/leave-attendance", { state: { tab: "leave", leaveView: "apply" } })}
                             startIcon={<EventBusyOutlinedIcon sx={{ fontSize: 15 }} />}
                             sx={{ textTransform: "none", fontSize: "12.5px", fontWeight: 700, color: DASH.blue, p: 0 }}
                         >
@@ -399,7 +286,7 @@ export default function CommonDashboard({ header }) {
 
             <SectionTitle icon={AutoStoriesOutlinedIcon}>My Work</SectionTitle>
             <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
-                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
                     <Panel title="My Homework" accent={DASH.violet} sx={{ height: "100%" }}>
                         {[
                             ["Assigned today", myHomework.assignedToday],
@@ -429,23 +316,7 @@ export default function CommonDashboard({ header }) {
                     </Panel>
                 </Grid>
 
-                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                    <Panel title="Marks Entry" subtitle="My subjects" accent={DASH.violet} right={<SampleChip />} sx={{ height: "100%" }}>
-                        {MOCK_MARKS_ENTRY.length === 0 && <EmptyNote text="No marks entry pending." />}
-                        {MOCK_MARKS_ENTRY.map((m) => (
-                            <MeterRow
-                                key={m.exam}
-                                label={m.exam}
-                                value={m.entered}
-                                max={m.total}
-                                right={`${m.entered}/${m.total}`}
-                                color={m.entered === m.total ? DASH.green : DASH.amber}
-                            />
-                        ))}
-                    </Panel>
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 12, md: 4, lg: 4 }}>
+                <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
                     <Panel title="My Submissions" subtitle="Sent for approval" accent={DASH.violet} sx={{ height: "100%" }}>
                         {submissions.length === 0 && <EmptyNote text="You have not submitted anything yet." />}
                         {submissions.map((s) => (
@@ -473,9 +344,9 @@ export default function CommonDashboard({ header }) {
             <SectionTitle icon={CampaignOutlinedIcon}>For Me</SectionTitle>
             <Grid container spacing={2} sx={{ alignItems: "stretch" }}>
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
-                    <Panel title="News &amp; Circulars" accent={DASH.blue} sx={{ height: "100%" }}>
-                        {news.length === 0 && (<EmptyNote text={commonErrors.forMe || (commonLoading ? "Loading..." : "Nothing posted yet.")} />)}
-                        {news.slice(0, 4).map((n) => (
+                    <Panel title="News &amp; Circulars" accent={DASH.blue} sx={{ height: "100%" }} bodySx={FOR_ME_BODY}>
+                        {news.length === 0 && (<EmptyNote text={commonErrors.forMe ? UNAVAILABLE : (commonLoading ? "Loading..." : "Nothing posted yet.")} />)}
+                        {newsFeed.map((n) => (
                             <Box
                                 key={n.id}
                                 sx={{
@@ -494,8 +365,8 @@ export default function CommonDashboard({ header }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
-                    <Panel title="Upcoming Events" accent={DASH.blue} sx={{ height: "100%" }}>
-                        {events.length === 0 && (<EmptyNote text={commonErrors.forMe || (commonLoading ? "Loading..." : "No events coming up.")} />)}
+                    <Panel title="Upcoming Events" accent={DASH.blue} sx={{ height: "100%" }} bodySx={FOR_ME_BODY}>
+                        {events.length === 0 && (<EmptyNote text={commonErrors.forMe ? UNAVAILABLE : (commonLoading ? "Loading..." : "No events coming up.")} />)}
                         {events.map((e) => (
                             <Box
                                 key={e.id}
@@ -513,7 +384,13 @@ export default function CommonDashboard({ header }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
-                    <Panel title="Today's Birthdays" accent={DASH.pink} sx={{ height: "100%" }}>
+                    <Panel
+                        title="Today's Birthdays"
+                        subtitle={birthdays.length > 0 ? `${birthdays.length} today` : undefined}
+                        accent={DASH.pink}
+                        sx={{ height: "100%" }}
+                        bodySx={FOR_ME_BODY}
+                    >
                         {birthdays.length === 0 && <EmptyNote text="No birthdays today." />}
                         {birthdays.map((b) => (
                             <Box key={b.id} sx={{ display: "flex", alignItems: "center", gap: 1.2, py: 0.9 }}>
@@ -530,7 +407,11 @@ export default function CommonDashboard({ header }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
-                    <Panel title="My Last Payslip" subtitle={payslip.month} accent={DASH.green} sx={{ height: "100%" }}>
+                    <Panel title="My Last Payslip" subtitle={hasPayslip ? payslip.month : undefined} accent={DASH.green} sx={{ height: "100%" }} bodySx={FOR_ME_BODY}>
+                        {!hasPayslip && (
+                            <EmptyNote text={commonErrors.forMe ? UNAVAILABLE : (commonLoading ? "Loading..." : "No payslip released yet. It will appear here once payroll is approved and credited.")} />
+                        )}
+                        {hasPayslip && (<>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1 }}>
                             <Box
                                 sx={{
@@ -553,8 +434,9 @@ export default function CommonDashboard({ header }) {
                         </Box>
                         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 0.8, borderTop: `1px solid ${DASH.lineSoft}` }}>
                             <Typography sx={{ fontSize: "12px", color: DASH.muted }}>Credited on</Typography>
-                            <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.ink }}>{payslip.creditedOn}</Typography>
+                            <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.ink }}>{payslip.creditedOn || "—"}</Typography>
                         </Box>
+                        </>)}
                     </Panel>
                 </Grid>
             </Grid>

@@ -334,7 +334,7 @@ export const readCommonWork = (payload) => {
 
 export const readCommonForMe = (payload) => {
     const data = unwrap(payload);
-    const payslip = val(data, ["payslip", "latestPayslip", "salary"], {}) || {};
+    const payslip = val(data, ["payslip", "myPayslip", "latestPayslip", "salary"], {}) || {};
 
     return {
         news: listOf(data, ["news", "newsAndCirculars", "announcements", "posts"]).map((row, i) => ({
@@ -349,11 +349,11 @@ export const readCommonForMe = (payload) => {
             date: val(row, ["date", "eventDate", "fromDate"], ""),
             tag: val(row, ["tag", "type", "category"], "Event"),
         })),
-        birthdays: listOf(data, ["birthdays", "todayBirthdays", "birthdayList"]).map((row, i) => ({
+        birthdays: listOf(data, ["birthdays", "todaysBirthdays", "todayBirthdays", "birthdayList"]).map((row, i) => ({
             id: val(row, ["id", "rollNumber"], i + 1),
             name: val(row, ["name", "studentName", "staffName"], ""),
-            detail: val(row, ["detail", "grade", "className", "designation"], ""),
-            type: val(row, ["type", "userType", "category"], ""),
+            detail: val(row, ["detail", "label", "grade", "className", "designation"], ""),
+            type: val(row, ["type", "userType", "category"], typeof row?.isStudent === "boolean" ? (row.isStudent ? "Student" : "Staff") : ""),
         })),
         payslip: {
             month: val(payslip, ["month", "payoutMonth", "period"], ""),

@@ -30,6 +30,7 @@ export const ACADEMICS_PAGES = [
     "Study Materials",
     "Marks",
     "Attendance",
+    "Online Quiz",
 ];
 
 export const PAGE_OVERRIDES = {
@@ -55,6 +56,7 @@ export const PAGE_OVERRIDES = {
     "Study Materials": { subMenu: "studymaterial", approval: false },
     "Marks": { subMenu: "marks", approval: false },
     "Attendance": { subMenu: "attendance", opsKeys: ["view", "create", "edit"], approval: false },
+    "Online Quiz": { subMenu: "onlinequiz", opsKeys: [], approval: false },
 };
 
 /* Chats is a whole feature rather than a record you view and edit, so it carries
@@ -79,6 +81,18 @@ export const COMMUNICATION_EXTRA_OPS = {
 // two switches are the whole page, not an extra on top of something else.
 export const COMMUNICATION_EXTRA_OPS_LABELS = {
     "Chats": "",
+};
+
+export const ACADEMICS_EXTRA_OPS = {
+    "Online Quiz": [
+        { key: "viewdashboard", label: "View Dashboard" },
+        { key: "createquiz", label: "Create Quiz", requires: "viewdashboard" },
+        { key: "approvequizzes", label: "Approve Quizzes", requires: "viewdashboard" },
+    ],
+};
+
+export const ACADEMICS_EXTRA_OPS_LABELS = {
+    "Online Quiz": "",
 };
 
 // Events is a tab inside School Calendar, not a page of its own - the calendar

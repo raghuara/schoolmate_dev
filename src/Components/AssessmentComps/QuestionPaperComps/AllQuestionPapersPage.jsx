@@ -5,6 +5,7 @@ import {
 } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
@@ -57,7 +58,7 @@ const Meta = ({ icon: Icon, label }) => (
     </Box>
 );
 
-const PaperCard = ({ paper, onOpen, onClone }) => {
+const PaperCard = ({ paper, onOpen, onClone, canClone }) => {
     const tone = subjectTone(paper.subject);
     return (
         <Box
@@ -93,7 +94,9 @@ const PaperCard = ({ paper, onOpen, onClone }) => {
                             {paper.name}
                         </Typography>
                         <Typography sx={{ fontSize: "11px", color: DASH.faint, mt: 0.3 }}>
-                            {paper.examName}
+                            {paper.status === "Draft" && paper.currentStep > 0 && paper.currentStep < 6
+                                ? `In progress - step ${paper.currentStep} of 6`
+                                : [paper.academicYear, paper.medium ? `${paper.medium} medium` : ""].filter(Boolean).join(" - ")}
                         </Typography>
                     </Box>
                     <StatusPill status={paper.status} />
@@ -157,11 +160,13 @@ const PaperCard = ({ paper, onOpen, onClone }) => {
                             <VisibilityOutlinedIcon sx={{ fontSize: 15, color: DASH.muted }} />
                         </IconButton>
                     </Tooltip>
+                    {canClone && (
                     <Tooltip title="Duplicate" arrow>
                         <IconButton size="small" onClick={(e) => { e.stopPropagation(); onClone(paper); }} sx={{ width: 26, height: 26 }}>
                             <ContentCopyOutlinedIcon sx={{ fontSize: 14, color: DASH.muted }} />
                         </IconButton>
                     </Tooltip>
+                    )}
                 </Box>
             </Box>
         </Box>
@@ -177,6 +182,8 @@ export default function AllQuestionPapersPage() {
 
     const user = useSelector((state) => state.auth);
     const rollNumber = user?.rollNumber;
+    const paperPerms = findSubMenuPermissions(user?.permissions, "questionpapergeneration", "paper");
+    const canCreatePaper = !paperPerms || paperPerms.create === "Y";
 
     const [papers, setPapers] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -220,7 +227,7 @@ export default function AllQuestionPapersPage() {
 
     const statusCounts = useMemo(() => {
         const counts = { All: papers.length };
-        PAPER_STATUSES.forEach((s) => { counts[s] = papers.filter((p) => p.status === s).length; });
+        STATUS_TABS.slice(1).forEach((s) => { counts[s] = papers.filter((p) => p.status === s).length; });
         return counts;
     }, [papers]);
 
@@ -260,7 +267,7 @@ export default function AllQuestionPapersPage() {
     };
 
     const openPaper = (paper) => {
-        const unfinished = paper.status === "Draft" || (paper.currentStep > 0 && paper.currentStep < 6);
+        const unfinished = paper.status === "Draft" || paper.status === "Sent Back";
         if (unfinished) {
             navigate(`/dashboardmenu/assessment/question-paper/create/${paper.id}`, { state: { paperId: paper.id } });
             return;
@@ -309,14 +316,16 @@ export default function AllQuestionPapersPage() {
                             <RefreshIcon sx={{ fontSize: 18, color: DASH.text }} />
                         </IconButton>
                     </Tooltip>
-                    <Button
-                        onClick={() => navigate("/dashboardmenu/assessment/question-paper/create")}
-                        variant="contained"
-                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-                        sx={createBtnSx}
-                    >
-                        Create Paper
-                    </Button>
+                    {canCreatePaper && (
+                        <Button
+                            onClick={() => navigate("/dashboardmenu/assessment/question-paper/create")}
+                            variant="contained"
+                            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                            sx={createBtnSx}
+                        >
+                            Create Paper
+                        </Button>
+                    )}
                 </Box>
             </Box>
 
@@ -445,7 +454,7 @@ export default function AllQuestionPapersPage() {
                 <Grid container spacing={1.8}>
                     {paged.map((paper) => (
                         <Grid key={paper.id} size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                            <PaperCard paper={paper} onOpen={openPaper} onClone={clonePaper} />
+                            <PaperCard paper={paper} onOpen={openPaper} onClone={clonePaper} canClone={canCreatePaper} />
                         </Grid>
                     ))}
                 </Grid>

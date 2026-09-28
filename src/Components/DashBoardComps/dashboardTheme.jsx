@@ -716,14 +716,17 @@ export const HeroStat = ({ icon: Icon, label, value, caption, gradient, onClick 
     </Box>
 );
 
-export const MeterRow = ({ label, value, suffix = "%", color = DASH.blue, max = 100, right }) => (
+export const MeterRow = ({ label, value, suffix = "%", color = DASH.blue, max = 100, right }) => {
+    const ratio = max > 0 ? (Number(value) / Number(max)) * 100 : 0;
+    const fill = Number.isFinite(ratio) ? Math.max(0, Math.min(100, ratio)) : 0;
+    return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 0.7 }}>
         <Typography sx={{ fontSize: "12.5px", color: DASH.text, width: 78, flexShrink: 0 }}>
             {label}
         </Typography>
         <LinearProgress
             variant="determinate"
-            value={Math.min(100, (value / max) * 100)}
+            value={fill}
             sx={{
                 flex: 1,
                 height: 7,
@@ -736,7 +739,8 @@ export const MeterRow = ({ label, value, suffix = "%", color = DASH.blue, max = 
             {right || `${value}${suffix}`}
         </Typography>
     </Box>
-);
+    );
+};
 
 export const ChartTooltip = ({ active, payload, label, suffix = "" }) => {
     if (!active || !payload?.length) return null;

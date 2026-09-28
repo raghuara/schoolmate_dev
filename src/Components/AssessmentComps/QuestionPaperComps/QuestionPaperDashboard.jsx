@@ -5,6 +5,7 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell,
     PieChart, Pie, Legend,
@@ -21,19 +22,23 @@ import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 
 import Loader from "../../Loader";
 import {
     DASH, RADIUS, KPI_TONES, SolidStatCard, Panel, ChartTooltip, EmptyNote, ModuleCard,
 } from "../../DashBoardComps/dashboardTheme";
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
-import { MOCK_PAPERS, MOCK_PATTERNS, fmtDate, parseApiDate } from "./questionPaperApi";
+import axios from "axios";
+import { ListQuestionPapers, ListPatterns } from "../../../Api/Api";
+import { apiFailed } from "../../AcademicsComps/BooksChaptersComps/bookApi";
+import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { fmtDate, parseApiDate, normalizePaperList, normalizePatternList } from "./questionPaperApi";
 import { StatusPill, Pill, outlineBtnSx, createBtnSx } from "./questionPaperTheme";
 
 const SUBJECT_COLORS = [DASH.primary, DASH.blue, DASH.violet, DASH.cyan, DASH.green, DASH.pink, DASH.red];
 
 const STATUS_COLORS = {
+    Draft: DASH.faint,
     Pending: DASH.primary,
     Approved: DASH.cyan,
     Published: DASH.green,
@@ -44,23 +49,36 @@ const STATUS_COLORS = {
 export default function QuestionPaperDashboard() {
     const navigate = useNavigate();
     const academicYear = useSelector(selectAcademicYear);
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user?.rollNumber;
+    const gradeList = useSelector(selectGrades);
+    const gradeOptions = useMemo(() => gradeList || [], [gradeList]);
+    const paperPerms = findSubMenuPermissions(user?.permissions, "questionpapergeneration", "paper");
+    const canCreatePaper = !paperPerms || paperPerms.create === "Y";
 
     const [papers, setPapers] = useState([]);
     const [patterns, setPatterns] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
 
-
-    /* Mock source. Replace with axios.get(GetQuestionPaperDashboard) and
-       axios.get(GetQuestionPaperPatterns). */
     const load = useCallback(() => {
         setIsLoading(true);
-        const timer = setTimeout(() => {
-            setPapers(MOCK_PAPERS);
-            setPatterns(MOCK_PATTERNS);
-            setIsLoading(false);
-        }, 350);
-        return () => clearTimeout(timer);
-    }, []);
+        const headers = { Authorization: "Bearer 123" };
+        Promise.all([
+            axios
+                .get(ListQuestionPapers, { params: { academicYear: academicYear || undefined, requestedByRollNumber: rollNumber }, headers })
+                .then((res) => (apiFailed(res.data) ? [] : normalizePaperList(res.data, gradeOptions)))
+                .catch(() => []),
+            axios
+                .get(ListPatterns, { params: { requestedByRollNumber: rollNumber }, headers })
+                .then((res) => (apiFailed(res.data) ? [] : normalizePatternList(res.data)))
+                .catch(() => []),
+        ])
+            .then(([paperRows, patternRows]) => {
+                setPapers(paperRows);
+                setPatterns(patternRows);
+            })
+            .finally(() => setIsLoading(false));
+    }, [academicYear, rollNumber, gradeOptions]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -189,14 +207,16 @@ export default function QuestionPaperDashboard() {
                             <RefreshIcon sx={{ fontSize: 18, color: DASH.text }} />
                         </IconButton>
                     </Tooltip>
-                    <Button
-                        onClick={() => navigate("/dashboardmenu/assessment/question-paper/create")}
-                        variant="contained"
-                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-                        sx={createBtnSx}
-                    >
-                        Create Paper
-                    </Button>
+                    {canCreatePaper && (
+                        <Button
+                            onClick={() => navigate("/dashboardmenu/assessment/question-paper/create")}
+                            variant="contained"
+                            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                            sx={createBtnSx}
+                        >
+                            Create Paper
+                        </Button>
+                    )}
                 </Box>
             </Box>
 
@@ -344,7 +364,7 @@ export default function QuestionPaperDashboard() {
                         <Table size="small">
                             <TableHead>
                                 <TableRow sx={{ bgcolor: "#FCFCFD" }}>
-                                    {["Paper", "Class", "Subject", "Exam", "Marks", "Status", "Created", ""].map((head) => (
+                                    {["Paper", "Class", "Subject", "Year", "Marks", "Status", "Created", ""].map((head) => (
                                         <TableCell
                                             key={head}
                                             sx={{
@@ -364,7 +384,9 @@ export default function QuestionPaperDashboard() {
                                         key={paper.id}
                                         hover
                                         sx={{ cursor: "pointer", "&:last-child td": { borderBottom: "none" } }}
-                                        onClick={() => navigate(`/dashboardmenu/assessment/question-paper/${paper.id}`, { state: { paper } })}
+                                        onClick={() => navigate(paper.status === "Draft" || paper.status === "Sent Back"
+                                            ? `/dashboardmenu/assessment/question-paper/create/${paper.id}`
+                                            : `/dashboardmenu/assessment/question-paper/${paper.id}`, { state: { paperId: paper.id } })}
                                     >
                                         <TableCell sx={{ fontSize: "12.5px", fontWeight: 600, color: DASH.ink, py: 1.3 }}>
                                             {paper.name}
@@ -373,7 +395,7 @@ export default function QuestionPaperDashboard() {
                                             <Pill label={paper.grade} color={DASH.text} bg={DASH.lineSoft} />
                                         </TableCell>
                                         <TableCell sx={{ fontSize: "12px", color: DASH.text, py: 1.3 }}>{paper.subject}</TableCell>
-                                        <TableCell sx={{ fontSize: "12px", color: DASH.muted, py: 1.3 }}>{paper.examName}</TableCell>
+                                        <TableCell sx={{ fontSize: "12px", color: DASH.muted, py: 1.3 }}>{paper.academicYear}</TableCell>
                                         <TableCell sx={{ fontSize: "12px", fontWeight: 700, color: DASH.ink, py: 1.3 }}>
                                             {paper.totalMarks}
                                         </TableCell>
@@ -387,18 +409,6 @@ export default function QuestionPaperDashboard() {
                                             <Tooltip title="Open" arrow>
                                                 <IconButton size="small" sx={{ width: 26, height: 26 }}>
                                                     <VisibilityOutlinedIcon sx={{ fontSize: 15, color: DASH.muted }} />
-                                                </IconButton>
-                                            </Tooltip>
-                                            <Tooltip title="Duplicate into a new paper" arrow>
-                                                <IconButton
-                                                    size="small"
-                                                    sx={{ width: 26, height: 26 }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigate("/dashboardmenu/assessment/question-paper/create", { state: { clonePaper: paper } });
-                                                    }}
-                                                >
-                                                    <ContentCopyOutlinedIcon sx={{ fontSize: 14, color: DASH.muted }} />
                                                 </IconButton>
                                             </Tooltip>
                                         </TableCell>

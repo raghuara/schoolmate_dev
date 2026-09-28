@@ -1,12 +1,13 @@
 import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import AssignmentIndOutlinedIcon from "@mui/icons-material/AssignmentIndOutlined";
 import { DASH } from "../../DashBoardComps/dashboardTheme";
+import { COMPLAINTS_MENU, FLOW_SUBMENU as ACCESS_FLOW_SUBMENU, FLOW_KEYS } from "../../ComplaintsComps/complaintsAccess";
 
 /* Every subMenu key below MUST match complaintsAccess.js, which is what the
    screens and route gates read. */
 
-export const COMPLAINTS_MAIN_MENU = "complaints";
-export const FLOW_SUBMENU = "flow";
+export const COMPLAINTS_MAIN_MENU = COMPLAINTS_MENU;
+export const FLOW_SUBMENU = ACCESS_FLOW_SUBMENU;
 
 export const MANAGEMENT_PAGES = [
     "Complaints Dashboard",
@@ -68,7 +69,7 @@ export const COMPLAINTS_FLOWS = [
         name: "Staff Flow",
         caption: "My Work queue and reporting an issue",
         desc: "For the people the work is assigned to - they act on what lands in their queue and raise a school operations issue. No configuration.",
-        permKey: "staffflow",
+        permKey: FLOW_KEYS.staff,
         icon: AssignmentIndOutlinedIcon,
         color: DASH.cyan,
         pages: STAFF_PAGES,
@@ -78,7 +79,7 @@ export const COMPLAINTS_FLOWS = [
         name: "Management Flow",
         caption: "Dashboard, the full queue and every configuration screen",
         desc: "For the people who run the module - they see every complaint, assign and resolve it, and set the categories, SLA and escalation rules.",
-        permKey: "managementflow",
+        permKey: FLOW_KEYS.management,
         icon: SpaceDashboardOutlinedIcon,
         color: DASH.violet,
         pages: MANAGEMENT_PAGES,
@@ -99,5 +100,6 @@ export const flowPermissions = (key) =>
 export const readFlow = (permissions) => {
     const menu = (permissions?.mainMenus || []).find((m) => m.mainMenu === COMPLAINTS_MAIN_MENU);
     const stored = (menu?.subMenus || []).find((s) => s.subMenu === FLOW_SUBMENU)?.permissions;
-    return COMPLAINTS_FLOWS.find((f) => stored?.[f.permKey] === "Y")?.key || null;
+    const granted = COMPLAINTS_FLOWS.filter((f) => stored?.[f.permKey] === "Y");
+    return granted.sort((a, b) => b.pages.length - a.pages.length)[0]?.key || null;
 };

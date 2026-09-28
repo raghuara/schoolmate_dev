@@ -4,7 +4,7 @@ import { selectVersion } from "../../Redux/Slices/versionSlice";
 import Loader from "../Loader";
 import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { ApprovalStatusCircularFetch, ApprovalStatusHomeWorkFetch, ApprovalStatusMessageFetch, ApprovalStatusNewsFetch, GetOverallLeaveDetails, paymentApprovalsGet } from "../../Api/Api";
+import { ApprovalStatusCircularFetch, ApprovalStatusHomeWorkFetch, ApprovalStatusMessageFetch, ApprovalStatusNewsFetch, GetOverallLeaveDetails, paymentApprovalsGet, GetQuestionPaperApprovalDashboard } from "../../Api/Api";
 import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
 import { findSubMenuPermissions, hasMainMenuAccess, selectUserTypeID } from "../../Redux/Slices/AuthSlice";
 import { APPROVAL_SUBMENUS, isApproverFor, selectApprovalMatrix } from "../../Redux/Slices/approvalMatrixSlice";
@@ -23,7 +23,6 @@ import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
-import { MOCK_PAPERS } from '../AssessmentComps/QuestionPaperComps/questionPaperApi';
 import { DASH, RADIUS, PageHeader, SectionTitle, ModuleCard, EmptyNote } from "../DashBoardComps/dashboardTheme";
 
 export default function ApprovalPage() {
@@ -34,8 +33,8 @@ export default function ApprovalPage() {
     const [homeworkIntimation, setHomeworkIntimation] = useState(false);
     const [leavePending, setLeavePending] = useState(0);
     const [paymentPending, setPaymentPending] = useState(0);
-    // Mock count until qpaper/getApprovalRequests is live.
-    const questionPaperPending = MOCK_PAPERS.filter((p) => p.status === "Pending").length;
+    const [questionPaperPending, setQuestionPaperPending] = useState(0);
+    const [questionPaperApprover, setQuestionPaperApprover] = useState(false);
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
     const userType = user.userType
@@ -86,21 +85,16 @@ export default function ApprovalPage() {
         { color: "#3457D5", icon: EventBusyIcon, text: "Student Leave", desc: "Approve or reject student leave requests.", path: 'student-leave', badge: leavePending },
     ];
 
-    /*
-       Academics approvals. There is no "questionpaper" key in the approval
-       matrix yet, so this card is ungated - the same approach the Online Quiz
-       and Books & Chapters screens take until the backend publishes one.
-    */
     const academicsItems = [
         {
             color: "#7DC353",
             icon: FactCheckOutlinedIcon,
             text: "Question Paper",
-            desc: "Review generated papers before they are published to the exam.",
+            desc: "Approve, send back or reject generated question papers.",
             path: "question-paper",
             badge: questionPaperPending,
         },
-    ];
+    ].filter(() => questionPaperApprover);
 
     const items1 = [
         { color: "#A749CC", icon: SchoolIcon, text: "School Fee", desc: "Approve the school fee structure for each grade.", path: 'school', intimation: newsIntimation },
@@ -172,6 +166,21 @@ export default function ApprovalPage() {
             .catch((err) => console.error("GetOverallLeaveDetails (count) failed:", err));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [academicYear]);
+
+    useEffect(() => {
+        if (!rollNumber) return;
+        axios.get(GetQuestionPaperApprovalDashboard, {
+            params: { status: "Pending", requestedByRollNumber: rollNumber },
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((res) => {
+                if (res.data?.error) { setQuestionPaperApprover(false); return; }
+                setQuestionPaperApprover(true);
+                setQuestionPaperPending(Number(res.data?.counts?.pending) || 0);
+            })
+            .catch(() => setQuestionPaperApprover(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rollNumber]);
 
     // Pending online / cheque payments → badge on the Payment Approval card.
     useEffect(() => {

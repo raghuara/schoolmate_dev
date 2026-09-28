@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import axios from "axios";
 import {
     PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
@@ -267,6 +268,10 @@ export default function OnlineQuizDashboard() {
     const navigate = useNavigate();
     const academicYear = useSelector(selectAcademicYear);
     const user = useSelector((state) => state.auth);
+    const quizPerms = findSubMenuPermissions(user?.permissions, "communication", "onlinequiz");
+    const quizMay = (key) => !quizPerms || quizPerms[key] === "Y";
+    const canCreateQuiz = quizMay("createquiz");
+    const canApproveQuiz = quizMay("approvequizzes");
     const rollNumber = user?.rollNumber;
     const token = "123";
 
@@ -496,33 +501,37 @@ export default function OnlineQuizDashboard() {
                         </Button>
                     </Tooltip>
 
-                    <Button
-                        onClick={() => navigate("/dashboardmenu/assessment/online-quiz/approvals")}
-                        startIcon={<FactCheckOutlinedIcon sx={{ fontSize: 16 }} />}
-                        sx={softButtonSx(SOFT.purple)}
-                    >
-                        Approvals
-                        {dashboard.pendingQuizzes > 0 && (
-                            <Box
-                                component="span"
-                                sx={{
-                                    ml: 0.9, minWidth: 18, px: 0.6, borderRadius: "9px",
-                                    bgcolor: SOFT.purple.color, color: "#fff",
-                                    fontSize: "10px", fontWeight: 700, lineHeight: "18px", textAlign: "center",
-                                }}
-                            >
-                                {dashboard.pendingQuizzes}
-                            </Box>
-                        )}
-                    </Button>
+                    {canApproveQuiz && (
+                        <Button
+                            onClick={() => navigate("/dashboardmenu/assessment/online-quiz/approvals")}
+                            startIcon={<FactCheckOutlinedIcon sx={{ fontSize: 16 }} />}
+                            sx={softButtonSx(SOFT.purple)}
+                        >
+                            Approvals
+                            {dashboard.pendingQuizzes > 0 && (
+                                <Box
+                                    component="span"
+                                    sx={{
+                                        ml: 0.9, minWidth: 18, px: 0.6, borderRadius: "9px",
+                                        bgcolor: SOFT.purple.color, color: "#fff",
+                                        fontSize: "10px", fontWeight: 700, lineHeight: "18px", textAlign: "center",
+                                    }}
+                                >
+                                    {dashboard.pendingQuizzes}
+                                </Box>
+                            )}
+                        </Button>
+                    )}
 
-                    <Button
-                        onClick={() => navigate("/dashboardmenu/assessment/online-quiz/create")}
-                        startIcon={<AddIcon sx={{ fontSize: 17 }} />}
-                        sx={primaryButtonSx}
-                    >
-                        Create Quiz
-                    </Button>
+                    {canCreateQuiz && (
+                        <Button
+                            onClick={() => navigate("/dashboardmenu/assessment/online-quiz/create")}
+                            startIcon={<AddIcon sx={{ fontSize: 17 }} />}
+                            sx={primaryButtonSx}
+                        >
+                            Create Quiz
+                        </Button>
+                    )}
                 </Box>
             </Box>
 
@@ -546,7 +555,7 @@ export default function OnlineQuizDashboard() {
                     <SolidStatCard icon={PendingActionsOutlinedIcon} label="Pending Approval"
                         value={dashboard.pendingQuizzes} note="Open the approvals screen"
                         tone={KPI_TONES.orange}
-                        onClick={() => navigate("/dashboardmenu/assessment/online-quiz/approvals")} />
+                        onClick={canApproveQuiz ? () => navigate("/dashboardmenu/assessment/online-quiz/approvals") : undefined} />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
                     <SolidStatCard icon={ShowChartIcon} label="Average Score"

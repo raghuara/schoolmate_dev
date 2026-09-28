@@ -366,11 +366,20 @@ export default function ViewVehicleDetails() {
         }
     }
 
+    const vehicleRecordId = vehicleData.acquisitionDetail?.id;
+
     const handleDeleteVehicle = async () => {
+        if (vehicleRecordId == null) {
+            setMessage("Vehicle details are still loading. Please try again in a moment.");
+            setColor(false);
+            setStatus(false);
+            setOpen(true);
+            return;
+        }
         setIsDeleting(true);
         try {
             await axios.delete(deleteVehicleById, {
-                params: { id: vehicleId },
+                params: { id: vehicleRecordId },
                 headers: { Authorization: `Bearer ${token}` },
             });
 
@@ -1200,7 +1209,7 @@ export default function ViewVehicleDetails() {
 
                     <Button
                         onClick={handleDeleteVehicle}
-                        disabled={isDeleting}
+                        disabled={isDeleting || vehicleRecordId == null}
                         variant="contained"
                         sx={{
                             textTransform: "none",

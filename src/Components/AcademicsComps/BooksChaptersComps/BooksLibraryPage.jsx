@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import axios from "axios";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -51,7 +52,7 @@ const SORT_OPTIONS = [
 /* A book on a shelf, not a generic tile. The coloured spine carries the subject
    and gives the row the look of a bookcase; everything a teacher decides on -
    class, chapters, whether it is usable yet - sits on the face. */
-const BookCard = ({ book, onOpen, onDelete, onDownload }) => {
+const BookCard = ({ book, onOpen, onDelete, onDownload, canDelete }) => {
     const tone = subjectTone(book.subject);
     const spineText = (book.subject || "Book").toUpperCase();
 
@@ -200,11 +201,13 @@ const BookCard = ({ book, onOpen, onDelete, onDownload }) => {
                                 <DownloadOutlinedIcon sx={{ fontSize: 15, color: DASH.muted }} />
                             </IconButton>
                         </Tooltip>
-                        <Tooltip title="Delete book" arrow>
-                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(book); }} sx={{ width: 26, height: 26 }}>
-                                <DeleteOutlineIcon sx={{ fontSize: 15, color: DASH.red }} />
-                            </IconButton>
-                        </Tooltip>
+                        {canDelete && (
+                            <Tooltip title="Delete book" arrow>
+                                <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(book); }} sx={{ width: 26, height: 26 }}>
+                                    <DeleteOutlineIcon sx={{ fontSize: 15, color: DASH.red }} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                     </Box>
                 </Box>
             </Box>
@@ -218,6 +221,10 @@ export default function BooksLibraryPage() {
     const gradeOptions = useSelector(selectGrades) || [];
 
     const user = useSelector((state) => state.auth);
+    const bookPerms = findSubMenuPermissions(user?.permissions, "questionpapergeneration", "bookupload");
+    const bookMay = (key) => bookPerms?.[key] !== "N";
+    const canUpload = bookMay("create");
+    const canDeleteBook = bookMay("delete");
     const rollNumber = user.rollNumber;
     const token = "123";
 
@@ -430,14 +437,16 @@ export default function BooksLibraryPage() {
                             <RefreshIcon sx={{ fontSize: 18, color: DASH.text }} />
                         </IconButton>
                     </Tooltip>
-                    <Button
-                        onClick={() => navigate("/dashboardmenu/books/upload")}
-                        variant="contained"
-                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-                        sx={createBtnSx}
-                    >
-                        Upload Book
-                    </Button>
+                    {canUpload && (
+                        <Button
+                            onClick={() => navigate("/dashboardmenu/books/upload")}
+                            variant="contained"
+                            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                            sx={createBtnSx}
+                        >
+                            Upload Book
+                        </Button>
+                    )}
                 </Box>
             </Box>
 
@@ -650,7 +659,7 @@ export default function BooksLibraryPage() {
                 <Grid container spacing={1.8}>
                     {paged.map((book) => (
                         <Grid key={book.id} size={BOOK_GRID}>
-                            <BookCard book={book} onOpen={openBook} onDelete={setDeleteTarget} onDownload={saveBook} />
+                            <BookCard book={book} onOpen={openBook} onDelete={setDeleteTarget} onDownload={saveBook} canDelete={canDeleteBook} />
                         </Grid>
                     ))}
                 </Grid>

@@ -1,21 +1,20 @@
-import React, { useMemo, useState } from "react";
-import { Box, Grid, Typography, Button, Switch, FormControlLabel, TextField, CircularProgress } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import React from "react";
+import { Box, Grid, Typography, Button, CircularProgress } from "@mui/material";
 
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DashboardCustomizeOutlinedIcon from "@mui/icons-material/DashboardCustomizeOutlined";
-import AddIcon from "@mui/icons-material/Add";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import TimerOutlinedIcon from "@mui/icons-material/TimerOutlined";
+import RefreshIcon from "@mui/icons-material/Refresh";
 
 import { DASH, RADIUS } from "../../../DashBoardComps/dashboardTheme";
 import {
     patternQuestionCount, patternTotal, sectionHeading, sectionMarks, sectionMarksLabel, typeMeta,
 } from "../questionPaperApi";
-import { Pill, fieldSx, outlineBtnSx, primaryBtnSx, Banner } from "../questionPaperTheme";
+import { Pill, outlineBtnSx, primaryBtnSx, Banner } from "../questionPaperTheme";
 
-const PatternOption = ({ pattern, active, matches, onPick }) => {
-    const total = patternTotal(pattern);
+const PatternOption = ({ pattern, active, onPick }) => {
+    const total = patternTotal(pattern) || pattern.totalMarks || 0;
+    const sections = pattern.sections || [];
 
     return (
         <Box
@@ -36,9 +35,7 @@ const PatternOption = ({ pattern, active, matches, onPick }) => {
             }}
         >
             {active && (
-                <CheckCircleIcon
-                    sx={{ position: "absolute", top: 10, right: 10, fontSize: 19, color: DASH.primary }}
-                />
+                <CheckCircleIcon sx={{ position: "absolute", top: 10, right: 10, fontSize: 19, color: DASH.primary }} />
             )}
 
             <Box sx={{ p: 1.8 }}>
@@ -46,65 +43,54 @@ const PatternOption = ({ pattern, active, matches, onPick }) => {
                     {pattern.name}
                 </Typography>
                 <Typography sx={{ fontSize: "11px", color: DASH.faint, mt: 0.3 }}>
-                    {pattern.subject || "Any subject"}
+                    {[pattern.grade, pattern.subject].filter(Boolean).join(" - ")}
                 </Typography>
 
                 <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap", mt: 1.2 }}>
-                    <Pill
-                        label={`${total} marks`}
-                        color={matches ? DASH.ink : DASH.red}
-                        bg={matches ? DASH.primaryLight : DASH.redLight}
-                        border={matches ? DASH.primaryBorder : "#FECACA"}
-                    />
-                    <Pill label={`${pattern.sections.length} sections`} color={DASH.muted} bg={DASH.lineSoft} />
-                    <Pill label={`${patternQuestionCount(pattern)} questions`} color={DASH.muted} bg={DASH.lineSoft} />
+                    <Pill label={`${total} marks`} color={DASH.ink} bg={DASH.primaryLight} border={DASH.primaryBorder} />
+                    <Pill label={`${sections.length || pattern.sectionCount || 0} sections`} color={DASH.muted} bg={DASH.lineSoft} />
+                    {sections.length > 0 && (
+                        <Pill label={`${patternQuestionCount(pattern)} questions`} color={DASH.muted} bg={DASH.lineSoft} />
+                    )}
                 </Box>
 
-                <Box sx={{ mt: 1.4, border: `1px solid ${DASH.lineSoft}`, borderRadius: RADIUS, overflow: "hidden" }}>
-                    {pattern.sections.map((section, i) => {
-                        const meta = typeMeta(section.type);
-                        return (
-                            <Box
-                                key={section.id}
-                                sx={{
-                                    display: "flex", alignItems: "center", gap: 1, px: 1.2, py: 0.75,
-                                    borderBottom: i < pattern.sections.length - 1 ? `1px solid ${DASH.lineSoft}` : "none",
-                                    bgcolor: i % 2 === 0 ? "#fff" : "#FCFCFD",
-                                }}
-                            >
-                                <Typography sx={{ fontSize: "10.5px", fontWeight: 800, color: DASH.ink, width: 54, flexShrink: 0 }}>
-                                    {(sectionHeading(section) || section.groupName || "").replace("PART - ", "").replace("SECTION ", "")}
-                                </Typography>
-                                <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: meta.color, flexShrink: 0 }} />
-                                <Typography
+                {sections.length > 0 && (
+                    <Box sx={{ mt: 1.4, border: `1px solid ${DASH.lineSoft}`, borderRadius: RADIUS, overflow: "hidden" }}>
+                        {sections.map((section, i) => {
+                            const meta = typeMeta(section.type);
+                            return (
+                                <Box
+                                    key={section.id}
                                     sx={{
-                                        fontSize: "11px", color: DASH.text, flex: 1, minWidth: 0,
-                                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                        display: "flex", alignItems: "center", gap: 1, px: 1.2, py: 0.75,
+                                        borderBottom: i < sections.length - 1 ? `1px solid ${DASH.lineSoft}` : "none",
+                                        bgcolor: i % 2 === 0 ? "#fff" : "#FCFCFD",
                                     }}
                                 >
-                                    {meta.short}
-                                </Typography>
-                                <Typography sx={{ fontSize: "11px", fontWeight: 700, color: DASH.muted, flexShrink: 0 }}>
-                                    {sectionMarksLabel(section) || `${sectionMarks(section)}`}
-                                </Typography>
-                            </Box>
-                        );
-                    })}
-                </Box>
-
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, mt: 1.3, flexWrap: "wrap" }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
-                        <TimerOutlinedIcon sx={{ fontSize: 13, color: DASH.faint }} />
-                        <Typography sx={{ fontSize: "11px", color: DASH.muted }}>{pattern.durationMinutes} min</Typography>
+                                    <Typography sx={{ fontSize: "10.5px", fontWeight: 800, color: DASH.ink, width: 54, flexShrink: 0 }}>
+                                        {(sectionHeading(section) || section.groupName || "").replace("PART - ", "").replace("SECTION ", "")}
+                                    </Typography>
+                                    <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: meta.color, flexShrink: 0 }} />
+                                    <Typography
+                                        sx={{
+                                            fontSize: "11px", color: DASH.text, flex: 1, minWidth: 0,
+                                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {section.customLabel || meta.short}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "11px", fontWeight: 700, color: DASH.muted, flexShrink: 0 }}>
+                                        {sectionMarksLabel(section) || `${sectionMarks(section)}`}
+                                    </Typography>
+                                </Box>
+                            );
+                        })}
                     </Box>
-                    {!matches && (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
-                            <ErrorOutlineIcon sx={{ fontSize: 13, color: DASH.red }} />
-                            <Typography sx={{ fontSize: "11px", color: DASH.red, fontWeight: 600 }}>
-                                For a different subject
-                            </Typography>
-                        </Box>
-                    )}
+                )}
+
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.4, mt: 1.3 }}>
+                    <TimerOutlinedIcon sx={{ fontSize: 13, color: DASH.faint }} />
+                    <Typography sx={{ fontSize: "11px", color: DASH.muted }}>{pattern.durationMinutes} min</Typography>
                 </Box>
             </Box>
         </Box>
@@ -112,40 +98,32 @@ const PatternOption = ({ pattern, active, matches, onPick }) => {
 };
 
 export default function PatternStep({
-    patterns, gradeId, subject, selectedPattern, onPick, durationMinutes, onDurationChange,
-    loading = false,
+    patterns, gradeLabel, subject, selectedPattern, onPick, loading = false, emptyMessage = "", onReload,
 }) {
-    const navigate = useNavigate();
-    const [onlyMatching, setOnlyMatching] = useState(true);
+    const portion = [gradeLabel, subject].filter(Boolean).join(" - ");
 
-
-    const list = useMemo(() => {
-        const wanted = String(subject || "").trim().toLowerCase();
-        const scored = patterns.map((pattern) => ({
-            pattern,
-            matches: !wanted || String(pattern.subject || "").trim().toLowerCase() === wanted,
-            forClass: !pattern.gradeIds?.length || pattern.gradeIds.map(String).includes(String(gradeId)),
-        }));
-
-        const filtered = onlyMatching
-            ? scored.filter((row) => row.matches && row.forClass)
-            : scored;
-
-        return filtered.sort((a, b) => {
-            if (a.forClass !== b.forClass) return a.forClass ? -1 : 1;
-            if (a.matches !== b.matches) return a.matches ? -1 : 1;
-            return 0;
-        });
-    }, [patterns, gradeId, subject, onlyMatching]);
-
-    /* Patterns come over the network now, so waiting is its own state rather
-       than reading as "this class has no pattern yet". It sits after every
-       hook above - returning before them would change the hook order. */
     if (loading) {
         return (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, py: 5, justifyContent: "center" }}>
                 <CircularProgress size={20} thickness={4} sx={{ color: DASH.violet }} />
-                <Typography sx={{ fontSize: "13px", color: DASH.muted }}>Loading the patterns</Typography>
+                <Typography sx={{ fontSize: "13px", color: DASH.muted }}>Loading the patterns{portion ? ` for ${portion}` : ""}</Typography>
+            </Box>
+        );
+    }
+
+    if (!patterns.length) {
+        return (
+            <Box sx={{ bgcolor: "#fff", border: `1px dashed ${DASH.line}`, borderRadius: RADIUS, py: 6, px: 3, textAlign: "center" }}>
+                <DashboardCustomizeOutlinedIcon sx={{ fontSize: 42, color: DASH.line }} />
+                <Typography sx={{ fontSize: "14.5px", fontWeight: 700, color: DASH.ink, mt: 1 }}>
+                    No pattern{portion ? ` for ${portion}` : " for this class and subject"} yet
+                </Typography>
+                <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.5, mb: 2, maxWidth: 520, mx: "auto", lineHeight: 1.7 }}>
+                    {emptyMessage || "A paper can only use a pattern built for its own class and subject. Once one is saved under Patterns, check again and pick it here."}
+                </Typography>
+                <Button onClick={onReload} startIcon={<RefreshIcon sx={{ fontSize: 16 }} />} sx={primaryBtnSx}>
+                    Check again
+                </Button>
             </Box>
         );
     }
@@ -154,102 +132,40 @@ export default function PatternStep({
         <>
             {selectedPattern ? (
                 <Banner tone="ok" icon={CheckCircleIcon} title={`${selectedPattern.name} sets this paper`}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap", mt: 0.6 }}>
-                        <Typography sx={{ fontSize: "12.5px", color: "#065F46" }}>
-                            Maximum marks <strong>{patternTotal(selectedPattern)}</strong>
-                            {" · "}{selectedPattern.sections.length} sections
-                            {" · "}{patternQuestionCount(selectedPattern)} questions printed
-                        </Typography>
-
-                        {/* The pattern's duration is the default; this paper may sit shorter. */}
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
-                            <Typography sx={{ fontSize: "12.5px", color: "#065F46" }}>Duration</Typography>
-                            <TextField
-                                size="small"
-                                value={durationMinutes}
-                                onChange={(e) => onDurationChange(Number(e.target.value.replace(/[^0-9]/g, "")) || 0)}
-                                sx={{
-                                    ...fieldSx, width: 92,
-                                    "& input": { py: 0.4, fontSize: "12.5px", textAlign: "center", fontWeight: 700 },
-                                }}
-                            />
-                            <Typography sx={{ fontSize: "12.5px", color: "#065F46" }}>minutes</Typography>
-                        </Box>
-                    </Box>
+                    <Typography sx={{ fontSize: "12.5px", color: "#065F46", mt: 0.4 }}>
+                        Maximum marks <strong>{patternTotal(selectedPattern) || selectedPattern.totalMarks}</strong>
+                        {" · "}Duration <strong>{selectedPattern.durationMinutes} minutes</strong>
+                        {" · "}{(selectedPattern.sections || []).length || selectedPattern.sectionCount} sections
+                        {(selectedPattern.sections || []).length > 0 ? ` · ${patternQuestionCount(selectedPattern)} questions printed` : ""}
+                    </Typography>
                 </Banner>
             ) : (
                 <Banner tone="info" icon={DashboardCustomizeOutlinedIcon} title="Pick the blueprint">
                     The pattern decides how many questions print in each part, the marks each carries and how much
-                    choice the student gets. <strong>It also sets the paper's maximum marks and duration</strong> -
-                    that is why you were not asked for them earlier.
+                    choice the student gets. <strong>It also sets the paper's maximum marks and duration.</strong>
                 </Banner>
             )}
 
-            <Box
-                sx={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    gap: 1.5, flexWrap: "wrap", mb: 1.8,
-                }}
-            >
-                <FormControlLabel
-                    control={
-                        <Switch
-                            size="small"
-                            checked={onlyMatching}
-                            onChange={(e) => setOnlyMatching(e.target.checked)}
-                            sx={{
-                                "& .Mui-checked": { color: DASH.primary },
-                                "& .Mui-checked + .MuiSwitch-track": { backgroundColor: DASH.primary },
-                            }}
-                        />
-                    }
-                    label={
-                        <Typography sx={{ fontSize: "12.5px", color: DASH.text }}>
-                            Only show patterns for this class and subject
-                        </Typography>
-                    }
-                />
-
-                <Button
-                    onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/create")}
-                    startIcon={<AddIcon sx={{ fontSize: 15 }} />}
-                    sx={outlineBtnSx}
-                >
-                    Create new pattern
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap", mb: 1.8 }}>
+                <Typography sx={{ fontSize: "12.5px", color: DASH.muted }}>
+                    {patterns.length} pattern{patterns.length === 1 ? "" : "s"} built for {portion || "this class and subject"}
+                </Typography>
+                <Button onClick={onReload} startIcon={<RefreshIcon sx={{ fontSize: 15 }} />} sx={outlineBtnSx}>
+                    Refresh
                 </Button>
             </Box>
 
-            {list.length === 0 ? (
-                <Box sx={{ bgcolor: "#fff", border: `1px dashed ${DASH.line}`, borderRadius: RADIUS, py: 6, px: 3, textAlign: "center" }}>
-                    <DashboardCustomizeOutlinedIcon sx={{ fontSize: 42, color: DASH.line }} />
-                    <Typography sx={{ fontSize: "14.5px", fontWeight: 700, color: DASH.ink, mt: 1 }}>
-                        No pattern for this class and subject yet
-                    </Typography>
-                    <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.5, mb: 2 }}>
-                        Turn off the filter to see every pattern, or build one for this exam.
-                    </Typography>
-                    <Button
-                        onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/create")}
-                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                        sx={primaryBtnSx}
-                    >
-                        Create Pattern
-                    </Button>
-                </Box>
-            ) : (
-                <Grid container spacing={1.8}>
-                    {list.map(({ pattern, matches }) => (
-                        <Grid key={pattern.id} size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                            <PatternOption
-                                pattern={pattern}
-                                matches={matches}
-                                active={String(selectedPattern?.id) === String(pattern.id)}
-                                onPick={onPick}
-                            />
-                        </Grid>
-                    ))}
-                </Grid>
-            )}
+            <Grid container spacing={1.8}>
+                {patterns.map((pattern) => (
+                    <Grid key={pattern.id} size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                        <PatternOption
+                            pattern={pattern}
+                            active={String(selectedPattern?.id) === String(pattern.id)}
+                            onPick={onPick}
+                        />
+                    </Grid>
+                ))}
+            </Grid>
         </>
     );
 }

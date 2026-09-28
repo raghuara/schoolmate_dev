@@ -20,6 +20,7 @@ import { isSuperAdminId, isStudentId } from "../../Redux/userTypeIds";
 import { fetchUserTypes as refreshUserTypesStore } from "../../Redux/Slices/userTypesSlice";
 import { AddUserType, GetAllUserTypes, GetNonStudentUsers, UpdateUsersUserType } from "../../Api/Api";
 import ApprovalFlowsTab from "./ApprovalFlowsTab";
+import useRolesPermissionAccess from "./rolesPermissionAccess";
 import { DASH, RADIUS, createBtnSx } from "../DashBoardComps/dashboardTheme";
 
 const TOKEN = "123";
@@ -93,7 +94,12 @@ export default function RolesPermissionsPage() {
     const [roles, setRoles] = useState([]);
     const [loadingRoles, setLoadingRoles] = useState(false);
     const [search, setSearch] = useState("");
-    const [mainTab, setMainTab] = useState(0); // 0 = User Types, 1 = Approval Flows
+    const access = useRolesPermissionAccess();
+    const tabs = [
+        ...(access.canUserTypes ? [{ k: 0, label: "User Types" }] : []),
+        ...(access.canApprovalFlows ? [{ k: 1, label: "Approval Flows" }] : []),
+    ];
+    const [mainTab, setMainTab] = useState(() => (access.canUserTypes ? 0 : 1));
 
     // Create user-type dialog
     const [createOpen, setCreateOpen] = useState(false);
@@ -316,14 +322,16 @@ export default function RolesPermissionsPage() {
                             },
                         }}
                     />
-                    <Button
-                        onClick={() => { setCreateOpen(true); setNewName(""); setNameError(""); }}
-                        variant="contained"
-                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-                        sx={createBtnSx}
-                    >
-                        Create User Type
-                    </Button>
+                    {access.canUserTypes && (
+                        <Button
+                            onClick={() => { setCreateOpen(true); setNewName(""); setNameError(""); }}
+                            variant="contained"
+                            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                            sx={createBtnSx}
+                        >
+                            Create User Type
+                        </Button>
+                    )}
                 </Box>
                 )}
             </Box>
@@ -331,7 +339,7 @@ export default function RolesPermissionsPage() {
             {/* Content */}
             <Box>
                 <Box sx={{ display: "flex", gap: 0.5, mb: 2, borderBottom: `1px solid ${DASH.line}` }}>
-                    {[{ k: 0, label: "User Types" }, { k: 1, label: "Approval Flows" }].map((t) => (
+                    {tabs.map((t) => (
                         <Box
                             key={t.k}
                             onClick={() => setMainTab(t.k)}
@@ -447,7 +455,7 @@ export default function RolesPermissionsPage() {
                                                 <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, height: 30, borderRadius: RADIUS, bgcolor: "#fff", border: `1px solid ${DASH.line}`, color: DASH.faint, fontSize: 11.5, fontWeight: 700, cursor: "not-allowed" }}>
                                                     <LockOutlinedIcon sx={{ fontSize: 15 }} /> Full Access
                                                 </Box>
-                                            ) : (
+                                            ) : access.canFeaturePermissions && (
                                                 <Button
                                                     onClick={() => navigate("/dashboardmenu/access/feature-permissions", { state: { role, roles } })}
                                                     startIcon={<TuneOutlinedIcon sx={{ fontSize: 16 }} />}

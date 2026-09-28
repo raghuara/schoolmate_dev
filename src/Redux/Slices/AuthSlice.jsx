@@ -121,12 +121,17 @@ export const refreshPermissions = () => async (dispatch, getState) => {
 // ── Permission helpers ──────────────────────────────────────────────────────
 // The login response's `userTypePermissions` shape:
 //   { userTypeID, userType, mainMenus: [ { mainMenu, subMenus: [ { subMenu, permissions: { view:'Y', create:'Y', ... } } ] } ] }
+/* A subMenu the backend has published but not yet given any keys arrives as
+   `permissions: {}`. That is the same as the subMenu not being there yet, so it
+   reads as null - every caller that tolerates an absent subMenu then tolerates
+   an empty one too, instead of treating "no keys" as "every key is N". */
 export const findSubMenuPermissions = (permissions, mainMenu, subMenu) => {
     const menus = permissions?.mainMenus || [];
     const mm = menus.find((m) => m.mainMenu === mainMenu);
     if (!mm) return null;
     const sm = (mm.subMenus || []).find((s) => s.subMenu === subMenu);
-    return sm?.permissions || null;
+    const perms = sm?.permissions;
+    return perms && Object.keys(perms).length > 0 ? perms : null;
 };
 
 // True when the given action ('view' | 'create' | 'edit' | 'delete' | any custom key) is 'Y'.

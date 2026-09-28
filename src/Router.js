@@ -612,14 +612,14 @@ export default function RouterPage() {
                 <Route path="approvals/payments" element={<RequirePermission mainMenu="feeandfinance" subMenu="paymentapproval" anyOf={["allowaccess"]}><PaymentApprovalsPage /></RequirePermission>} />
 
                 {/* Academics */}
-                <Route path="approvals/question-paper" element={<QuestionPaperApprovalPage />} />
+                <Route path="approvals/question-paper" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="approval" anyOf={["view", "edit"]}><QuestionPaperApprovalPage /></RequirePermission>} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 
                 {/* Access Control */}
                 <Route path="access" element={<RequirePermission mainMenu="accesscontrol"><AccessControlPage /></RequirePermission>} />
                 <Route path="access/roles-permissions" element={<RequireSuperAdmin><RolesPermissionsPage /></RequireSuperAdmin>} />
-                <Route path="access/feature-permissions" element={<FeaturePermissionsPage />} />
+                <Route path="access/feature-permissions" element={<RequireSuperAdmin need="canFeaturePermissions"><FeaturePermissionsPage /></RequireSuperAdmin>} />
                 <Route path="access/config/profile" element={<ProfileConfigPage />} />
                 <Route path="access/config/communication" element={<CommunicationConfigPage />} />
                 <Route path="access/config/academics" element={<AcademicsConfigPage />} />
@@ -659,16 +659,16 @@ export default function RouterPage() {
                 <Route path="assessment/online-quiz/approvals" element={<QuizApprovalPage />} />
 
                 {/* Books & Chapters */}
-                <Route path="books" element={<BooksLibraryPage />} />
-                <Route path="books/upload" element={<BookUploadPage />} />
-                <Route path="books/:bookId" element={<BookChaptersPage />} />
+                <Route path="books" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="bookupload" anyOf={["view", "create", "edit", "delete"]}><BooksLibraryPage /></RequirePermission>} />
+                <Route path="books/upload" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="bookupload" anyOf={["create"]}><BookUploadPage /></RequirePermission>} />
+                <Route path="books/:bookId" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="bookupload" anyOf={["view", "edit", "allowconfirmchapters"]}><BookChaptersPage /></RequirePermission>} />
 
                 {/* Question Paper Generation */}
-                <Route path="assessment/question-paper" element={<QuestionPaperDashboard />} />
-                <Route path="assessment/question-paper/all" element={<AllQuestionPapersPage />} />
-                <Route path="assessment/question-paper/create" element={<CreateQuestionPaperPage />} />
+                <Route path="assessment/question-paper" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="paper" anyOf={["view", "create", "edit", "delete"]}><QuestionPaperDashboard /></RequirePermission>} />
+                <Route path="assessment/question-paper/all" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="paper" anyOf={["view", "create", "edit", "delete"]}><AllQuestionPapersPage /></RequirePermission>} />
+                <Route path="assessment/question-paper/create" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="paper" anyOf={["create"]}><CreateQuestionPaperPage /></RequirePermission>} />
                 {/* Reopening a saved draft. currentStep decides which step it lands on. */}
-                <Route path="assessment/question-paper/create/:paperId" element={<CreateQuestionPaperPage />} />
+                <Route path="assessment/question-paper/create/:paperId" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="paper" anyOf={["edit"]}><CreateQuestionPaperPage /></RequirePermission>} />
                 <Route path="assessment/question-paper/bank" element={<QuestionBankPage />} />
                 <Route path="assessment/question-paper/blocks-demo" element={<QuestionBlocksDemoPage />} />
                 {/* questionpapergeneration > pattern. Each route asks for the operation it
@@ -676,16 +676,10 @@ export default function RouterPage() {
                 <Route path="assessment/question-paper/patterns" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["view", "create", "edit", "delete"]}><PatternListPage /></RequirePermission>} />
                 <Route path="assessment/question-paper/patterns/create" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["create"]}><PatternBuilderPage /></RequirePermission>} />
                 {/* patterndiscovery. A static segment always outranks the :patternId
-                    route below it, so /patterns/ai never resolves as a pattern id.
-                    Deliberately not wrapped in RequirePermission: no login payload
-                    carries a "patterndiscovery" menu yet, and that guard refuses
-                    anything it cannot find, which would hide the screens from
-                    everyone. The pages themselves already read the permissions and
-                    hide the buttons a user does not hold. Wrap these once RBAC
-                    seeds the menu. */}
-                <Route path="assessment/question-paper/patterns/ai" element={<PatternDiscoveryPage />} />
-                <Route path="assessment/question-paper/patterns/ai/review" element={<DiscoveredPatternsPage />} />
-                <Route path="assessment/question-paper/patterns/ai/:batchId" element={<PatternBatchPage />} />
+                    route below it, so /patterns/ai never resolves as a pattern id. */}
+                <Route path="assessment/question-paper/patterns/ai" element={<RequirePermission mainMenu="patterndiscovery" subMenu="batch" anyOf={["view", "create", "edit", "delete"]}><PatternDiscoveryPage /></RequirePermission>} />
+                <Route path="assessment/question-paper/patterns/ai/review" element={<RequirePermission mainMenu="patterndiscovery" subMenu="pattern" anyOf={["view", "edit", "allowconfirmrejectpattern"]}><DiscoveredPatternsPage /></RequirePermission>} />
+                <Route path="assessment/question-paper/patterns/ai/:batchId" element={<RequirePermission mainMenu="patterndiscovery" subMenu="batch" anyOf={["view"]}><PatternBatchPage /></RequirePermission>} />
                 <Route path="assessment/question-paper/patterns/view/:patternId" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["view"]}><PatternViewPage /></RequirePermission>} />
                 <Route path="assessment/question-paper/patterns/:patternId" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["edit"]}><PatternBuilderPage /></RequirePermission>} />
                 {/* Question paper approvals live in the Approvals module now - the old path is a shortcut. */}

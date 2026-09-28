@@ -598,29 +598,58 @@ export default function PatternBuilderPage() {
         return true;
     };
 
-    /* Replace with POST / PUT qpaper/patterns. */
+    /* A pattern row belongs to exactly one class, so ticking several classes
+       saves one pattern per class. On edit the first class updates the row
+       being edited and every extra class gets its own new pattern. */
     const savePattern = () => {
         if (!validate()) return;
 
-        const body = patternToApi(pattern, {
+        const headers = { Authorization: `Bearer ${token}` };
+        const signOf = (id) => gradeSign(grades, id) || id;
+        const gradeIds = pattern.gradeIds.map(String);
+        const bodyFor = (gradeId, patternId) => patternToApi(pattern, {
             gradeSignOf: (id) => gradeSign(grades, id),
             rollNumber,
-            patternId: isEdit ? pattern.id : null,
+            patternId,
+            gradeId,
         });
 
-        setSaving(true);
-        const request = isEdit
-            ? axios.put(UpdatePattern, body, { headers: { Authorization: `Bearer ${token}` } })
-            : axios.post(CreatePattern, body, { headers: { Authorization: `Bearer ${token}` } });
+        const jobs = gradeIds.map((gradeId, i) => ({
+            gradeId,
+            isUpdate: isEdit && i === 0,
+            run: () => (isEdit && i === 0
+                ? axios.put(UpdatePattern, bodyFor(gradeId, pattern.id), { headers })
+                : axios.post(CreatePattern, bodyFor(gradeId, null), { headers })),
+        }));
 
-        request
-            .then((res) => {
+        setSaving(true);
+        Promise.allSettled(
+            jobs.map((job) => job.run().then((res) => {
                 const rejected = apiFailed(res.data);
-                if (rejected) { notify(rejected); return; }
-                notify(isEdit ? "Pattern updated" : "Pattern created", true);
-                setTimeout(() => navigate("/dashboardmenu/assessment/question-paper/patterns"), 700);
+                if (rejected) throw new Error(rejected);
+            }))
+        )
+            .then((results) => {
+                const ok = jobs.filter((_, i) => results[i].status === "fulfilled");
+                const failed = jobs
+                    .map((job, i) => ({ job, result: results[i] }))
+                    .filter(({ result }) => result.status === "rejected");
+
+                if (failed.length === 0) {
+                    const classes = ok.map((j) => signOf(j.gradeId)).join(", ");
+                    notify(isEdit
+                        ? (ok.length > 1 ? `Pattern updated and added to ${ok.slice(1).map((j) => signOf(j.gradeId)).join(", ")}` : "Pattern updated")
+                        : `Pattern created for ${classes}`, true);
+                    setTimeout(() => navigate("/dashboardmenu/assessment/question-paper/patterns"), 900);
+                    return;
+                }
+
+                const reason = (r) => r.reason?.response?.data?.message || r.reason?.message || "could not be saved";
+                notify(failed.map(({ job, result }) => `${signOf(job.gradeId)}: ${reason(result)}`).join(" | "));
+
+                const saved = new Set(ok.filter((j) => !j.isUpdate).map((j) => j.gradeId));
+                if (saved.size) setField("gradeIds", gradeIds.filter((id) => !saved.has(id)));
             })
-            .catch((error) => notify(error?.response?.data?.message || "The pattern could not be saved"))
             .finally(() => setSaving(false));
     };
 
@@ -687,8 +716,12 @@ export default function PatternBuilderPage() {
                                     </MenuItem>
                                 ))}
                             </Select>
-                            <FormHelperText sx={{ fontSize: "11px", color: DASH.muted, ml: 0, mt: 0.5 }}>
-                                Sections are chosen on the paper, not here.
+                            <FormHelperText sx={{ fontSize: "11px", color: pattern.gradeIds.length > 1 ? DASH.primary : DASH.muted, ml: 0, mt: 0.5 }}>
+                                {pattern.gradeIds.length > 1
+                                    ? (isEdit
+                                        ? `Updates this pattern and adds a copy for ${pattern.gradeIds.length - 1} more class${pattern.gradeIds.length === 2 ? "" : "es"}`
+                                        : `Saves ${pattern.gradeIds.length} patterns - one for each class`)
+                                    : "Sections are chosen on the paper, not here."}
                             </FormHelperText>
                         </FormControl>
                     </Grid>

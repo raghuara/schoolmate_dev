@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Box, Grid, Typography, Button, IconButton, TextField, MenuItem, Tooltip,
-    Checkbox, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
+    Checkbox, FormControlLabel, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -31,7 +31,7 @@ import { apiFailed } from "../../AcademicsComps/BooksChaptersComps/bookApi";
 import {
     DISCOVERED_FILTERS, discoveredState, normalizeDiscoveredList, normalizeEvidence,
 } from "./patternDiscoveryApi";
-import { emptyPattern, newSection } from "./questionPaperApi";
+import { emptyPattern, newSection, QUESTION_TYPES } from "./questionPaperApi";
 import { fieldSx, outlineBtnSx, createBtnSx, primaryBtnSx, Banner, Pill } from "./questionPaperTheme";
 
 const token = "123";
@@ -52,23 +52,51 @@ const StatusPill = ({ status }) => {
     );
 };
 
-const PatternCard = ({ pattern, picked, onPick, onEvidence, onConfirm, onRename, onReject, onSplit, onUse, canEdit, canConfirm }) => {
+const TYPE_HINTS = [
+    { key: "truefalse", test: /true\s*(or|\/)?\s*false/ },
+    { key: "match", test: /\bmatch/ },
+    { key: "mcq", test: /choice|choose|option|mcq|select/ },
+    { key: "fillblank", test: /fill|blank|complet/ },
+    { key: "oneword", test: /one[\s-]?word|single word/ },
+    { key: "long", test: /essay|paragraph|letter|composition|descri|explain/ },
+    { key: "short", test: /answer|question|write/ },
+];
+
+const hintIn = (text) => TYPE_HINTS.find((h) => h.test.test(String(text || "").toLowerCase()))?.key;
+
+const sectionTypeFor = (pattern) =>
+    hintIn(pattern.name) || hintIn(pattern.capability) || "short";
+
+const sectionFrom = (pattern, index) => {
+    const baseType = sectionTypeFor(pattern);
+    const meta = QUESTION_TYPES.find((t) => t.key === baseType);
+    return {
+        ...newSection(index),
+        type: "custom",
+        customLabel: pattern.name,
+        baseType,
+        marksPerQuestion: meta?.defaultMarks || 1,
+        instruction: pattern.description || "",
+    };
+};
+
+const PatternCard = ({ pattern, picked, onPick, onEvidence, onConfirm, onRename, onReject, onSplit, onUse, canEdit, canConfirm, canBuild }) => {
     const state = discoveredState(pattern.status);
-    const decided = ["Confirmed", "Rejected", "Merged"].includes(pattern.status);
+    const closed = ["Rejected", "Merged"].includes(pattern.status);
 
     return (
         <Box
             sx={{
                 border: `1px solid ${picked ? DASH.violet : DASH.line}`,
                 bgcolor: picked ? DASH.violetLight : "#fff",
-                borderRadius: RADIUS, p: 1.6, height: "100%",
+                borderRadius: RADIUS, p: 1.6, width: "100%", minHeight: 0,
                 display: "flex", flexDirection: "column",
                 transition: "border-color .2s ease, background-color .2s ease",
                 "&:hover": { borderColor: DASH.violet },
             }}
         >
             <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.8 }}>
-                {canEdit && !decided && (
+                {(canEdit || canConfirm) && !closed && (
                     <Checkbox
                         checked={picked}
                         size="small"
@@ -88,9 +116,11 @@ const PatternCard = ({ pattern, picked, onPick, onEvidence, onConfirm, onRename,
                 </Box>
             </Box>
 
-            <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 1, lineHeight: 1.7, flex: 1 }}>
+            <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 1, lineHeight: 1.7 }}>
                 {pattern.description || state.blurb}
             </Typography>
+
+            <Box sx={{ flex: 1 }} />
 
             {pattern.capability && (
                 <Typography sx={{ fontSize: "11px", color: DASH.violet, mt: 0.8, fontStyle: "italic" }}>
@@ -134,7 +164,7 @@ const PatternCard = ({ pattern, picked, onPick, onEvidence, onConfirm, onRename,
                     </Button>
                 )}
 
-                {canEdit && pattern.status === "Confirmed" && (
+                {canBuild && pattern.status === "Confirmed" && (
                     <Button
                         onClick={() => onUse(pattern)}
                         startIcon={<DashboardCustomizeOutlinedIcon sx={{ fontSize: 15 }} />}
@@ -180,9 +210,10 @@ export default function DiscoveredPatternsPage() {
        has no key to read, and treating "not in my payload" as denied would lock
        out someone who holds the right. */
     const perms = findSubMenuPermissions(user?.permissions, "patterndiscovery", "pattern");
-    const may = (key) => !perms || perms[key] === "Y";
+    const may = (key) => perms?.[key] !== "N";
     const canEdit = may("edit");
-    const canConfirm = may("allowconfirmpattern");
+    const canConfirm = may("allowconfirmrejectpattern");
+    const canBuild = findSubMenuPermissions(user?.permissions, "questionpapergeneration", "pattern")?.create !== "N";
 
     const [patterns, setPatterns] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -251,6 +282,22 @@ export default function DiscoveredPatternsPage() {
             : [...prev, pattern.id]));
     };
 
+    const pickable = useMemo(
+        () => patterns.filter((p) => !["Rejected", "Merged"].includes(p.status)),
+        [patterns]
+    );
+    const allPicked = pickable.length > 0 && pickable.every((p) => selected.includes(p.id));
+    const somePicked = !allPicked && pickable.some((p) => selected.includes(p.id));
+
+    const toggleAll = () => {
+        setSelected(allPicked ? [] : pickable.map((p) => p.id));
+    };
+
+    const viewLabel = [
+        gradeFilter !== "all" ? `Class ${gradeFilter}` : null,
+        subjectFilter !== "all" ? subjectFilter : null,
+    ].filter(Boolean).join(" - ") || "this view";
+
     const fetchEvidence = (pattern, onDone) => {
         setEvidenceLoading(true);
         axios
@@ -274,6 +321,12 @@ export default function DiscoveredPatternsPage() {
         fetchEvidence(pattern);
     };
 
+    const selectedRows = useMemo(
+        () => patterns.filter((p) => selected.includes(p.id)),
+        [patterns, selected]
+    );
+    const confirmableCount = selectedRows.filter((p) => p.status === "NeedsReview").length;
+
     const act = (request, okMessage) => {
         setWorking(true);
         request
@@ -285,6 +338,34 @@ export default function DiscoveredPatternsPage() {
                 load();
             })
             .catch((error) => notify(error?.response?.data?.message || "That could not be saved"))
+            .finally(() => setWorking(false));
+    };
+
+    const confirmSelected = () => {
+        const targets = selectedRows.filter((p) => p.status === "NeedsReview");
+        if (!targets.length) { notify("Pick at least one pattern that is waiting for review"); return; }
+        setWorking(true);
+        Promise.allSettled(
+            targets.map((p) =>
+                axios.put(
+                    ConfirmDiscoveredPattern,
+                    { patternId: p.id, reviewedByRollNumber: rollNumber },
+                    { headers: { Authorization: `Bearer ${token}` } }
+                ).then((res) => {
+                    const rejected = apiFailed(res.data);
+                    if (rejected) throw new Error(rejected);
+                })
+            )
+        )
+            .then((results) => {
+                const failed = results.filter((r) => r.status === "rejected").length;
+                const done = targets.length - failed;
+                if (failed === 0) notify(`${done} pattern${done === 1 ? "" : "s"} confirmed`, true);
+                else if (done === 0) notify(results.find((r) => r.status === "rejected")?.reason?.message || "Nothing could be confirmed");
+                else notify(`${done} confirmed, ${failed} could not be`);
+                setSelected([]);
+                load();
+            })
             .finally(() => setWorking(false));
     };
 
@@ -387,28 +468,27 @@ export default function DiscoveredPatternsPage() {
     /* Discovery finds question TYPES, not a whole paper layout, and nothing
        carries across on its own. This hands the confirmed type straight into the
        manual builder as a section so the trip is one click rather than retyping. */
-    const useInPattern = (pattern) => {
-        const gradeId = grades.find((g) => String(g.sign) === String(pattern.grade))?.id || "";
+    const buildFrom = (list) => {
+        const first = list[0];
+        const gradeId = grades.find((g) => String(g.sign) === String(first.grade))?.id || "";
         const seed = {
             ...emptyPattern(),
-            name: `${pattern.subject || ""} - ${pattern.name}`.trim(),
-            gradeIds: gradeId ? [gradeId] : [],
-            subject: pattern.subject || "",
-            sections: [{
-                ...newSection(0),
-                type: "custom",
-                customLabel: pattern.name,
-                baseType: "long",
-                instruction: pattern.description || "",
-            }],
+            name: list.length === 1
+                ? `${first.subject || ""} - ${first.name}`.trim()
+                : `${first.subject || ""} ${first.grade || ""} - from past papers`.trim(),
+            gradeIds: gradeId ? [String(gradeId)] : [],
+            subject: first.subject || "",
+            sections: list.map((pattern, i) => sectionFrom(pattern, i)),
         };
         navigate("/dashboardmenu/assessment/question-paper/patterns/create", { state: { pattern: seed } });
     };
 
-    const selectedRows = useMemo(
-        () => patterns.filter((p) => selected.includes(p.id)),
-        [patterns, selected]
-    );
+    const useInPattern = (pattern) => buildFrom([pattern]);
+
+    const buildable = selectedRows.filter((p) => p.status === "Confirmed");
+    const buildMixed = new Set(buildable.map((p) => `${p.grade}|${p.subject}`)).size > 1;
+
+
 
     return (
         <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%" }}>
@@ -447,14 +527,65 @@ export default function DiscoveredPatternsPage() {
                             <RefreshIcon sx={{ fontSize: 17, color: DASH.text }} />
                         </IconButton>
                     </Tooltip>
-                    {canEdit && (
+                    {selected.length > 0 && (
+                        <Button
+                            onClick={() => setSelected([])}
+                            disabled={working}
+                            sx={outlineBtnSx}
+                        >
+                            Clear ({selected.length})
+                        </Button>
+                    )}
+                    {canConfirm && selected.length > 0 && (
+                        <Tooltip
+                            arrow
+                            title={confirmableCount === selected.length
+                                ? ""
+                                : confirmableCount === 0
+                                    ? "None of these is waiting for review"
+                                    : `${selected.length - confirmableCount} of the selected are not waiting for review and will be skipped`}
+                        >
+                            <span>
+                                <Button
+                                    onClick={confirmSelected}
+                                    disabled={working || confirmableCount === 0}
+                                    startIcon={<CheckCircleIcon sx={{ fontSize: 17 }} />}
+                                    sx={{ ...createBtnSx, bgcolor: DASH.green, "&:hover": { bgcolor: "#059669" } }}
+                                >
+                                    Confirm ({confirmableCount})
+                                </Button>
+                            </span>
+                        </Tooltip>
+                    )}
+                    {canBuild && buildable.length > 0 && (
+                        <Tooltip
+                            arrow
+                            title={buildMixed
+                                ? "Pick confirmed patterns from one class and one subject"
+                                : buildable.length < selected.length
+                                    ? `Only the ${buildable.length} confirmed one${buildable.length === 1 ? "" : "s"} become sections`
+                                    : "Opens the pattern builder with these as sections"}
+                        >
+                            <span>
+                                <Button
+                                    onClick={() => buildFrom(buildable)}
+                                    disabled={working || buildMixed}
+                                    startIcon={<DashboardCustomizeOutlinedIcon sx={{ fontSize: 17 }} />}
+                                    sx={createBtnSx}
+                                >
+                                    Build pattern ({buildable.length})
+                                </Button>
+                            </span>
+                        </Tooltip>
+                    )}
+                    {canEdit && selected.length > 1 && (
                         <Button
                             onClick={() => { setMergeTargetId(selected[0] || ""); setMergeOpen(true); }}
-                            disabled={selected.length < 2}
+                            disabled={working}
                             startIcon={<MergeTypeIcon sx={{ fontSize: 17 }} />}
                             sx={createBtnSx}
                         >
-                            Merge {selected.length > 1 ? `(${selected.length})` : ""}
+                            Merge ({selected.length})
                         </Button>
                     )}
                 </Box>
@@ -513,14 +644,56 @@ export default function DiscoveredPatternsPage() {
                 ) : patterns.length === 0 ? (
                     <EmptyNote text="Nothing here yet. Upload a ZIP of past papers and the patterns show up once it has been read." />
                 ) : (
+                    <>
+                        {(canEdit || canConfirm) && pickable.length > 0 && (
+                            <Box
+                                sx={{
+                                    display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap",
+                                    mb: 1.4, px: 1.2, py: 0.6, borderRadius: RADIUS,
+                                    border: `1px solid ${allPicked || somePicked ? DASH.violet : DASH.line}`,
+                                    bgcolor: allPicked || somePicked ? DASH.violetLight : DASH.lineSoft,
+                                    transition: "background-color .15s, border-color .15s",
+                                }}
+                            >
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            size="small"
+                                            checked={allPicked}
+                                            indeterminate={somePicked}
+                                            onChange={toggleAll}
+                                            disabled={working}
+                                            sx={{ p: 0.4, "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: DASH.violet } }}
+                                        />
+                                    }
+                                    label={
+                                        <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: DASH.ink }}>
+                                            Select all in {viewLabel}
+                                        </Typography>
+                                    }
+                                    sx={{ m: 0 }}
+                                />
+                                <Typography sx={{ fontSize: "11.5px", color: DASH.muted }}>
+                                    {selected.length > 0
+                                        ? `${selected.length} of ${pickable.length} picked`
+                                        : `${pickable.length} can be picked${patterns.length > pickable.length ? ` - ${patterns.length - pickable.length} rejected or merged` : ""}`}
+                                </Typography>
+                                {gradeFilter === "all" && (
+                                    <Typography sx={{ fontSize: "11.5px", color: DASH.faint, ml: "auto" }}>
+                                        Pick a class above to confirm one class at a time
+                                    </Typography>
+                                )}
+                            </Box>
+                        )}
                     <Grid container spacing={1.6}>
                         {patterns.map((pattern) => (
-                            <Grid key={pattern.id} size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <Grid key={pattern.id} size={{ xs: 12, sm: 6, md: 4, lg: 4 }} sx={{ display: "flex" }}>
                                 <PatternCard
                                     pattern={pattern}
                                     picked={selected.includes(pattern.id)}
                                     canEdit={canEdit && !working}
                                     canConfirm={canConfirm && !working}
+                                    canBuild={canBuild && !working}
                                     onPick={togglePick}
                                     onEvidence={openEvidence}
                                     onConfirm={confirmPattern}
@@ -532,6 +705,7 @@ export default function DiscoveredPatternsPage() {
                             </Grid>
                         ))}
                     </Grid>
+                    </>
                 )}
             </Panel>
 

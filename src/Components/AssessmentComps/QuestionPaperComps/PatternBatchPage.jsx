@@ -125,7 +125,7 @@ export default function PatternBatchPage() {
     const { grades, subjectsForGrade } = useGradeSubjects();
 
     const perms = findSubMenuPermissions(user?.permissions, "patterndiscovery", "batch");
-    const may = (key) => !perms || perms[key] === "Y";
+    const may = (key) => perms?.[key] !== "N";
     const canEdit = may("edit");
 
     const [batch, setBatch] = useState(null);
@@ -182,6 +182,7 @@ export default function PatternBatchPage() {
     useEffect(() => { load(); }, [load]);
 
     const busy = isBatchBusy(batch?.status);
+    const reviewReady = batch?.status === "ReadyForReview" || batch?.status === "Completed";
 
     useEffect(() => {
         if (!busy) return undefined;
@@ -354,13 +355,25 @@ export default function PatternBatchPage() {
                             Find patterns again
                         </Button>
                     )}
-                    <Button
-                        onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/ai/review")}
-                        startIcon={<RuleOutlinedIcon sx={{ fontSize: 17 }} />}
-                        sx={createBtnSx}
+                    <Tooltip
+                        arrow
+                        title={reviewReady
+                            ? ""
+                            : batch?.status === "Failed"
+                                ? "This run failed - there are no patterns to review"
+                                : "Opens once the patterns have been found and named"}
                     >
-                        Review found patterns
-                    </Button>
+                        <span>
+                            <Button
+                                onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/ai/review")}
+                                disabled={!reviewReady}
+                                startIcon={<RuleOutlinedIcon sx={{ fontSize: 17 }} />}
+                                sx={createBtnSx}
+                            >
+                                Review found patterns
+                            </Button>
+                        </span>
+                    </Tooltip>
                 </Box>
             </Box>
 

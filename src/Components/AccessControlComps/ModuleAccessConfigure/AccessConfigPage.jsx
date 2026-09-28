@@ -6,7 +6,7 @@ import { UpdateUserTypePermissions } from "../../../Api/Api";
 const TOKEN = "123";
 
 const MODULE = { key: "access", name: "Access Control", color: "#DC2626" };
-const PAGES = ["Users", "Academics", "Student Promotion", "Issue TC"];
+const PAGES = ["Users", "Academics", "Student Promotion", "Issue TC", "Roles & Permissions"];
 
 // `subMenu` + all permission keys MUST match the backend exactly.
 const PAGE_OVERRIDES = {
@@ -14,6 +14,7 @@ const PAGE_OVERRIDES = {
     "Academics": { subMenu: "academics", opsKeys: [] },
     "Student Promotion": { subMenu: "studentpromotion", opsKeys: [] },
     "Issue TC": { subMenu: "issuetc", opsKeys: [] },
+    "Roles & Permissions": { subMenu: "rolesandpermission", opsKeys: [] },
 };
 
 const EXTRA_OPS = {
@@ -36,6 +37,11 @@ const EXTRA_OPS = {
         { key: "allowissuetc", label: "Allow Issue TC" },
         { key: "allowdiscontinue", label: "Allow Discontinue" },
     ],
+    "Roles & Permissions": [
+        { key: "manageusertypes", label: "Manage User Types" },
+        { key: "managefeaturepermissions", label: "Manage Feature Permissions" },
+        { key: "manageapprovalflows", label: "Manage Approval Flows" },
+    ],
 };
 
 const EXTRA_OPS_LABELS = {
@@ -43,6 +49,7 @@ const EXTRA_OPS_LABELS = {
     "Academics": "",
     "Student Promotion": "",
     "Issue TC": "",
+    "Roles & Permissions": "",
 };
 
 export default function AccessConfigPage() {

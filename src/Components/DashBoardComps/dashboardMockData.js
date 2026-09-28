@@ -7,12 +7,6 @@
    here renders behind a "Sample" tag so nobody mistakes it for live data;
    delete each export as its endpoint lands. */
 
-export const MOCK_MARKS_ENTRY = [
-    { exam: "Unit Test 1", entered: 18, total: 22 },
-    { exam: "Mid Term", entered: 9, total: 22 },
-    { exam: "Practical", entered: 21, total: 22 },
-];
-
 export const MOCK_FEE_TREND = [
     { month: "Mar", collected: 9.2 },
     { month: "Apr", collected: 10.8 },
@@ -106,18 +100,4 @@ export const MOCK_NEWS = [
     { id: 2, title: "Revised bus timings from Monday", posted: "Yesterday", kind: "Circular" },
     { id: 3, title: "Term 2 fee window is now open", posted: "2 days ago", kind: "Circular" },
     { id: 4, title: "Science exhibition registrations", posted: "3 days ago", kind: "News" },
-];
-
-export const MOCK_MY_ACTIONS = [
-    { id: 1, label: "Mark attendance for Grade 9-C", due: "Today", severity: "critical", path: "/dashboardmenu/attendance" },
-    { id: 2, label: "Marks entry pending for Mid Term", due: "Today", severity: "warning", path: "/dashboardmenu/marks" },
-    { id: 3, label: "2 circulars awaiting your approval", due: "2 days left", severity: "info", path: "/dashboardmenu/approvals" },
-];
-
-export const MOCK_MY_SCHEDULE = [
-    { id: 1, period: "1", time: "09:00 - 09:45", grade: "Grade 9-C", subject: "Mathematics", room: "Room 12", attendanceMarked: true },
-    { id: 2, period: "2", time: "09:45 - 10:30", grade: "Grade 8-B", subject: "Mathematics", room: "Room 08", attendanceMarked: true },
-    { id: 3, period: "4", time: "11:30 - 12:15", grade: "Grade 10-A", subject: "Mathematics", room: "Room 15", attendanceMarked: false, current: true },
-    { id: 4, period: "6", time: "13:45 - 14:30", grade: "Grade 7-A", subject: "Mathematics", room: "Room 04", attendanceMarked: false },
-    { id: 5, period: "7", time: "14:30 - 15:15", grade: "Grade 9-C", subject: "Remedial", room: "Lab 2", attendanceMarked: false },
 ];

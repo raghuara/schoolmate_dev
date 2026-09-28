@@ -18,6 +18,8 @@ export const QUESTION_PAPER_PAGES = [
     "Books & Chapters",
     "Patterns",
     "Create Question Paper",
+    "Question Paper Approval",
+    "Question Paper Approval",
     "AI Pattern Discovery",
     "Discovered Patterns",
 ];
@@ -39,6 +41,21 @@ export const QUESTION_PAPER_OVERRIDES = {
         mainMenu: "questionpapergeneration",
         subMenu: "paper",
         opsKeys: ["view", "create", "edit", "delete"],
+        approval: false,
+    },
+    "Question Paper Approval": {
+        mainMenu: "questionpapergeneration",
+        subMenu: "approval",
+        opsKeys: ["view", "edit"],
+        approval: false,
+    },
+    /* View opens the approval queue and shows who approves; Edit changes that
+       approver list in Roles & Permissions > Approval Flows. Deciding on a
+       paper also needs the role to be picked as an approver there. */
+    "Question Paper Approval": {
+        mainMenu: "questionpapergeneration",
+        subMenu: "approval",
+        opsKeys: ["view", "edit"],
         approval: false,
     },
     "AI Pattern Discovery": {
@@ -79,7 +96,7 @@ export const QUESTION_PAPER_EXTRA_OPS = {
     ],
     "Discovered Patterns": [
         {
-            key: "allowconfirmpattern",
+            key: "allowconfirmrejectpattern",
             label: "Confirm or reject a pattern",
         },
     ],

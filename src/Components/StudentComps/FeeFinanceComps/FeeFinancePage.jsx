@@ -160,8 +160,12 @@ export default function FeeFinancePage() {
     cardAccess["Fee Student Mapping"] =
         cardAccess["ECA Management"] || cardAccess["Additional Fee Management"] || cardAccess["Transport Student Mapping"];
 
-    cardAccess["Payment Approval"] = allow(() => findSubMenuPermissions(perms, "feeandfinance", "paymentapproval")?.allowaccess === "Y");
-    cardAccess["Finance Teams"] = allow(() => findSubMenuPermissions(perms, "feeandfinance", "financeteam")?.allowaccess === "Y");
+    const accessOrUnconfigured = (subMenu) => {
+        const p = findSubMenuPermissions(perms, "feeandfinance", subMenu);
+        return !p || p.allowaccess === "Y";
+    };
+    cardAccess["Payment Approval"] = allow(() => accessOrUnconfigured("paymentapproval"));
+    cardAccess["Finance Teams"] = allow(() => accessOrUnconfigured("financeteam"));
 
     const canCreateFeeStructure = allow(() => findSubMenuPermissions(perms, "feeandfinance", "createfeesstructure")?.create === "Y");
 

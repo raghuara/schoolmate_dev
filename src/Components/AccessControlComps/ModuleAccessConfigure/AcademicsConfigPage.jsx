@@ -4,6 +4,8 @@ import ModuleConfigShell from "./ModuleConfigShell";
 import { UpdateUserTypePermissions } from "../../../Api/Api";
 import {
     ACADEMICS_PAGES,
+    ACADEMICS_EXTRA_OPS,
+    ACADEMICS_EXTRA_OPS_LABELS,
     COMMUNICATION_SUBMENUS,
     PAGE_OVERRIDES,
 } from "./communicationGroups";
@@ -39,6 +41,8 @@ const TEACHING_GROUP = {
 const PAGES = [...ACADEMICS_PAGES, ...QUESTION_PAPER_PAGES];
 
 const OVERRIDES = { ...PAGE_OVERRIDES, ...QUESTION_PAPER_OVERRIDES };
+const EXTRA_OPS = { ...ACADEMICS_EXTRA_OPS, ...QUESTION_PAPER_EXTRA_OPS };
+const EXTRA_OPS_LABELS = { ...ACADEMICS_EXTRA_OPS_LABELS, ...QUESTION_PAPER_EXTRA_OPS_LABELS };
 
 export default function AcademicsConfigPage() {
     const validate = () => null;
@@ -57,8 +61,8 @@ export default function AcademicsConfigPage() {
             validate={validate}
             pageOverrides={OVERRIDES}
             pageGroups={[TEACHING_GROUP, QUESTION_PAPER_GROUP]}
-            extraOps={QUESTION_PAPER_EXTRA_OPS}
-            extraOpsLabels={QUESTION_PAPER_EXTRA_OPS_LABELS}
+            extraOps={EXTRA_OPS}
+            extraOpsLabels={EXTRA_OPS_LABELS}
             pageRequires={QUESTION_PAPER_REQUIRES}
             // Communication edits the other half of the `communication` main menu.
             preserveSubMenus={COMMUNICATION_SUBMENUS}

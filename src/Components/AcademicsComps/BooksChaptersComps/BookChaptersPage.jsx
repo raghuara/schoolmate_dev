@@ -5,6 +5,7 @@ import {
 } from "@mui/material";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import axios from "axios";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -54,6 +55,10 @@ export default function BookChaptersPage() {
     const grades = useSelector(selectGrades) || [];
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber;
+    const bookPerms = findSubMenuPermissions(user?.permissions, "questionpapergeneration", "bookupload");
+    const bookMay = (key) => bookPerms?.[key] !== "N";
+    const canEditChapters = bookMay("edit");
+    const canConfirmChapters = bookMay("allowconfirmchapters");
 
     const [book, setBook] = useState(location.state?.book || null);
     const [chapters, setChapters] = useState(location.state?.book?.chapters || []);
@@ -649,7 +654,7 @@ export default function BookChaptersPage() {
                     {/* The submit action. It shows while there is something left to
                        confirm - either unconfirmed chapters or unsaved edits - and
                        is the one solid, full-colour button on the page. */}
-                    {needsConfirm ? (
+                    {needsConfirm && canConfirmChapters ? (
                         <Button
                             onClick={confirmAll}
                             disabled={saving}
@@ -763,7 +768,7 @@ export default function BookChaptersPage() {
                                         Done
                                     </Button>
                                 </Box>
-                            ) : (
+                            ) : canEditChapters && (
                                 <Button
                                     onClick={() => setEditing(true)}
                                     startIcon={<EditOutlinedIcon sx={{ fontSize: 15 }} />}
